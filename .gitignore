@@ -1,0 +1,7 @@
+assets/config.json
+config.json
+.cache/
+tmp/
+node_modules/
+composer.lock
+package-lock.json

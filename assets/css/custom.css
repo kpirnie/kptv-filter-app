@@ -1,0 +1,286 @@
+.uk-margin-tiny-full {
+    margin: 3px !important;
+}
+
+.bulk-action-bar .uk-icon {
+    margin: 3px !important;
+}
+
+/* ============================================
+   MODAL TABBED FORM LAYOUT FIX
+   
+   The form element has uk-grid, but the tab 
+   panel <li> items inside uk-switcher don't
+   inherit that grid context. Fields with 
+   uk-width-1-2 need a grid parent to work.
+   ============================================ */
+
+/* Make ACTIVE tab panels act as grids so uk-width-* classes work */
+/* Only apply flex to the active panel - inactive ones must stay hidden */
+.uk-modal .uk-switcher>li.uk-active {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+}
+
+.uk-modal .uk-switcher>li:not(.uk-active) {
+    display: none !important;
+}
+
+input[type="file"] {
+    background: none !important;
+    border: none !important;
+    margin-top: 7px;
+    padding: 0 !important;
+}
+
+input[type="file"]::file-selector-button {
+    background: var(--kptv-dark-navy) !important;
+    border: 1px solid var(--kptv-cyan) !important;
+    border-radius: 4px !important;
+    color: var(--kptv-gray) !important;
+    padding: 5px 15px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* Apply the same small grid gap the form uses */
+.uk-modal .uk-switcher>li>.uk-form-controls,
+.uk-modal .uk-switcher>li>div,
+.uk-modal .uk-switcher>li>input[type="hidden"] {
+    padding-left: 15px;
+    box-sizing: border-box;
+}
+
+/* Hidden inputs shouldn't take space */
+.uk-modal .uk-switcher>li>input[type="hidden"] {
+    padding: 0;
+    width: 0;
+    height: 0;
+}
+
+/* Fix width classes inside tab panels */
+.uk-modal .uk-switcher>li>.uk-width-1-1 {
+    width: 100%;
+}
+
+.uk-modal .uk-switcher>li>.uk-width-1-2 {
+    width: 50%;
+}
+
+/* Make the tab bar span full width inside the grid form */
+.uk-modal form.uk-grid>.uk-tab {
+    width: 100%;
+    padding-left: 15px;
+}
+
+/* Make the switcher span full width inside the grid form */
+.uk-modal form.uk-grid>.uk-switcher {
+    width: 100%;
+    padding-left: 0;
+}
+
+/* Button row at bottom spans full width */
+.uk-modal form.uk-grid>.uk-margin-top.uk-text-right {
+    width: 100%;
+    padding-left: 15px;
+}
+
+/* ============================================
+   TAB STYLING - Theme the tabs to match KPTV
+   ============================================ */
+.uk-modal .uk-tab>li>a {
+    color: var(--kptv-cyan-light) !important;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid transparent;
+}
+
+.uk-modal .uk-tab>li>a:hover {
+    color: var(--kptv-orange) !important;
+    border-bottom-color: var(--kptv-orange);
+}
+
+.uk-modal .uk-tab>li.uk-active>a {
+    color: var(--kptv-orange) !important;
+    border-bottom-color: var(--kptv-orange);
+}
+
+/* Tab bottom border */
+.uk-modal .uk-tab {
+    border-bottom: 1px solid var(--kptv-cyan);
+    margin-bottom: 15px;
+}
+
+/* ============================================
+   SELECT2 DARK THEME + MODAL FIXES
+   ============================================ */
+
+/* Select2 container */
+.kp-select2-container {
+    position: relative;
+    width: 100% !important;
+}
+
+/* Select2 display trigger (the clickable area) */
+.kp-select2-display {
+    background: var(--kptv-dark-navy) !important;
+    border: 1px solid var(--kptv-cyan) !important;
+    border-radius: 4px !important;
+    color: var(--kptv-gray) !important;
+    padding: 10px 36px 10px 15px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 40px;
+}
+
+/* Display when a value is selected (not placeholder) */
+.kp-select2-display.has-value {
+    color: var(--kptv-white) !important;
+}
+
+.kp-select2-display:hover,
+.kp-select2-display:focus {
+    border-color: var(--kptv-orange) !important;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.25);
+}
+
+/* Select2 arrow icon */
+.kp-select2-arrow {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--kptv-orange) !important;
+    pointer-events: none;
+}
+
+/* Select2 dropdown panel */
+.kp-select2-dropdown {
+    background: var(--kptv-dark-navy) !important;
+    border: 1px solid var(--kptv-cyan) !important;
+    border-radius: 4px !important;
+    z-index: 1100 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+/* Select2 search input */
+.kp-select2-search {
+    background: var(--kptv-navy) !important;
+    border: none !important;
+    border-bottom: 1px solid var(--kptv-cyan) !important;
+    border-radius: 0 !important;
+    color: var(--kptv-white) !important;
+    padding: 10px 12px !important;
+    width: 100% !important;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.kp-select2-search:focus {
+    border-bottom-color: var(--kptv-orange) !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.kp-select2-search::placeholder {
+    color: var(--kptv-gray) !important;
+}
+
+/* Select2 results container */
+.kp-select2-results {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+/* Select2 result items */
+.kp-select2-results>div {
+    color: var(--kptv-white) !important;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.95rem;
+}
+
+.kp-select2-results>div:hover {
+    background: rgba(61, 139, 189, 0.2) !important;
+    color: var(--kptv-cyan-light) !important;
+}
+
+.kp-select2-results>div.selected,
+.kp-select2-results>div.active {
+    background: rgba(255, 107, 53, 0.2) !important;
+    color: var(--kptv-orange) !important;
+}
+
+/* Scrollbar styling for results */
+.kp-select2-results::-webkit-scrollbar {
+    width: 6px;
+}
+
+.kp-select2-results::-webkit-scrollbar-track {
+    background: var(--kptv-dark-navy);
+}
+
+.kp-select2-results::-webkit-scrollbar-thumb {
+    background: var(--kptv-cyan);
+    border-radius: 3px;
+}
+
+.kp-select2-results::-webkit-scrollbar-thumb:hover {
+    background: var(--kptv-orange);
+}
+
+/* ============================================
+   DATEPICKER - KPTV DARK THEME
+   ============================================ */
+.kp-dt-datepicker-wrap input[type="date"] {
+    background: var(--kptv-dark-navy) !important;
+    border: 1px solid var(--kptv-cyan) !important;
+    color: var(--kptv-white) !important;
+    border-radius: 4px;
+    padding: 10px 15px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.kp-dt-datepicker-wrap input[type="date"]:focus {
+    border-color: var(--kptv-orange) !important;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.25);
+}
+
+.kp-dt-datepicker-wrap input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7) sepia(1) saturate(3) hue-rotate(180deg);
+    cursor: pointer;
+}
+
+.kp-dt-datepicker-wrap input[type="date"]::-webkit-datetime-edit {
+    color: var(--kptv-white);
+}
+
+.kp-dt-datepicker-wrap input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+    color: var(--kptv-white);
+}
+
+/* ============================================
+   RESPONSIVE - Stack fields on mobile
+   ============================================ */
+@media (max-width: 639px) {
+    .uk-modal .uk-switcher>li>.uk-width-1-2 {
+        width: 100%;
+    }
+}
