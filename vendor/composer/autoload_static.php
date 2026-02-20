@@ -13,18 +13,18 @@ class ComposerStaticInit2af29beba30e96aa03602b3d36e52aba
     );
 
     public static $prefixLengthsPsr4 = array (
-        'P' => 
+        'P' =>
         array (
             'Psr\\Http\\Message\\' => 17,
             'Psr\\Http\\Client\\' => 16,
             'PHPMailer\\PHPMailer\\' => 20,
         ),
-        'K' => 
+        'K' =>
         array (
             'Kptv\\IptvSync\\' => 14,
             'KPT\\' => 4,
         ),
-        'G' => 
+        'G' =>
         array (
             'GuzzleHttp\\Psr7\\' => 16,
             'GuzzleHttp\\Promise\\' => 19,
@@ -33,40 +33,40 @@ class ComposerStaticInit2af29beba30e96aa03602b3d36e52aba
     );
 
     public static $prefixDirsPsr4 = array (
-        'Psr\\Http\\Message\\' => 
+        'Psr\\Http\\Message\\' =>
         array (
             0 => __DIR__ . '/..' . '/psr/http-factory/src',
             1 => __DIR__ . '/..' . '/psr/http-message/src',
         ),
-        'Psr\\Http\\Client\\' => 
+        'Psr\\Http\\Client\\' =>
         array (
             0 => __DIR__ . '/..' . '/psr/http-client/src',
         ),
-        'PHPMailer\\PHPMailer\\' => 
+        'PHPMailer\\PHPMailer\\' =>
         array (
             0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
         ),
-        'Kptv\\IptvSync\\' => 
+        'Kptv\\IptvSync\\' =>
         array (
             0 => __DIR__ . '/../..' . '/sync/src',
         ),
-        'KPT\\' => 
+        'KPT\\' =>
         array (
-            0 => __DIR__ . '/..' . '/kevinpirnie/kpt-cache/src',
-            1 => __DIR__ . '/..' . '/kevinpirnie/kpt-database/src',
-            2 => __DIR__ . '/..' . '/kevinpirnie/kpt-datatables/src/class',
-            3 => __DIR__ . '/..' . '/kevinpirnie/kpt-logger/src',
-            4 => __DIR__ . '/..' . '/kevinpirnie/kpt-router/src',
+            0 => __DIR__ . '/..' . '/kevinpirnie/kpt-router/src',
+            1 => __DIR__ . '/..' . '/kevinpirnie/kpt-datatables/src/class',
+            2 => __DIR__ . '/..' . '/kevinpirnie/kpt-database/src',
+            3 => __DIR__ . '/..' . '/kevinpirnie/kpt-cache/src',
+            4 => __DIR__ . '/..' . '/kevinpirnie/kpt-logger/src',
         ),
-        'GuzzleHttp\\Psr7\\' => 
+        'GuzzleHttp\\Psr7\\' =>
         array (
             0 => __DIR__ . '/..' . '/guzzlehttp/psr7/src',
         ),
-        'GuzzleHttp\\Promise\\' => 
+        'GuzzleHttp\\Promise\\' =>
         array (
             0 => __DIR__ . '/..' . '/guzzlehttp/promises/src',
         ),
-        'GuzzleHttp\\' => 
+        'GuzzleHttp\\' =>
         array (
             0 => __DIR__ . '/..' . '/guzzlehttp/guzzle/src',
         ),

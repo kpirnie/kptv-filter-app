@@ -10,7 +10,7 @@ return array(
     'Psr\\Http\\Client\\' => array($vendorDir . '/psr/http-client/src'),
     'PHPMailer\\PHPMailer\\' => array($vendorDir . '/phpmailer/phpmailer/src'),
     'Kptv\\IptvSync\\' => array($baseDir . '/sync/src'),
-    'KPT\\' => array($vendorDir . '/kevinpirnie/kpt-cache/src', $vendorDir . '/kevinpirnie/kpt-database/src', $vendorDir . '/kevinpirnie/kpt-datatables/src/class', $vendorDir . '/kevinpirnie/kpt-logger/src', $vendorDir . '/kevinpirnie/kpt-router/src'),
+    'KPT\\' => array($vendorDir . '/kevinpirnie/kpt-router/src', $vendorDir . '/kevinpirnie/kpt-datatables/src/class', $vendorDir . '/kevinpirnie/kpt-database/src', $vendorDir . '/kevinpirnie/kpt-cache/src', $vendorDir . '/kevinpirnie/kpt-logger/src'),
     'GuzzleHttp\\Psr7\\' => array($vendorDir . '/guzzlehttp/psr7/src'),
     'GuzzleHttp\\Promise\\' => array($vendorDir . '/guzzlehttp/promises/src'),
     'GuzzleHttp\\' => array($vendorDir . '/guzzlehttp/guzzle/src'),

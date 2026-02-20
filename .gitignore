@@ -5,3 +5,5 @@ tmp/
 node_modules/
 composer.lock
 package-lock.json
+refresh.sh
+kptv.sqlite
