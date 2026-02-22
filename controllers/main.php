@@ -47,7 +47,6 @@ $_db = $_config->database ?? new stdClass();
 if (!isset($_db->driver) || $_db->driver === '') {
     $_db->driver = 'sqlite';
 }
-
 if ($_db->driver === 'sqlite') {
     if (!isset($_db->path) || $_db->path === '') {
         $_db->path = '/var/lib/data/kptv.sqlite';
@@ -55,7 +54,6 @@ if ($_db->driver === 'sqlite') {
         $_db->path = rtrim((string) $_db->path, '/') . '/kptv.sqlite';
     }
 }
-
 
 // configure the cache
 \KPT\Cache::configure([
