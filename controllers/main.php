@@ -55,6 +55,9 @@ if ($_db->driver === 'sqlite') {
     }
 }
 
+// hold the database config in the global config for easy access
+$_config->database = $_db;
+
 // configure the cache
 \KPT\Cache::configure([
     'path' => KPTV_PATH . '.cache/',
