@@ -67,14 +67,14 @@ defined('KPTV_PATH') || die('Direct Access is not allowed!');
                                             <li><a uk-tooltip="Click to Copy the M3U URL" href="<?php echo KPTV_URI; ?>playlist/<?php echo $user_for_export; ?>/series" class="copy-link">Export the Playlist</a></li>
                                         </ul>
                                     </li>
-                                    <!--<li class="uk-parent">
+                                    <li class="uk-parent">
                                         <a href="/streams/vod/all">VOD Streams</a>
                                         <ul class="uk-nav-sub">
                                             <li><a href="/streams/vod/active">Active Streams</a></li>
                                             <li><a href="/streams/vod/inactive">In-Active Streams</a></li>
                                             <li><a uk-tooltip="Click to Copy the M3U URL" href="<?php echo KPTV_URI; ?>playlist/<?php echo $user_for_export; ?>/vod" class="copy-link">Export the Playlist</a></li>
                                         </ul>
-                                        </li>-->
+                                    </li>
                                     <li><a href="/streams/other">Other Streams</a></li>
                                     <li><a href="/missing">Missing Streams</a></li>
                                 </ul>

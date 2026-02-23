@@ -159,7 +159,7 @@ class SyncEngine
             ]
         );
 
-        $tempStreams = array_filter($tempStreams, fn($s) => (int)($s['s_type_id'] ?? 0) !== 4);
+        //$tempStreams = array_filter($tempStreams, fn($s) => (int)($s['s_type_id'] ?? 0) !== 4);
 
         if (empty($tempStreams)) {
             echo "No streams in temporary table\n";
@@ -270,9 +270,9 @@ class SyncEngine
             $insertRecords = [];
             foreach ($inserts as $data) {
                 // Skip VOD streams
-                if ((int)$data['s_type_id'] === 4) {
-                    continue;
-                }
+                //if ((int)$data['s_type_id'] === 4) {
+                //    continue;
+                //}
                 $insertRecords[] = [
                     'u_id' => $userId,
                     'p_id' => $providerId,

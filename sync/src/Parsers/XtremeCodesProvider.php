@@ -8,10 +8,10 @@ class XtremeCodesProvider extends BaseProvider
 {
     private string $apiLive;
     private string $apiSeries;
-    //private string $apiVod;
+    private string $apiVod;
     private string $streamLive;
     private string $streamSeries;
-    //private string $streamVod;
+    private string $streamVod;
 
     public function __construct(array $provider)
     {
@@ -19,11 +19,11 @@ class XtremeCodesProvider extends BaseProvider
 
         $this->apiLive = "{$this->domain}/player_api.php?username={$this->username}&password={$this->password}&action=get_live_streams";
         $this->apiSeries = "{$this->domain}/player_api.php?username={$this->username}&password={$this->password}&action=get_series";
-        //$this->apiVod = "{$this->domain}/player_api.php?username={$this->username}&password={$this->password}&action=get_vod_streams";
+        $this->apiVod = "{$this->domain}/player_api.php?username={$this->username}&password={$this->password}&action=get_vod_streams";
 
         $this->streamLive = "{$this->domain}/live/{$this->username}/{$this->password}/%s.{$this->streamTypeExt}";
         $this->streamSeries = "{$this->domain}/series/{$this->username}/{$this->password}/%s.{$this->streamTypeExt}";
-        //this->streamVod = "{$this->domain}/movie/{$this->username}/{$this->password}/%s.{$this->streamTypeExt}";
+        $this->streamVod = "{$this->domain}/movie/{$this->username}/{$this->password}/%s.{$this->streamTypeExt}";
     }
 
     public function fetchStreams(): array
@@ -43,7 +43,7 @@ class XtremeCodesProvider extends BaseProvider
         }
 
         // Fetch VOD Streams
-        /*try {
+        try {
             echo "Fetching VOD streams...\n";
             $vodStreams = $this->fetchApi($this->apiVod, 4);
             echo sprintf("Retrieved %s VOD streams\n", number_format(count($vodStreams)));
@@ -51,7 +51,7 @@ class XtremeCodesProvider extends BaseProvider
             sleep(1);
         } catch (\Exception $e) {
             echo "⚠️  Error fetching VOD streams: {$e->getMessage()}\n";
-        }*/
+        }
 
         // Fetch Series
         try {
@@ -69,9 +69,9 @@ class XtremeCodesProvider extends BaseProvider
 
     private function fetchApi(string $url, int $streamType): array
     {
-        if ($streamType === 4) {
-            return [];
-        }
+        //if ($streamType === 4) {
+        //    return [];
+        //}
 
         $response = $this->makeRequest($url);
         $data = json_decode($response->getBody()->getContents(), true);
@@ -85,14 +85,14 @@ class XtremeCodesProvider extends BaseProvider
 
         foreach ($data as $item) {
 
-            $itemType = $item['stream_type'] ?? null;
-            if ($itemType === 'movie' || $itemType === 4 || $itemType === '4') {
-                continue;
-            }
-            $catName = strtolower($item['category_name'] ?? '');
-            if (str_contains($catName, 'vod') || str_contains($catName, 'movie') || str_contains($catName, 'film')) {
-                continue;
-            }
+            //$itemType = $item['stream_type'] ?? null;
+            //if ($itemType === 'movie' || $itemType === 4 || $itemType === '4') {
+            //    continue;
+            //}
+            //$catName = strtolower($item['category_name'] ?? '');
+            //if (str_contains($catName, 'vod') || str_contains($catName, 'movie') || str_contains($catName, 'film')) {
+            //    continue;
+            //}
 
             $streamId = $item['stream_id'] ?? $item['series_id'] ?? null;
 
@@ -103,7 +103,7 @@ class XtremeCodesProvider extends BaseProvider
 
             $uri = match ($streamType) {
                 0 => sprintf($this->streamLive, $streamId),
-                //4 => sprintf($this->streamVod, $streamId),
+                4 => sprintf($this->streamVod, $streamId),
                 5 => sprintf($this->streamSeries, $streamId),
                 default => ''
             };

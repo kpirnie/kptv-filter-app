@@ -198,14 +198,6 @@ $get_stream_routes = [
         'should_cache' => false,
     ],
 
-    // EPGs
-    [
-        'method' => 'GET',
-        'path' => '/epgs',
-        'handler' => 'view:pages/stream/epgs.php',
-        'should_cache' => false,
-    ],
-
     // EPG Proxy (user + provider) - XC providers only
     [
         'method' => 'GET',
@@ -213,12 +205,10 @@ $get_stream_routes = [
         'handler' => 'KPTV_EPG_Proxy@handleEpgRequest',
         'should_cache' => false,
     ],
-
-    // EPG Proxy - xmltv.php route (XC standard endpoint)
     [
         'method' => 'GET',
-        'path' => '/xmltv.php',
-        'handler' => 'KPTV_EPG_Proxy@handleEpgRequest',
+        'path' => '/epg/{user}}',
+        'handler' => 'KPTV_EPG_Proxy@handleEpgFullRequest',
         'should_cache' => false,
     ],
 

@@ -11,12 +11,11 @@
 defined('KPTV_PATH') || die('Direct Access is not allowed!');
 
 // make sure we've got our namespaces...
-use KPT\DataTables;
+use \KPT\DataTables;
 
 // Handle stream type filter (passed from router)
 $type_filter = $which ?? 'live';
-$valid_types = ['live' => 0, 'series' => 5, 'other' => 99];
-//$valid_types = ['live' => 0, 'vod' => 4, 'series' => 5, 'other' => 99];
+$valid_types = ['live' => 0, 'vod' => 4, 'series' => 5, 'other' => 99];
 $type_value = $valid_types[$type_filter] ?? null;
 
 // Handle the stream active filter (passed from router)
@@ -25,19 +24,19 @@ $valid_active = ['active' => 1, 'inactive' => 0];
 $active_value = $valid_active[$active_filter] ?? null;
 
 // setup the user id
-$userId = KPTV_User::get_current_user()->id;
+$userId = \KPTV_User::get_current_user()->id;
 
 // setup the form fields
-$formFieldsConfig = KPTV::view_configs('streams', userId: $userId)->form;
+$formFieldsConfig = \KPTV::view_configs('streams', userId: $userId)->form;
 
 // setup the row actions - extract from view_configs
-$rowActionsConfig = KPTV::view_configs('streams')->row;
+$rowActionsConfig = \KPTV::view_configs('streams')->row;
 
 // setup the bulk actions - extract from view_configs
-$bulkActionsConfig = KPTV::view_configs('streams')->bulk;
+$bulkActionsConfig = \KPTV::view_configs('streams')->bulk;
 
 // Configure database via constructor
-$dbconf = (array) KPTV::get_setting('database');
+$dbconf = (array) \KPTV::get_setting('database');
 
 // fire up the datatables class
 $dt = new DataTables($dbconf);
@@ -117,14 +116,14 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
 }
 
 // pull in the header
-KPTV::pull_header();
+\KPTV::pull_header();
 ?>
 <h2 class="kptv-heading uk-heading-bullet"><?php echo (isset($type)) ? ucfirst($type) : ''; ?> <?php echo ucfirst($which); ?> Streams</h2>
 <div class="">
     <?php
 
     // pull in the control panel
-    KPTV::include_view('common/control-panel', ['dt' => $dt]);
+    \KPTV::include_view('common/control-panel', ['dt' => $dt]);
     ?>
 </div>
 <div class="uk-margin the-datatable">
@@ -138,13 +137,13 @@ KPTV::pull_header();
     <?php
 
     // pull in the control panel
-    KPTV::include_view('common/control-panel', ['dt' => $dt]);
+    \KPTV::include_view('common/control-panel', ['dt' => $dt]);
     ?>
 </div>
 <?php
 
 // pull in the footer
-KPTV::pull_footer();
+\KPTV::pull_footer();
 
 // clean up
 unset($dt, $formFields, $actionGroups, $bulkActions, $dbconf);

@@ -76,33 +76,6 @@ if (! class_exists('KPTV_Static')) {
 
             // just return the matching config we need to present
             return (object) match ($which) {
-                'epg' => [
-                    'bulk' => [],
-                    'row' => [],
-                    'form' => [
-                        'u_id' => [
-                            'type' => 'hidden',
-                            'value' => $userId,
-                            'required' => true
-                        ],
-                        'se_active' => [
-                            'label' => 'Active',
-                            'type' => 'boolean',
-                            'required' => true,
-                            'class' => 'uk-width-1-2 uk-margin-bottom',
-                        ],
-                        'se_name' => [
-                            'label' => 'Name',
-                            'type' => 'text',
-                            'class' => 'uk-width-1-2 uk-margin-bottom',
-                        ],
-                        'se_source' => [
-                            'type' => 'url',
-                            'label' => 'Source',
-                            'class' => 'uk-width-1-1',
-                        ],
-                    ]
-                ],
                 'filters' => [
                     'bulk' => [],
                     'row' => [],
@@ -191,12 +164,12 @@ if (! class_exists('KPTV_Static')) {
                                 'class' => 'copy-link',
                                 'href' => '' . KPTV_URI . 'playlist/' . $userForExport . '/{id}/series',
                             ],
-                            /*'exportvod' => [
+                            'exportvod' => [
                                 'icon' => 'video-camera', 
                                 'title' => 'Export VOD M3U',
                                 'class' => 'copy-link',
                                 'href' => '' . KPTV_URI . 'playlist/' . $userForExport . '/{id}/vod',
-                            ],*/
+                            ],
                         ],
                         [
                             'delprovider' => [
@@ -401,7 +374,7 @@ if (! class_exists('KPTV_Static')) {
                                 'success_message' => 'Records moved to series streams successfully',
                                 'error_message' => 'Failed to move some or all records to series streams'
                             ],
-                            /*'movetovod' => [
+                            'movetovod' => [
                                 'label' => 'Move to VOD Streams',
                                 'icon' => 'video-camera',
                                 'confirm' => 'Move the selected records to vod streams?',
@@ -432,7 +405,7 @@ if (! class_exists('KPTV_Static')) {
                                 },
                                 'success_message' => 'Records moved to vod streams successfully',
                                 'error_message' => 'Failed to move some or all records to vod streams'
-                            ],*/
+                            ],
                             'movetoother' => [
                                 'label' => 'Move to Other Streams',
                                 'icon' => 'nut',
@@ -512,7 +485,7 @@ if (! class_exists('KPTV_Static')) {
                                 'success_message' => 'Records moved to live streams successfully',
                                 'error_message' => 'Failed to move some or all records to live streams'
                             ],
-                            /*'movetovod' => [
+                            'movetovod' => [
                                 'label' => 'Move to VOD Streams',
                                 'icon' => 'video-camera',
                                 'confirm' => 'Move the selected records to vod streams?',
@@ -541,7 +514,7 @@ if (! class_exists('KPTV_Static')) {
                                 },
                                 'success_message' => 'Records moved to vod streams successfully',
                                 'error_message' => 'Failed to move some or all records to vod streams'
-                            ],*/
+                            ],
                             'movetoother' => [
                                 'label' => 'Move to Other Streams',
                                 'icon' => 'nut',
@@ -570,7 +543,7 @@ if (! class_exists('KPTV_Static')) {
                                 'error_message' => 'Failed to move some or all records to other streams'
                             ],
                         ],
-                        /*'vod' => [
+                        'vod' => [
 
                             'movetolive' => [
                                 'label' => 'Move to Live Streams',
@@ -660,7 +633,7 @@ if (! class_exists('KPTV_Static')) {
                                 'success_message' => 'Records moved to other streams successfully',
                                 'error_message' => 'Failed to move some or all records to other streams'
                             ],
-                        ],*/
+                        ],
                         'other' => [
                             'movetolive' => [
                                 'label' => 'Move to Live Streams',
@@ -719,7 +692,7 @@ if (! class_exists('KPTV_Static')) {
                                 'success_message' => 'Records moved to series streams successfully',
                                 'error_message' => 'Failed to move some or all records to series streams'
                             ],
-                            /*'movetovod' => [
+                            'movetovod' => [
                                 'label' => 'Move to VOD Streams',
                                 'icon' => 'video-camera',
                                 'confirm' => 'Move the selected records to vod streams?',
@@ -747,7 +720,7 @@ if (! class_exists('KPTV_Static')) {
                                 },
                                 'success_message' => 'Records moved to vod streams successfully',
                                 'error_message' => 'Failed to move some or all records to vod streams'
-                            ],*/
+                            ],
                         ],
                     ],
                     'row' => [
@@ -768,7 +741,7 @@ if (! class_exists('KPTV_Static')) {
                                 'success_message' => 'The stream has been moved.',
                                 'error_message' => 'Failed to move the stream.'
                             ],
-                            /*'movevod' => [
+                            'movevod' => [
                                 'icon' => 'video-camera',
                                 'title' => 'Move This Stream to VOD Streams',
                                 'callback' => function($rowId, $rowData, $database, $tableName) {
@@ -779,7 +752,7 @@ if (! class_exists('KPTV_Static')) {
                                 'confirm' => 'Are you sure you want to move this stream?',
                                 'success_message' => 'The stream has been moved.',
                                 'error_message' => 'Failed to move the stream.'
-                            ],*/
+                            ],
                             'moveother' => [
                                 'icon' => 'nut',
                                 'title' => 'Move This Stream to Other Streams',
@@ -810,7 +783,7 @@ if (! class_exists('KPTV_Static')) {
                                 'success_message' => 'The stream has been moved.',
                                 'error_message' => 'Failed to move the stream.'
                             ],
-                            /*'movevod' => [
+                            'movevod' => [
                                 'icon' => 'video-camera',
                                 'title' => 'Move This Stream to VOD Streams',
                                 'callback' => function($rowId, $rowData, $database, $tableName) {
@@ -821,7 +794,7 @@ if (! class_exists('KPTV_Static')) {
                                 'confirm' => 'Are you sure you want to move this stream?',
                                 'success_message' => 'The stream has been moved.',
                                 'error_message' => 'Failed to move the stream.'
-                            ],*/
+                            ],
                             'moveother' => [
                                 'icon' => 'nut',
                                 'title' => 'Move This Stream to Other Streams',
@@ -835,7 +808,7 @@ if (! class_exists('KPTV_Static')) {
                                 'error_message' => 'Failed to move the stream.'
                             ],
                         ],
-                        /*'vod' => [
+                        'vod' => [
                             'html' => [
                                 'location' => 'both',
                                 'content' => '<br class="action-nl" />'
@@ -846,7 +819,7 @@ if (! class_exists('KPTV_Static')) {
                                 'callback' => function($rowId, $rowData, $database, $tableName) {
 
                                     // move the stream
-                                    returnKPTV::moveToType( $database, $rowId, 0 );
+                                    return KPTV::moveToType( $database, $rowId, 0 );
                                 },
                                 'confirm' => 'Are you sure you want to move this stream?',
                                 'success_message' => 'The stream has been moved.',
@@ -888,7 +861,7 @@ if (! class_exists('KPTV_Static')) {
                                 'success_message' => 'The stream has been moved.',
                                 'error_message' => 'Failed to move the stream.'
                             ],
-                        ],*/
+                        ],
                         'other' => [
                             'html' => [
                                 'location' => 'both',
@@ -918,7 +891,7 @@ if (! class_exists('KPTV_Static')) {
                                 'success_message' => 'The stream has been moved.',
                                 'error_message' => 'Failed to move the stream.'
                             ],
-                            /*'movevod' => [
+                            'movevod' => [
                                 'icon' => 'video-camera',
                                 'title' => 'Move This Stream to VOD Streams',
                                 'callback' => function($rowId, $rowData, $database, $tableName) {
@@ -929,7 +902,7 @@ if (! class_exists('KPTV_Static')) {
                                 'confirm' => 'Are you sure you want to move this stream?',
                                 'success_message' => 'The stream has been moved.',
                                 'error_message' => 'Failed to move the stream.'
-                            ],*/
+                            ],
                         ],
                     ],
                     'form' => [
@@ -982,7 +955,7 @@ if (! class_exists('KPTV_Static')) {
                             'options' => [
                                 0 => 'Live',
                                 5 => 'Series',
-                                //4 => 'VOD',
+                                4 => 'VOD',
                             ],
                             'class' => 'uk-width-1-2',
                             'tab' => 'settings',

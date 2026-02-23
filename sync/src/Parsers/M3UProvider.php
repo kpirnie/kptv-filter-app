@@ -41,9 +41,9 @@ class M3UProvider extends BaseProvider
                 if ($url !== '' && $info['name'] !== '') {
                     $streamType = $this->determineStreamType($url, $info);
                     // we want to skip VOD
-                    if($streamType === 4){
-                        continue;
-                    }
+                    //if($streamType === 4){
+                    //    continue;
+                    //}
                     $streams[] = [
                         's_type_id' => $streamType,
                         's_orig_name' => $info['name'],

@@ -56,7 +56,7 @@ if (KPTV_User::is_user_logged_in()):
             <li><a uk-tooltip="Click to Copy the M3U URL" href="<?php echo KPTV_URI; ?>playlist/<?php echo $user_for_export; ?>/series" class="copy-link">Export Streams</a></li>
         </ul>
     </li>
-    <!--<li class="uk-parent <?php echo KPTV::open_link('vod'); ?>">
+    <li class="uk-parent <?php echo KPTV::open_link('vod'); ?>">
         <a href="#">
             <span uk-icon="video-camera"></span>
             VOD Streams
@@ -66,7 +66,7 @@ if (KPTV_User::is_user_logged_in()):
             <li><a href="/streams/vod/inactive">Inactive Streams</a></li>
             <li><a uk-tooltip="Click to Copy the M3U URL" href="<?php echo KPTV_URI; ?>playlist/<?php echo $user_for_export; ?>/vod" class="copy-link">Export Streams</a></li>
         </ul>
-    </li>-->
+    </li>
     <li>
         <a href="/streams/other">
             <span uk-icon="nut" class="kptv-icon-dual"></span>
