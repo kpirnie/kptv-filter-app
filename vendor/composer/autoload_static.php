@@ -161,6 +161,7 @@ class ComposerStaticInit2af29beba30e96aa03602b3d36e52aba
         'GuzzleHttp\\TransferStats' => __DIR__ . '/..' . '/guzzlehttp/guzzle/src/TransferStats.php',
         'GuzzleHttp\\Utils' => __DIR__ . '/..' . '/guzzlehttp/guzzle/src/Utils.php',
         'KPTV' => __DIR__ . '/../..' . '/controllers/main.php',
+        'KPTV_EPG_Proxy' => __DIR__ . '/../..' . '/controllers/kptv-epg-proxy.php',
         'KPTV_Proxy' => __DIR__ . '/../..' . '/controllers/kptv-proxy.php',
         'KPTV_Static' => __DIR__ . '/../..' . '/controllers/kptv-static.php',
         'KPTV_Stream_Playlists' => __DIR__ . '/../..' . '/controllers/kptv-stream-playlists.php',

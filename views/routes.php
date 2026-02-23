@@ -207,8 +207,8 @@ $get_stream_routes = [
     ],
     [
         'method' => 'GET',
-        'path' => '/epg/{user}}',
-        'handler' => 'KPTV_EPG_Proxy@handleEpgFullRequest',
+        'path' => '/epg/{user}',
+        'handler' => 'KPTV_EPG_Proxy@handleAllProvidersEpg',
         'should_cache' => false,
     ],
 

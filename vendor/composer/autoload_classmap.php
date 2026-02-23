@@ -94,6 +94,7 @@ return array(
     'GuzzleHttp\\TransferStats' => $vendorDir . '/guzzlehttp/guzzle/src/TransferStats.php',
     'GuzzleHttp\\Utils' => $vendorDir . '/guzzlehttp/guzzle/src/Utils.php',
     'KPTV' => $baseDir . '/controllers/main.php',
+    'KPTV_EPG_Proxy' => $baseDir . '/controllers/kptv-epg-proxy.php',
     'KPTV_Proxy' => $baseDir . '/controllers/kptv-proxy.php',
     'KPTV_Static' => $baseDir . '/controllers/kptv-static.php',
     'KPTV_Stream_Playlists' => $baseDir . '/controllers/kptv-stream-playlists.php',
