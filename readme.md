@@ -2,7 +2,7 @@
 
 [![PHP Version](https://img.shields.io/badge/PHP-8.4-777BB4?logo=php&logoColor=white)](https://php.net)
 [![License: MIT](https://img.shields.io/github/license/kpirnie/kptv-filter)](https://github.com/kpirnie/kptv-filter/blob/main/LICENSE)
-![Last Commit](https://img.shields.io/github/last-commit/kpirnie/kptv-filter-app)
+[![Last Commit](https://img.shields.io/github/last-commit/kpirnie/kptv-filter-app)](https://github.com/kpirnie/kptv-filter-app/commits/main)
 [![GitHub Issues](https://img.shields.io/github/issues/kpirnie/kptv-filter?color=red)](https://github.com/kpirnie/kptv-filter/issues)
 [![Image Size](https://ghcr-badge.egpl.dev/kpirnie/kptv-app/size?tag=latest&label=image%20size&color=orange)](https://github.com/kpirnie/kptv-filter/pkgs/container/kptv-app)
 [![Kevin Pirnie](https://img.shields.io/badge/Kevin%20Pirnie-.com-blue)](https://kevinpirnie.com/)
