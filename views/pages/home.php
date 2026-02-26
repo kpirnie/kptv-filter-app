@@ -30,7 +30,7 @@ if (KPTV_User::is_user_logged_in()):
     </div>
 
     <!-- Stats Grid -->
-    <div uk-grid class="uk-grid-small uk-child-width-1-1 uk-child-width-1-3@m uk-margin-bottom">
+    <div uk-grid class="uk-grid-small uk-child-width-1-2 uk-child-width-1-4@m uk-margin-bottom">
         <div>
             <div class="kptv-card kptv-stat-card">
                 <div class="kptv-stat-value"><?php echo $counts['total']; ?></div>
@@ -47,6 +47,12 @@ if (KPTV_User::is_user_logged_in()):
             <div class="kptv-card kptv-stat-card danger">
                 <div class="kptv-stat-value"><?php echo $counts['series']; ?></div>
                 <div class="kptv-stat-label">Active Series</div>
+            </div>
+        </div>
+        <div>
+            <div class="kptv-card kptv-stat-card warning">
+                <div class="kptv-stat-value"><?php echo $counts['vod']; ?></div>
+                <div class="kptv-stat-label">Active VOD</div>
             </div>
         </div>
     </div>
@@ -74,6 +80,7 @@ if (KPTV_User::is_user_logged_in()):
                                     <span class="kptv-badge kptv-badge-primary"><?php echo $prov->total_streams; ?></span>
                                     <span class="kptv-badge kptv-badge-success"><?php echo $prov->active_live; ?></span>
                                     <span class="kptv-badge kptv-badge-danger"><?php echo $prov->active_series; ?></span>
+                                    <span class="kptv-badge kptv-badge-warning"><?php echo $prov->active_vod; ?></span>
                                 </div>
                             </div>
                         </li>
