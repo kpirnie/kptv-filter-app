@@ -15,6 +15,7 @@ class KpDb
     private Database $db;
     private string $tablePrefix;
     private int $chunkSize;
+    private string $driver;
 
     public function __construct(
         string $normalizedDriver,
@@ -29,6 +30,7 @@ class KpDb
     ) {
         $this->tablePrefix = $table_prefix;
         $this->chunkSize = $chunk_size;
+        $this->driver = $normalizedDriver;
 
         $settings = (object) [
             'driver' => $normalizedDriver,
@@ -73,7 +75,9 @@ class KpDb
             normalizedDriver: $dbConfig->driver ?? 'sqlite',
             host: $dbConfig->server ?? '',
             port: (int) ($dbConfig->port ?? 0),
-            database: $dbConfig->sqlite_path ?? $dbConfig->path ?? KPTV_PATH . 'database.sqlite',
+            database: ($dbConfig->driver ?? 'sqlite') === 'sqlite'
+                ? ($dbConfig->sqlite_path ?? $dbConfig->path ?? KPTV_PATH . 'database.sqlite')
+                : ($dbConfig->schema ?? ''),
             user: $dbConfig->username ?? '',
             password: $dbConfig->password ?? '',
             table_prefix: $dbConfig->tbl_prefix ?? 'kptv_',
@@ -230,7 +234,9 @@ class KpDb
         $columnList = implode(', ', $columns);
         $fullTable = $this->tablePrefix ? "{$this->tablePrefix}{$table}" : $table;
 
-        $ignoreKeyword = $ignore_duplicates ? ' OR IGNORE' : '';
+        $ignoreKeyword = $ignore_duplicates
+            ? ($this->driver === 'mysql' ? ' IGNORE' : ' OR IGNORE')
+            : '';
         $rowPlaceholder = '(' . implode(', ', array_fill(0, count($columns), '?')) . ')';
 
         $batches = array_chunk($data, $batch_size);
@@ -253,6 +259,7 @@ class KpDb
                 $this->db->commit();
             } catch (\Exception $e) {
                 $this->db->rollback();
+                echo "Insert error: " . $e->getMessage() . "\n";
                 throw $e;
             }
         }

@@ -5,7 +5,7 @@ SET time_zone = "+00:00";
 
 DELIMITER $$
 DROP PROCEDURE IF EXISTS `CleanupStreams`$$
-CREATE DEFINER=`kptvdbu`@`%` PROCEDURE `CleanupStreams` ()   BEGIN
+CREATE PROCEDURE `CleanupStreams` ()   BEGIN
     START TRANSACTION;
 
     -- -- Remove streams whose provider no longer exists
@@ -33,7 +33,7 @@ CREATE DEFINER=`kptvdbu`@`%` PROCEDURE `CleanupStreams` ()   BEGIN
 END$$
 
 DROP PROCEDURE IF EXISTS `ResetStreamIDs`$$
-CREATE DEFINER=`kptvdbu`@`%` PROCEDURE `ResetStreamIDs` ()   BEGIN
+CREATE PROCEDURE `ResetStreamIDs` ()   BEGIN
     DECLARE v_max_id BIGINT;
     DECLARE v_next_val BIGINT;
     DECLARE v_sql TEXT;

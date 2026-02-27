@@ -62,11 +62,16 @@ class IptvSyncApp
 
         $dbConfig = $config->database;
 
+        $driver = $dbConfig->driver ?? 'sqlite';
+        $database = $driver === 'sqlite'
+            ? ($dbConfig->sqlite_path ?? $dbConfig->path ?? KPTV_PATH . 'database.sqlite')
+            : ($dbConfig->schema ?? '');
+
         $this->db = new KpDb(
-            normalizedDriver: $dbConfig->driver ?? 'sqlite',
+            normalizedDriver: $driver,
             host: $dbConfig->server ?? '',
             port: (int) ($dbConfig->port ?? 0),
-            database: $dbConfig->sqlite_path ?? $dbConfig->path ?? KPTV_PATH . 'database.sqlite',
+            database: $database,
             user: $dbConfig->username ?? '',
             password: $dbConfig->password ?? '',
             table_prefix: $dbConfig->tbl_prefix ?? 'kptv_',
