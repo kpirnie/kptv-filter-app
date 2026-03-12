@@ -198,20 +198,6 @@ $get_stream_routes = [
         'should_cache' => false,
     ],
 
-    // EPG Proxy (user + provider) - XC providers only
-    [
-        'method' => 'GET',
-        'path' => '/epg/{user}/{provider}',
-        'handler' => 'KPTV_EPG_Proxy@handleEpgRequest',
-        'should_cache' => false,
-    ],
-    [
-        'method' => 'GET',
-        'path' => '/epg/{user}',
-        'handler' => 'KPTV_EPG_Proxy@handleAllProvidersEpg',
-        'should_cache' => false,
-    ],
-
     // stream player proxy
     [
         'method' => 'GET',

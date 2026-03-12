@@ -2,6 +2,7 @@ assets/config.json
 config.json
 .cache/
 tmp/
+epgs/
 node_modules/
 composer.lock
 package-lock.json

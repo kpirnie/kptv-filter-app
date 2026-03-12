@@ -44,16 +44,16 @@ $_config = KPTV::get_full_config();
 $_db = $_config->database ?? new stdClass();
 
 // normalize database settings for sqlite-first operation
-if (!isset($_db->driver) || $_db->driver === '') {
-    $_db->driver = 'sqlite';
-}
-if ($_db->driver === 'sqlite') {
-    if (!isset($_db->path) || $_db->path === '') {
-        $_db->path = '/var/lib/data/kptv.sqlite';
-    } elseif (is_dir((string) $_db->path) || str_ends_with((string) $_db->path, '/')) {
-        $_db->path = rtrim((string) $_db->path, '/') . '/kptv.sqlite';
-    }
-}
+//if (!isset($_db->driver) || $_db->driver === '') {
+//    $_db->driver = 'sqlite';
+//}
+//if ($_db->driver === 'sqlite') {
+//    if (!isset($_db->path) || $_db->path === '') {
+//        $_db->path = '/var/lib/data/kptv.sqlite';
+//    } elseif (is_dir((string) $_db->path) || str_ends_with((string) $_db->path, '/')) {
+//        $_db->path = rtrim((string) $_db->path, '/') . '/kptv.sqlite';
+//    }
+//}
 
 // hold the database config in the global config for easy access
 $_config->database = $_db;
@@ -62,7 +62,7 @@ $_config->database = $_db;
 \KPT\Cache::configure([
     'path' => KPTV_PATH . '.cache/',
     'prefix' => KPTV::get_cache_prefix(),
-    'allowed_backends' => ['array', 'opcache', 'file',], // also: redis, memcached, apcu, yac, mysql, sqlite, shmop, file
+    'allowed_backends' => ['array', 'opcache', 'file', 'redis', 'memcached'], // also: redis, memcached, apcu, yac, mysql, sqlite, shmop, file
 ]);
 
 // define the app URI
