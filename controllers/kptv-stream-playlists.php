@@ -44,7 +44,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
 
             try {
                 // setup the type of stream to pull...
-                $stream_type = ['live' => 0, 'series' => 5, 'vod' => 4];
+                $stream_type = ['live' => 0, 'series' => 5, 'vod' => 4, 'all' => 50];
 
                 // Get playlist data
                 $records = $this->getUserPlaylist($user, $stream_type[$which]);
@@ -75,7 +75,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
 
             try {
                 // setup the type of stream to pull...
-                $stream_type = ['live' => 0, 'series' => 5, 'vod' => 4];
+                $stream_type = ['live' => 0, 'series' => 5, 'vod' => 4, 'all' => 50];
 
                 // Get playlist data
                 $records = $this->getGetProviderPlaylist($user, $provider, $stream_type[$which]);
@@ -108,6 +108,11 @@ if (! class_exists('KPTV_Stream_Playlists')) {
             // setup the provider and user
             $user = KPTV::decrypt($user);
 
+            // if we need to get all
+            if ($which === 50) {
+                $which = [0, 4, 5];
+            }
+
             // setup the query to run
             $sql = 'SELECT
                     a.`s_channel` As TvgChNo, 
@@ -120,9 +125,17 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                     b.`sp_priority` As TvgType
                     FROM `kptv_streams` a
                     LEFT OUTER JOIN `kptv_stream_providers` b ON b.`id` = a.`p_id`
-                    WHERE ( a.`p_id` = ? AND `a`.`u_id` = ? ) AND ( a.`s_active` = 1 AND a.`s_type_id` = ? )
+                    WHERE ( a.`p_id` = ? AND `a`.`u_id` = ? ) AND ( a.`s_active` = 1 AND %s )
                     GROUP BY a.`s_stream_uri`
                     ORDER BY TvgType, a.`s_name` ASC;';
+
+            // if we need to get all streams
+            if (is_array($which)) {
+                $placeholders = str_repeat('?,', count($which) - 1) . '?';
+                $sql = sprintf($sql, "a.`s_type_id` IN ($placeholders)");
+            } else {
+                $sql = sprintf($sql, "a.`s_type_id` = ?");
+            }
 
             // setup the parameters
             $params = [$provider, $user, $which];
@@ -147,6 +160,11 @@ if (! class_exists('KPTV_Stream_Playlists')) {
             // setup the user
             $user = KPTV::decrypt($user);
 
+            // if we need to get all
+            if ($which === 50) {
+                $which = [0, 4, 5];
+            }
+
             // setup the query to run
             $sql = 'SELECT
                     a.`s_channel` as TvgChNo, 
@@ -159,9 +177,17 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                     b.`sp_priority` AS TvgType
                     FROM `kptv_streams` a
                     LEFT OUTER JOIN `kptv_stream_providers` b ON b.`id` = a.`p_id`
-                    WHERE a.`u_id` = ? AND ( a.`s_active` = 1 AND a.`s_type_id` = ? )
+                    WHERE a.`u_id` = ? AND ( a.`s_active` = 1 AND %s )
                     GROUP BY a.`s_stream_uri`
                     ORDER BY TvgType, a.`s_name` ASC;';
+
+            // if we need to get all streams
+            if (is_array($which)) {
+                $placeholders = str_repeat('?,', count($which) - 1) . '?';
+                $sql = sprintf($sql, "a.`s_type_id` IN ($placeholders)");
+            } else {
+                $sql = sprintf($sql, "a.`s_type_id` = ?");
+            }
 
             // setup the parameters
             $params = [$user, $which];
