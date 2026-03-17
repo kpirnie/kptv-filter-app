@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'kevinpirnie/kp-kptv-filter-app',
-        'pretty_version' => 'dev-main',
-        'version' => 'dev-main',
-        'reference' => 'd5e5bdf0067565077e77718c975d0d31f634bc36',
+        'pretty_version' => 'dev-develop',
+        'version' => 'dev-develop',
+        'reference' => '2a42f52f10b10b414cb596b7afd63a1a2163b0eb',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -38,9 +38,9 @@
             'dev_requirement' => false,
         ),
         'kevinpirnie/kp-kptv-filter-app' => array(
-            'pretty_version' => 'dev-main',
-            'version' => 'dev-main',
-            'reference' => 'd5e5bdf0067565077e77718c975d0d31f634bc36',
+            'pretty_version' => 'dev-develop',
+            'version' => 'dev-develop',
+            'reference' => '2a42f52f10b10b414cb596b7afd63a1a2163b0eb',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

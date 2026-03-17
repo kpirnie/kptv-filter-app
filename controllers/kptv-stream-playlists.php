@@ -138,7 +138,9 @@ if (! class_exists('KPTV_Stream_Playlists')) {
             }
 
             // setup the parameters
-            $params = [$provider, $user, $which];
+            $params = is_array($which)
+                ? array_merge([$provider, $user], $which)
+                : [$provider, $user, $which];
 
             // setup the recordset
             $rs = $this->query($sql)->bind($params)->fetch();
@@ -190,7 +192,9 @@ if (! class_exists('KPTV_Stream_Playlists')) {
             }
 
             // setup the parameters
-            $params = [$user, $which];
+            $params = is_array($which)
+                ? array_merge([$user], $which)
+                : [$user, $which];
 
             // setup the recordset
             $rs = $this->query($sql)->bind($params)->fetch();
