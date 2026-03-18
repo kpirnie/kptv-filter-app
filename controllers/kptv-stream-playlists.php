@@ -119,10 +119,11 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                     a.`s_name` As TvgName, 
                     a.`s_stream_uri` As Stream, 
                     COALESCE(nullif(a.`s_tvg_id`,""), a.`s_orig_name`) As TvgID, 
-                    COALESCE(nullif(a.`s_tvg_group`,""), "Live") As TvgGroup,
+                    COALESCE(nullif(a.`s_tvg_group`,""), "live") As TvgGroup,
                     COALESCE(nullif(a.`s_tvg_logo`,""), "https://cdn.kevp.us/tv/kptv-icon.svg") As TvgLogo, 
                     a.`p_id`,
-                    b.`sp_priority` As TvgType
+                    b.`sp_priority` As TvgType,
+                    a.`s_type_id` AS StreamType
                     FROM `kptv_streams` a
                     LEFT OUTER JOIN `kptv_stream_providers` b ON b.`id` = a.`p_id`
                     WHERE ( a.`p_id` = ? AND `a`.`u_id` = ? ) AND ( a.`s_active` = 1 AND %s )
@@ -173,10 +174,11 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                     a.`s_name` as TvgName, 
                     a.`s_stream_uri` as Stream, 
                     COALESCE(nullif(a.`s_tvg_id`,""), a.`s_orig_name`) As TvgID, 
-                    COALESCE(nullif(a.`s_tvg_group`,""), "Live") As TvgGroup,
+                    COALESCE(nullif(a.`s_tvg_group`,""), "live") As TvgGroup,
                     COALESCE(nullif(a.`s_tvg_logo`,""), "https://cdn.kevp.us/tv/kptv-icon.svg") As TvgLogo, 
                     a.`p_id`,
-                    b.`sp_priority` AS TvgType
+                    b.`sp_priority` AS TvgType,
+                    a.`s_type_id` AS StreamType
                     FROM `kptv_streams` a
                     LEFT OUTER JOIN `kptv_stream_providers` b ON b.`id` = a.`p_id`
                     WHERE a.`u_id` = ? AND ( a.`s_active` = 1 AND %s )
@@ -237,9 +239,17 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                     // start creating the EXTINF line
                     $extinf = sprintf('#EXTINF:-1 tvg-name="%s" tvg-chno="%s" tvg-type="%s"', $rec->TvgName, $rec->TvgChNo, $rec->TvgType);
 
+                    // set the group for the m3u based on the stream type (live, series, vod)
+                    $group = match ($rec->StreamType) {
+                        0 => 'live',
+                        5 => 'series',
+                        4 => 'vod',
+                        default => 'other'
+                    };
+
                     // write the group for the m3u
-                    $extinf .= sprintf(' tvg-group="%s"', $which);
-                    $extinf .= sprintf(' group-title="%s"', $which);
+                    $extinf .= sprintf(' tvg-group="%s"', $group);
+                    $extinf .= sprintf(' group-title="%s"', $group);
 
                     // if there's a tvg-id
                     if (! empty($rec->TvgID)) {

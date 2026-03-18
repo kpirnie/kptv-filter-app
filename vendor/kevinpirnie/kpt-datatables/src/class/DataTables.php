@@ -88,55 +88,33 @@ if (! class_exists('KPT\DataTables', false)) {
             try {
                 Logger::debug("Loading table schema", ['table' => $this->tableName]);
 
-                $driver = $this->dbConfig['driver'] ?? 'mysql';
+                // Get table structure using DESCRIBE with the fluent interface
+                $schema = $this->db->query("DESCRIBE `{$this->tableName}`")->fetch();
 
-                if ($driver === 'sqlite') {
-                    $schema = $this->db->query("PRAGMA table_info(`{$this->tableName}`)")->fetch();
+                if (!$schema || empty($schema)) {
+                    throw new RuntimeException("Table '{$this->tableName}' does not exist or is not accessible");
+                }
 
-                    if (!$schema || empty($schema)) {
-                        throw new RuntimeException("Table '{$this->tableName}' does not exist or is not accessible");
-                    }
+                Logger::debug("Schema query returned", ['column_count' => count($schema)]);
 
-                    $this->tableSchema = [];
+                $this->tableSchema = [];
 
-                    foreach ($schema as $column) {
-                        $isPrimary = (bool) $column->pk;
-                        $this->tableSchema[$column->name] = [
-                            'type' => $this->parseColumnType($column->type ?? 'text'),
-                            'null' => !$column->notnull,
-                            'key' => $isPrimary ? 'PRI' : '',
-                            'default' => $column->dflt_value,
-                            'extra' => $isPrimary ? 'auto_increment' : ''
-                        ];
+                foreach ($schema as $column) {
+                    $this->tableSchema[$column->Field] = [
+                        'type' => $this->parseColumnType($column->Type),
+                        'null' => $column->Null === 'YES',
+                        'key' => $column->Key,
+                        'default' => $column->Default,
+                        'extra' => $column->Extra
+                    ];
 
-                        if ($isPrimary) {
-                            $this->primaryKey = $column->name;
-                        }
-                    }
-                } else {
-                    $schema = $this->db->query("DESCRIBE `{$this->tableName}`")->fetch();
-
-                    if (!$schema || empty($schema)) {
-                        throw new RuntimeException("Table '{$this->tableName}' does not exist or is not accessible");
-                    }
-
-                    $this->tableSchema = [];
-
-                    foreach ($schema as $column) {
-                        $this->tableSchema[$column->Field] = [
-                            'type' => $this->parseColumnType($column->Type),
-                            'null' => $column->Null === 'YES',
-                            'key' => $column->Key,
-                            'default' => $column->Default,
-                            'extra' => $column->Extra
-                        ];
-
-                        if ($column->Key === 'PRI') {
-                            $this->primaryKey = $column->Field;
-                        }
+                    // Auto-detect primary key
+                    if ($column->Key === 'PRI') {
+                        $this->primaryKey = $column->Field;
                     }
                 }
 
+                // If no columns specified, use all non-primary key columns
                 if (empty($this->columns)) {
                     foreach ($this->tableSchema as $field => $info) {
                         if ($field !== $this->primaryKey) {
@@ -157,7 +135,6 @@ if (! class_exists('KPT\DataTables', false)) {
                 throw $e;
             }
         }
-
 
         /**
          * Parse MySQL column type to appropriate form field type with enhanced detection
