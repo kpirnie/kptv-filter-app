@@ -23,8 +23,7 @@
         "ext-mbstring": "*",
         "ext-openssl": "*",
         "ext-pdo": "*",
-        "guzzlehttp/guzzle": "^7.10",
-        "kevinpirnie/kpt-datatables": "dev-main",
+        "kevinpirnie/kpt-datatables": "^2",
         "kevinpirnie/kpt-router": "^1.0",
         "phpmailer/phpmailer": "^7.0"
     },
