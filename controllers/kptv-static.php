@@ -170,6 +170,12 @@ if (! class_exists('KPTV_Static')) {
                                 'class' => 'copy-link',
                                 'href' => '' . KPTV_URI . 'playlist/' . $userForExport . '/{id}/vod',
                             ],
+                            'exportall' => [
+                                'icon' => 'thumbnails', 
+                                'title' => 'Export All M3U',
+                                'class' => 'copy-link',
+                                'href' => '' . KPTV_URI . 'playlist/' . $userForExport . '/{id}/all',
+                            ],
                         ],
                         [
                             'delprovider' => [
