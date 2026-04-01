@@ -50,6 +50,37 @@ if (! class_exists('KPTV_Static')) {
         const MONTH_IN_SECONDS = (self::DAY_IN_SECONDS * 30);
         const YEAR_IN_SECONDS = (self::DAY_IN_SECONDS * 365);
 
+
+        public static function guide_types()
+        {
+            return [
+                '0' => 'OTA',
+                '1' => 'XFinity',
+                '2' => 'Spectrum',
+                '3' => 'DirectTV',
+                '4' => 'Dish',
+                '5' => 'AT&T',
+                '6' => 'Philo',
+                '7' => 'Sling',
+                '8' => 'YouTube',
+                '9' => 'Fubo',
+                '10' => 'Hulu',
+                '11' => 'Vidgo',
+                '12' => 'Frndly',
+                '13' => 'Samsung',
+                '14' => 'Pluto',
+                '15' => 'Xumo',
+                '16' => 'Plex',
+                '17' => 'Other',
+                '18' => 'Glorystar',
+                '19' => 'Amazon',
+                '20' => 'Apple',
+                '21' => 'Peacock',
+                '22' => 'Freevee',
+                '23' => 'Tubi',
+            ];
+        }
+
         /** 
          * view_configs
          * 
@@ -165,13 +196,13 @@ if (! class_exists('KPTV_Static')) {
                                 'href' => '' . KPTV_URI . 'playlist/' . $userForExport . '/{id}/series',
                             ],
                             'exportvod' => [
-                                'icon' => 'video-camera', 
+                                'icon' => 'video-camera',
                                 'title' => 'Export VOD M3U',
                                 'class' => 'copy-link',
                                 'href' => '' . KPTV_URI . 'playlist/' . $userForExport . '/{id}/vod',
                             ],
                             'exportall' => [
-                                'icon' => 'thumbnails', 
+                                'icon' => 'thumbnails',
                                 'title' => 'Export All M3U',
                                 'class' => 'copy-link',
                                 'href' => '' . KPTV_URI . 'playlist/' . $userForExport . '/{id}/all',
@@ -384,26 +415,25 @@ if (! class_exists('KPTV_Static')) {
                                 'label' => 'Move to VOD Streams',
                                 'icon' => 'video-camera',
                                 'confirm' => 'Move the selected records to vod streams?',
-                                'callback' => function( $selectedIds, $database, $tableName ) {
+                                'callback' => function ($selectedIds, $database, $tableName) {
 
                                     // make sure we have selected items
-                                    if ( empty( $selectedIds ) ) return false;
-                                    
+                                    if (empty($selectedIds)) return false;
+
                                     // Track success/failure
                                     $successCount = 0;
-                                    
+
                                     try {
                                         // Process all selected IDs
-                                        foreach($selectedIds as $id) {
-                                            $result = KPTV::moveToType( $database, $id, 4 );
+                                        foreach ($selectedIds as $id) {
+                                            $result = KPTV::moveToType($database, $id, 4);
                                             if ($result) {
                                                 $successCount++;
                                             }
                                         }
-                                        
+
                                         // return
                                         return $successCount > 0;
-                                        
                                     } catch (\Exception $e) {
                                         $database->rollback();
                                         return false;
@@ -495,24 +525,23 @@ if (! class_exists('KPTV_Static')) {
                                 'label' => 'Move to VOD Streams',
                                 'icon' => 'video-camera',
                                 'confirm' => 'Move the selected records to vod streams?',
-                                'callback' => function( $selectedIds, $database, $tableName ) {
-                                    
+                                'callback' => function ($selectedIds, $database, $tableName) {
+
                                     // make sure we have selected items
-                                    if ( empty( $selectedIds ) ) return false;
+                                    if (empty($selectedIds)) return false;
 
                                     $successCount = 0;
                                     try {
                                         // Process all selected IDs
-                                        foreach($selectedIds as $id) {
-                                            $result = KPTV::moveToType( $database, $id, 4 );
+                                        foreach ($selectedIds as $id) {
+                                            $result = KPTV::moveToType($database, $id, 4);
                                             if ($result) {
                                                 $successCount++;
                                             }
                                         }
-                                        
+
                                         // return
                                         return $successCount > 0;
-                                        
                                     } catch (\Exception $e) {
                                         $database->rollback();
                                         return false;
@@ -555,24 +584,23 @@ if (! class_exists('KPTV_Static')) {
                                 'label' => 'Move to Live Streams',
                                 'icon' => 'tv',
                                 'confirm' => 'Move the selected records to live streams?',
-                                'callback' => function( $selectedIds, $database, $tableName ) {
+                                'callback' => function ($selectedIds, $database, $tableName) {
 
                                     // make sure we have selected items
-                                    if ( empty( $selectedIds ) ) return false;
+                                    if (empty($selectedIds)) return false;
 
                                     $successCount = 0;
                                     try {
                                         // Process all selected IDs
-                                        foreach($selectedIds as $id) {
-                                            $result = KPTV::moveToType( $database, $id, 0 );
+                                        foreach ($selectedIds as $id) {
+                                            $result = KPTV::moveToType($database, $id, 0);
                                             if ($result) {
                                                 $successCount++;
                                             }
                                         }
-                                        
+
                                         // return
                                         return $successCount > 0;
-                                        
                                     } catch (\Exception $e) {
                                         $database->rollback();
                                         return false;
@@ -585,24 +613,23 @@ if (! class_exists('KPTV_Static')) {
                                 'label' => 'Move to Series Streams',
                                 'icon' => 'album',
                                 'confirm' => 'Move the selected records to series streams?',
-                                'callback' => function( $selectedIds, $database, $tableName ) {
+                                'callback' => function ($selectedIds, $database, $tableName) {
 
                                     // make sure we have selected items
-                                    if ( empty( $selectedIds ) ) return false;
-                                    
+                                    if (empty($selectedIds)) return false;
+
                                     $successCount = 0;
                                     try {
                                         // Process all selected IDs
-                                        foreach($selectedIds as $id) {
-                                            $result = KPTV::moveToType( $database, $id, 5 );
+                                        foreach ($selectedIds as $id) {
+                                            $result = KPTV::moveToType($database, $id, 5);
                                             if ($result) {
                                                 $successCount++;
                                             }
                                         }
-                                        
+
                                         // return
                                         return $successCount > 0;
-                                    
                                     } catch (\Exception $e) {
                                         $database->rollback();
                                         return false;
@@ -615,22 +642,21 @@ if (! class_exists('KPTV_Static')) {
                                 'label' => 'Move to Other Streams',
                                 'icon' => 'nut',
                                 'confirm' => 'Move the selected records to other streams?',
-                                'callback' => function( $selectedIds, $database, $tableName ) {
+                                'callback' => function ($selectedIds, $database, $tableName) {
                                     // make sure we have selected items
-                                    if ( empty( $selectedIds ) ) return false;
+                                    if (empty($selectedIds)) return false;
                                     $successCount = 0;
                                     try {
                                         // Process all selected IDs
-                                        foreach($selectedIds as $id) {
-                                            $result = KPTV::moveToType( $database, $id, 99 );
+                                        foreach ($selectedIds as $id) {
+                                            $result = KPTV::moveToType($database, $id, 99);
                                             if ($result) {
                                                 $successCount++;
                                             }
                                         }
-                                        
+
                                         // return
                                         return $successCount > 0;
-                                        
                                     } catch (\Exception $e) {
                                         $database->rollback();
                                         return false;
@@ -702,23 +728,23 @@ if (! class_exists('KPTV_Static')) {
                                 'label' => 'Move to VOD Streams',
                                 'icon' => 'video-camera',
                                 'confirm' => 'Move the selected records to vod streams?',
-                                'callback' => function( $selectedIds, $database, $tableName ) {
+                                'callback' => function ($selectedIds, $database, $tableName) {
 
                                     // make sure we have selected items
-                                    if ( empty( $selectedIds ) ) return false;
+                                    if (empty($selectedIds)) return false;
                                     $successCount = 0;
                                     try {
                                         // Process all selected IDs
-                                        foreach($selectedIds as $id) {
-                                            $result = KPTV::moveToType( $database, $id, 4 );
+                                        foreach ($selectedIds as $id) {
+                                            $result = KPTV::moveToType($database, $id, 4);
                                             if ($result) {
                                                 $successCount++;
                                             }
                                         }
-                                        var_dump($successCount);exit;
+                                        var_dump($successCount);
+                                        exit;
                                         // return
                                         return $successCount > 0;
-                                        
                                     } catch (\Exception $e) {
                                         $database->rollback();
                                         return false;
@@ -750,10 +776,10 @@ if (! class_exists('KPTV_Static')) {
                             'movevod' => [
                                 'icon' => 'video-camera',
                                 'title' => 'Move This Stream to VOD Streams',
-                                'callback' => function($rowId, $rowData, $database, $tableName) {
+                                'callback' => function ($rowId, $rowData, $database, $tableName) {
 
                                     // move the stream
-                                    return KPTV::moveToType( $database, $rowId, 4 );
+                                    return KPTV::moveToType($database, $rowId, 4);
                                 },
                                 'confirm' => 'Are you sure you want to move this stream?',
                                 'success_message' => 'The stream has been moved.',
@@ -792,10 +818,10 @@ if (! class_exists('KPTV_Static')) {
                             'movevod' => [
                                 'icon' => 'video-camera',
                                 'title' => 'Move This Stream to VOD Streams',
-                                'callback' => function($rowId, $rowData, $database, $tableName) {
+                                'callback' => function ($rowId, $rowData, $database, $tableName) {
 
                                     // move the stream
-                                    return KPTV::moveToType( $database, $rowId, 4 );
+                                    return KPTV::moveToType($database, $rowId, 4);
                                 },
                                 'confirm' => 'Are you sure you want to move this stream?',
                                 'success_message' => 'The stream has been moved.',
@@ -822,10 +848,10 @@ if (! class_exists('KPTV_Static')) {
                             'movelive' => [
                                 'icon' => 'tv',
                                 'title' => 'Move This Stream to Live Streams',
-                                'callback' => function($rowId, $rowData, $database, $tableName) {
+                                'callback' => function ($rowId, $rowData, $database, $tableName) {
 
                                     // move the stream
-                                    return KPTV::moveToType( $database, $rowId, 0 );
+                                    return KPTV::moveToType($database, $rowId, 0);
                                 },
                                 'confirm' => 'Are you sure you want to move this stream?',
                                 'success_message' => 'The stream has been moved.',
@@ -834,10 +860,10 @@ if (! class_exists('KPTV_Static')) {
                             'moveseries' => [
                                 'icon' => 'album',
                                 'title' => 'Move This Stream to Series Streams',
-                                'callback' => function($rowId, $rowData, $database, $tableName) {
+                                'callback' => function ($rowId, $rowData, $database, $tableName) {
 
                                     // move the stream
-                                    return KPTV::moveToType( $database, $rowId, 5 );
+                                    return KPTV::moveToType($database, $rowId, 5);
                                 },
                                 'confirm' => 'Are you sure you want to move this stream?',
                                 'success_message' => 'The stream has been moved.',
@@ -846,10 +872,10 @@ if (! class_exists('KPTV_Static')) {
                             'movevod' => [
                                 'icon' => 'video-camera',
                                 'title' => 'Move This Stream to VOD Streams',
-                                'callback' => function($rowId, $rowData, $database, $tableName) {
+                                'callback' => function ($rowId, $rowData, $database, $tableName) {
 
                                     // move the stream
-                                    return KPTV::moveToType( $database, $rowId, 4 );
+                                    return KPTV::moveToType($database, $rowId, 4);
                                 },
                                 'confirm' => 'Are you sure you want to move this stream?',
                                 'success_message' => 'The stream has been moved.',
@@ -858,10 +884,10 @@ if (! class_exists('KPTV_Static')) {
                             'moveother' => [
                                 'icon' => 'nut',
                                 'title' => 'Move This Stream to Other Streams',
-                                'callback' => function($rowId, $rowData, $database, $tableName) {
+                                'callback' => function ($rowId, $rowData, $database, $tableName) {
 
                                     // move the stream
-                                    return KPTV::moveToType( $database, $rowId, 99 );
+                                    return KPTV::moveToType($database, $rowId, 99);
                                 },
                                 'confirm' => 'Are you sure you want to move this stream?',
                                 'success_message' => 'The stream has been moved.',
@@ -900,10 +926,10 @@ if (! class_exists('KPTV_Static')) {
                             'movevod' => [
                                 'icon' => 'video-camera',
                                 'title' => 'Move This Stream to VOD Streams',
-                                'callback' => function($rowId, $rowData, $database, $tableName) {
+                                'callback' => function ($rowId, $rowData, $database, $tableName) {
 
                                     // move the stream
-                                    return KPTV::moveToType( $database, $rowId, 4 );
+                                    return KPTV::moveToType($database, $rowId, 4);
                                 },
                                 'confirm' => 'Are you sure you want to move this stream?',
                                 'success_message' => 'The stream has been moved.',
@@ -967,9 +993,17 @@ if (! class_exists('KPTV_Static')) {
                             'tab' => 'settings',
                         ],
                         // meta
+                        's_guide' => [
+                            'type' => 'select',
+                            'class' => 'uk-width-1-2',
+                            'label' => 'Guide',
+                            'options' => self::guide_types(),
+                            'default' => '0',
+                            'tab' => 'meta data',
+                        ],
                         's_channel' => [
                             'type' => 'text',
-                            'class' => 'uk-width-1-1',
+                            'class' => 'uk-width-1-2',
                             'label' => 'Channel',
                             'default' => '0',
                             'tab' => 'meta data',
