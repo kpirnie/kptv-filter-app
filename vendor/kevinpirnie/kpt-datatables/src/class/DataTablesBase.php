@@ -217,6 +217,22 @@ if (! class_exists('KPT\DataTablesBase', false)) {
          */
         protected array $whereConditions = [];
 
+        /**
+         * Filter configuration array for user-facing column filters
+         * Format: ['field' => 'operator'] or ['field' => ['operator' => '=', 'label' => 'My Field', 'type' => 'text', ...]]
+         *
+         * @var array
+         */
+        protected array $filterConfig = [];
+
+        /**
+         * Currently active filter values submitted by the user
+         * Populated from the incoming request, parallel to search state.
+         *
+         * @var array
+         */
+        protected array $activeFilters = [];
+
         /** @var string GROUP BY clause column */
         protected string $groupBy = '';
 
@@ -546,6 +562,26 @@ if (! class_exists('KPT\DataTablesBase', false)) {
         public function getGroupBy(): string
         {
             return $this->groupBy;
+        }
+
+        /** 
+         * Get the filter configuration for user-facing column filters
+         * 
+         * @return array Filter configuration 
+         */
+        public function getFilterConfig(): array
+        {
+            return $this->filterConfig;
+        }
+
+        /** 
+         * Get the active filter values
+         * 
+         * @return array Active filter values 
+         */
+        public function getActiveFilters(): array
+        {
+            return $this->activeFilters;
         }
 
         /**

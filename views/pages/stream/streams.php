@@ -62,10 +62,22 @@ $dt->table('kptv_streams s')
             'value' => ($type_value == 99) ? 0 : $active_value,
         ],
     ])
+    ->filter([
+        's_orig_name'  => ['operator' => 'LIKE', 'label' => 'Original Name', 'type' => 'text', 'placeholder' => 'Search by original name'],
+        'p.sp_name'    => ['operator' => 'LIKE', 'label' => 'Provider', 'type' => 'text', 'placeholder' => 'Search by provider'],
+        's_active'     => ['operator' => '=', 'label' => 'Active', 'type' => 'select', 'options' => ['1' => 'Yes', '0' => 'No']],
+        's_created_at' => [
+            'operator'    => 'BETWEEN',
+            'label'       => 'Created Between',
+            'type'        => 'date',
+            'placeholder' => '',
+        ],
+    ])
     ->tableClass('uk-table uk-table-divider uk-table-small uk-margin-bottom')
     ->columns([
         's.id' => 'ID',
         's_active' => ['label' => 'Act', 'type' => 'boolean'],
+        's_guide' => ['label' => 'Guide', 'type' => 'select', 'options' => \KPTV::guide_types()],
         's_channel' => 'Ch',
         's_name' => 'Name',
         's_orig_name' => 'Orig. Name',
@@ -75,13 +87,13 @@ $dt->table('kptv_streams s')
     ])
     ->columnClasses([
         's.id' => 'hide-col',
-        's_channel' => 'uk-min-width',
+        's_tvg_logo' => 'uk-min-width',
         's_tvg_id' => 'txt-truncate',
         'p.sp_name' => 'txt-truncate',
     ])
     ->sortable(['s_name', 's_channel', 's_tvg_id', 'p.sp_name'])
     ->defaultSort('s_name', 'ASC')
-    ->inlineEditable(['s_active', 's_channel', 's_name', 's_tvg_logo', 's_tvg_id', 's.u_id',])
+    ->inlineEditable(['s_active', 's_channel', 's_guide', 's_name', 's_tvg_logo', 's_tvg_id', 's.u_id',])
     ->perPage(25)
     ->pageSizeOptions([25, 50, 100, 250], true)
     ->bulkActions(true, $bulkActionsConfig[$type_filter])

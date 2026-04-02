@@ -23,7 +23,7 @@
         "ext-mbstring": "*",
         "ext-openssl": "*",
         "ext-pdo": "*",
-        "kevinpirnie/kpt-datatables": "^v2",
+        "kevinpirnie/kpt-datatables": "^2",
         "kevinpirnie/kpt-router": "^1.0",
         "phpmailer/phpmailer": "^7.0"
     },

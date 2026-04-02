@@ -11,7 +11,7 @@
 defined('KPTV_PATH') || die('Direct Access is not allowed!');
 
 // setup the user id
-$userId = KPTV_User::get_current_user()->id;
+$userId = \KPTV_User::get_current_user()->id;
 
 // Configure database via constructor
 $dbconf = (array) KPTV::get_setting('database');
@@ -20,7 +20,7 @@ $dbconf = (array) KPTV::get_setting('database');
 $dt = new \KPT\DataTables($dbconf);
 
 // setup the form fields
-$formFields = KPTV::view_configs('filters', userId: $userId)->form;
+$formFields = \KPTV::view_configs('filters', userId: $userId)->form;
 
 // configure the datatable
 $dt->table('kptv_stream_filters')
@@ -68,14 +68,14 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
 }
 
 // pull in the header
-KPTV::pull_header();
+\KPTV::pull_header();
 ?>
 <h2 class="kptv-heading uk-heading-bullet">Stream Filters</h2>
 <div class="uk-border-bottom">
     <?php
 
     // pull in the control panel
-    KPTV::include_view('common/control-panel', ['dt' => $dt]);
+    \KPTV::include_view('common/control-panel', ['dt' => $dt]);
     ?>
 </div>
 <div class="uk-margin">
@@ -89,13 +89,13 @@ KPTV::pull_header();
     <?php
 
     // pull in the control panel
-    KPTV::include_view('common/control-panel', ['dt' => $dt]);
+    \KPTV::include_view('common/control-panel', ['dt' => $dt]);
     ?>
 </div>
 <?php
 
 // pull in the footer
-KPTV::pull_footer();
+\KPTV::pull_footer();
 
 // clean up
 unset($dt, $formFields, $dbconf);
