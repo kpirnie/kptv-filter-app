@@ -62,6 +62,17 @@ $dt->table('kptv_streams s')
             'value' => ($type_value == 99) ? 0 : $active_value,
         ],
     ])
+    ->filter([
+        's_orig_name'  => ['operator' => 'LIKE', 'label' => 'Original Name', 'type' => 'text', 'placeholder' => 'Search by original name'],
+        'p.sp_name'    => ['operator' => 'LIKE', 'label' => 'Provider', 'type' => 'text', 'placeholder' => 'Search by provider'],
+        's_active'     => ['operator' => '=', 'label' => 'Active', 'type' => 'select', 'options' => ['1' => 'Yes', '0' => 'No']],
+        's_created_at' => [
+            'operator'    => 'BETWEEN',
+            'label'       => 'Created Between',
+            'type'        => 'date',
+            'placeholder' => '',
+        ],
+    ])
     ->tableClass('uk-table uk-table-divider uk-table-small uk-margin-bottom')
     ->columns([
         's.id' => 'ID',

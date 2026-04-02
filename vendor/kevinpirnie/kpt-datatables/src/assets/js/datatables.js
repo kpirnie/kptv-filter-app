@@ -35,6 +35,9 @@ class DataTablesJS {
         this.deleteId = null;
         this.selectedIds = new Set();
 
+        // Active filter values keyed by field name
+        this.activeFilters = [];
+
         // Initialize
         this.init();
     }
@@ -218,6 +221,7 @@ class DataTablesJS {
 
     // === EVENT BINDING ===
     bindEvents() {
+
         // Search input
         document.querySelectorAll('.datatables-search').forEach(searchInput => {
             let searchTimeout;
@@ -227,6 +231,17 @@ class DataTablesJS {
                     this.search = e.target.value;
                     this.currentPage = 1;
                     this.loadData();
+                }, 300);
+            });
+        });
+
+        // Filter inputs
+        document.querySelectorAll('.datatables-filter-input').forEach(input => {
+            let filterTimeout;
+            input.addEventListener('input', () => {
+                clearTimeout(filterTimeout);
+                filterTimeout = setTimeout(() => {
+                    this.applyFilters();
                 }, 300);
             });
         });
@@ -287,7 +302,8 @@ class DataTablesJS {
                 per_page: this.perPage,
                 search: this.search,
                 sort_column: this.sortColumn,
-                sort_direction: this.sortDirection
+                sort_direction: this.sortDirection,
+                filters: JSON.stringify(this.activeFilters)
             }
         );
 
@@ -323,7 +339,8 @@ class DataTablesJS {
         const params = new URLSearchParams({
             action: 'fetch_aggregations',
             table: this.tableName,
-            search: this.search
+            search: this.search,
+            filters: JSON.stringify(this.activeFilters)
         });
 
         fetch('?' + params.toString())
@@ -1049,6 +1066,71 @@ class DataTablesJS {
 
         // Reset search state and reload data
         this.search = '';
+        this.currentPage = 1;
+        this.loadData();
+    }
+
+    /**
+     * Collect filter input values from the DOM and trigger a debounced data reload.
+     * Builds the activeFilters array from all filter inputs currently rendered.
+     */
+    applyFilters() {
+        this.activeFilters = [];
+        const seen = {};
+
+        document.querySelectorAll('.datatables-filter-input').forEach(input => {
+            const field    = input.getAttribute('data-filter-field');
+            const operator = input.getAttribute('data-filter-operator');
+
+            if (input.value === '') return;
+
+            // Pair BETWEEN from/to into a single filter entry
+            if (operator === 'BETWEEN') {
+                if (!seen[field]) {
+                    seen[field] = { field, operator: 'BETWEEN', value: '', value_to: '' };
+                    this.activeFilters.push(seen[field]);
+                }
+                if (input.classList.contains('datatables-filter-between-from')) {
+                    seen[field].value    = input.value;
+                } else {
+                    seen[field].value_to = input.value;
+                }
+                return;
+            }
+
+            this.activeFilters.push({ field, operator, value: input.value, value_to: '' });
+        });
+
+        // Strip BETWEEN entries where both bounds are empty after pairing
+        this.activeFilters = this.activeFilters.filter(f => f.value !== '' || f.value_to !== '');
+
+        const count     = this.activeFilters.length;
+        const indicator = document.querySelector('.datatables-filter-count');
+        if (indicator) {
+            indicator.textContent = count > 0 ? count : '';
+            indicator.style.display = count > 0 ? 'inline' : 'none';
+        }
+
+        this.currentPage = 1;
+        this.loadData();
+    }
+
+    /**
+     * Clear all active filters and reload data.
+     */
+    resetFilters() {
+        document.querySelectorAll('.datatables-filter-input').forEach(input => {
+            input.value = '';
+        });
+
+        this.activeFilters = [];
+
+        const indicator = document.querySelector('.datatables-filter-count');
+        if (indicator) {
+            indicator.textContent = '';
+            indicator.style.display = 'none';
+        }
+
         this.currentPage = 1;
         this.loadData();
     }

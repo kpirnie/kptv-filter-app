@@ -31,9 +31,7 @@ if (! class_exists('KPT\Renderer', false)) {
          *
          * @param DataTables|null $dataTable Optional DataTables instance
          */
-        public function __construct(?DataTables $dataTable = null)
-        {
-        }
+        public function __construct(?DataTables $dataTable = null) {}
 
         /**
          * Render the complete DataTable HTML output
@@ -67,6 +65,7 @@ if (! class_exists('KPT\Renderer', false)) {
             $themeContainerClass = $tm->getClasses('container');
 
             $html = "<div class=\"{$containerClass} datatables-container {$themeContainerClass}\" data-table=\"{$tableName}\">\n";
+            $html .= $this->renderFilterAccordion();
             $html .= $this->renderTable();
             $html .= "</div>\n";
 
@@ -268,6 +267,201 @@ if (! class_exists('KPT\Renderer', false)) {
             $html .= "</button>\n</div>\n";
 
             return $html;
+        }
+
+        /**
+         * Render the collapsible filter accordion panel
+         *
+         * Only renders if filter configuration is present. Includes an active
+         * filter count badge in the header and a reset button when filters are applied.
+         *
+         * @return string HTML for the filter accordion
+         */
+        protected function renderFilterAccordion(): string
+        {
+            $filterConfig = $this->getFilterConfig();
+            if (empty($filterConfig)) {
+                return '';
+            }
+
+            $tm      = $this->getThemeManager();
+            $columns = $this->getColumns();
+            $schema  = $this->getTableSchema();
+
+            // Build accordion wrapper based on theme
+            if ($this->theme === 'uikit') {
+                $html = "<ul uk-accordion>\n<li>\n";
+                $html .= "<a class=\"uk-accordion-title\" href=\"#\">\n";
+                $html .= "<span>Filters</span>\n";
+                $html .= "<span class=\"datatables-filter-count uk-badge\" style=\"display:none;\"></span>\n";
+                $html .= "<a href=\"#\" class=\"uk-icon-link uk-margin-small-left\" onclick=\"DataTables.resetFilters(); return false;\" uk-icon=\"refresh\" uk-tooltip=\"Reset Filters\"></a>\n";
+                $html .= "</a>\n<div class=\"uk-accordion-content\">\n";
+                $html .= "<div class=\"uk-grid-small uk-child-width-auto\" uk-grid>\n";
+            } elseif ($this->theme === 'bootstrap') {
+                $html = "<div class=\"accordion mb-3\">\n<div class=\"accordion-item\">\n";
+                $html .= "<h2 class=\"accordion-header\">\n";
+                $html .= "<button class=\"accordion-button collapsed d-flex align-items-center\" type=\"button\" data-bs-toggle=\"collapse\" data-bs-target=\"#datatables-filter-panel\">\n";
+                $html .= "<span>Filters</span>\n";
+                $html .= "<span class=\"datatables-filter-count badge bg-primary ms-2\" style=\"display:none;\"></span>\n";
+                $html .= "<button type=\"button\" class=\"btn btn-sm btn-link ms-auto\" onclick=\"DataTables.resetFilters(); return false;\"><i class=\"bi bi-arrow-clockwise\"></i></button>\n";
+                $html .= "</button>\n</h2>\n";
+                $html .= "<div id=\"datatables-filter-panel\" class=\"accordion-collapse collapse\">\n";
+                $html .= "<div class=\"accordion-body\">\n<div class=\"row g-2\">\n";
+            } else {
+                // Plain / Tailwind
+                $s    = $this->theme === 'tailwind' ? '-tailwind' : '';
+                $html = "<div class=\"kp-dt-filter-accordion{$s}\">\n";
+                $html .= "<div class=\"kp-dt-filter-header{$s}\">\n";
+                $html .= "<button type=\"button\" class=\"kp-dt-filter-toggle{$s}\" onclick=\"this.closest('.kp-dt-filter-accordion{$s}').classList.toggle('kp-dt-filter-open{$s}')\">\n";
+                $html .= "<span>Filters</span>\n";
+                $html .= "<span class=\"datatables-filter-count kp-dt-badge{$s}\" style=\"display:none;\"></span>\n";
+                $html .= "<span class=\"kp-dt-filter-chevron{$s}\">&#8964;</span>\n";
+                $html .= "</button>\n";
+                $html .= "<button type=\"button\" class=\"kp-dt-filter-reset{$s}\" onclick=\"DataTables.resetFilters()\">" . $tm->getIcon('refresh') . "</button>\n";
+                $html .= "</div>\n<div class=\"kp-dt-filter-panel{$s}\">\n";
+                $html .= "<div class=\"kp-dt-grid kp-dt-grid-small\">\n";
+            }
+
+            // Render each configured filter field
+            foreach ($filterConfig as $field => $config) {
+
+                // Normalize shorthand (field => operator) to full config array
+                $config = $this->normalizeFilterConfig($config);
+
+                $operator    = strtoupper($config['operator'] ?? '=');
+                $placeholder = $config['placeholder'] ?? '';
+
+                // Resolve label: explicit config > matching columns() label > humanized field name
+                $unqualified = strpos($field, '.') !== false ? explode('.', $field)[1] : $field;
+                $label       = $config['label']
+                    ?? $columns[$field]
+                    ?? $columns[$unqualified]
+                    ?? ucwords(str_replace(['_', '-'], ' ', $unqualified));
+
+                // Resolve input type via three-layer cascade
+                $schemaInfo   = $schema[$unqualified] ?? $schema[$field] ?? [];
+                $detectedType = $schemaInfo['override_type'] ?? $schemaInfo['type'] ?? 'text';
+                $type         = $config['type'] ?? $detectedType;
+
+                $html .= "<div>\n";
+                $html .= "<label class=\"" . $tm->getClass('form.label') . "\">{$label}</label>\n";
+                $html .= $this->renderFilterInput($field, $operator, $type, $config, $placeholder, $schema);
+                $html .= "</div>\n";
+            }
+
+            // Close wrappers
+            if ($this->theme === 'uikit') {
+                $html .= "</div>\n</div>\n</li>\n</ul>\n";
+            } elseif ($this->theme === 'bootstrap') {
+                $html .= "</div>\n</div>\n</div>\n</div>\n</div>\n";
+            } else {
+                $html .= "</div>\n</div>\n</div>\n";
+            }
+
+            return $html;
+        }
+
+        /**
+         * Render a single filter input element based on operator and type
+         *
+         * @param  string $field       Qualified or unqualified field name
+         * @param  string $operator    SQL operator
+         * @param  string $type        Resolved input type
+         * @param  array  $config      Full filter config for this field
+         * @param  string $placeholder Placeholder text
+         * @param  array  $schema      Table schema for options lookup
+         * @return string HTML for the input element(s)
+         */
+        protected function renderFilterInput(string $field, string $operator, string $type, array $config, string $placeholder, array $schema): string
+        {
+            $tm          = $this->getThemeManager();
+            $inputClass  = $tm->getClasses('input')  . ' datatables-filter-input';
+            $selectClass = $tm->getClasses('select') . ' datatables-filter-input';
+            $dataAttrs   = "data-filter-field=\"{$field}\" data-filter-operator=\"{$operator}\"";
+
+            // BETWEEN renders two inputs
+            if ($operator === 'BETWEEN') {
+                $html  = "<input type=\"" . $this->filterInputType($type) . "\" class=\"{$inputClass} datatables-filter-between-from\" data-filter-field=\"{$field}\" data-filter-operator=\"BETWEEN\" placeholder=\"From\" style=\"margin-bottom:4px;\">\n";
+                $html .= "<input type=\"" . $this->filterInputType($type) . "\" class=\"datatables-filter-input datatables-filter-between-to\" data-filter-field=\"{$field}\" data-filter-operator=\"BETWEEN\" placeholder=\"To\">\n";
+                return $html;
+            }
+
+            // Boolean / select renders a dropdown with neutral option
+            $unqualified = strpos($field, '.') !== false ? explode('.', $field)[1] : $field;
+            $schemaInfo  = $schema[$unqualified] ?? $schema[$field] ?? [];
+
+            if ($type === 'boolean') {
+                $html  = "<select class=\"{$selectClass}\" {$dataAttrs}>\n";
+                $html .= "<option value=\"\">-- All --</option>\n";
+                $html .= "<option value=\"1\">Active</option>\n";
+                $html .= "<option value=\"0\">Inactive</option>\n";
+                $html .= "</select>\n";
+                return $html;
+            }
+
+            if ($type === 'select' && !empty($config['options'])) {
+                $html = "<select class=\"{$selectClass}\" {$dataAttrs}>\n";
+                $html .= "<option value=\"\">-- All --</option>\n";
+                foreach ($config['options'] as $val => $lbl) {
+                    $html .= "<option value=\"{$val}\">{$lbl}</option>\n";
+                }
+                $html .= "</select>\n";
+                return $html;
+            }
+
+            // IN / NOT IN get a text input with comma hint
+            if (in_array($operator, ['IN', 'NOT IN'])) {
+                $placeholder = $placeholder ?: 'value1, value2, ...';
+            }
+
+            return "<input type=\"" . $this->filterInputType($type) . "\" class=\"{$inputClass}\" {$dataAttrs} placeholder=\"{$placeholder}\">\n";
+        }
+
+        /**
+         * Map a schema/config type to an HTML input type attribute
+         *
+         * @param  string $type Resolved field type
+         * @return string HTML input type value
+         */
+        protected function filterInputType(string $type): string
+        {
+            return match ($type) {
+                'number'         => 'number',
+                'date'           => 'date',
+                'datetime-local' => 'datetime-local',
+                'email'          => 'email',
+                default          => 'text',
+            };
+        }
+
+        /**
+         * Normalize a single filter config entry to a full array
+         *
+         * Converts shorthand (field => operator) to full config array,
+         * ensuring all expected keys are present with safe defaults.
+         *
+         * @param  mixed $config Raw filter config value
+         * @return array Normalized filter config array
+         */
+        protected function normalizeFilterConfig(mixed $config): array
+        {
+            if (is_string($config)) {
+                return [
+                    'operator'    => $config,
+                    'label'       => '',
+                    'type'        => '',
+                    'placeholder' => '',
+                    'options'     => [],
+                ];
+            }
+
+            return array_merge([
+                'operator'    => '=',
+                'label'       => '',
+                'type'        => '',
+                'placeholder' => '',
+                'options'     => [],
+            ], $config);
         }
 
         /**
@@ -901,11 +1095,11 @@ if (! class_exists('KPT\Renderer', false)) {
                     $html .= ">\n";
 
                     // Add option if value is set
-                if (!empty($value)) {
-                    $html .= "<option value=\"{$value}\" selected>{$value}</option>\n";
-                } else {
-                    $html .= "<option value=\"\">{$placeholder}</option>\n";
-                }
+                    if (!empty($value)) {
+                        $html .= "<option value=\"{$value}\" selected>{$value}</option>\n";
+                    } else {
+                        $html .= "<option value=\"\">{$placeholder}</option>\n";
+                    }
 
                     $html .= "</select>\n";
                     break;
@@ -1124,8 +1318,7 @@ if (! class_exists('KPT\Renderer', false)) {
             $leadingCols = max(1, $leadingCols);
 
             // Trailing columns use only the data column offset
-            $trailingColKeys = array_slice($colKeys, $dataLeading);
-            ;
+            $trailingColKeys = array_slice($colKeys, $dataLeading);;
 
             $html = '';
 

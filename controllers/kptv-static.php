@@ -71,13 +71,20 @@ if (! class_exists('KPTV_Static')) {
                 '14' => 'Pluto',
                 '15' => 'Xumo',
                 '16' => 'Plex',
-                '17' => 'Other',
-                '18' => 'Glorystar',
-                '19' => 'Amazon',
-                '20' => 'Apple',
-                '21' => 'Peacock',
+                '17' => 'Glorystar',
+                '18' => 'Amazon',
+                '19' => 'Apple',
+                '20' => 'Peacock',
                 '22' => 'Freevee',
                 '23' => 'Tubi',
+                '24' => 'Crackle',
+                '25' => 'DistroTV',
+                '26' => 'Redbox',
+                '27' => 'Roku',
+                '28' => 'Vizio',
+                '29' => 'LG',
+
+                '99' => 'Other',
             ];
         }
 

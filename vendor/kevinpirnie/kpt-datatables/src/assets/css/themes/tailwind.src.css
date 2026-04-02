@@ -357,6 +357,50 @@
     .kp-dt-datepicker-wrap .kp-dt-datepicker-native {
         @apply hidden;
     }
+
+    .kp-dt-filter-accordion-tailwind {
+        @apply mb-5 border border-gray-200 rounded;
+    }
+
+    .kp-dt-filter-header-tailwind {
+        @apply flex items-center justify-between px-4 py-3 bg-gray-50;
+    }
+
+    .kp-dt-filter-toggle-tailwind {
+        @apply bg-transparent border-none cursor-pointer font-semibold text-gray-800;
+    }
+
+    .kp-dt-filter-reset-tailwind {
+        @apply bg-transparent border-none cursor-pointer text-gray-400;
+    }
+
+    .kp-dt-filter-reset-tailwind:hover {
+        @apply text-gray-600;
+    }
+
+    .kp-dt-filter-panel-tailwind {
+        @apply hidden p-4;
+    }
+
+    .kp-dt-filter-open-tailwind .kp-dt-filter-panel-tailwind {
+        @apply block;
+    }
+
+    .kp-dt-badge-tailwind {
+        @apply inline-block px-2 py-0.5 bg-blue-500 text-white rounded-full text-xs ml-2;
+    }
+
+    .kp-dt-filter-toggle-tailwind {
+        @apply flex items-center gap-2 bg-transparent border-none cursor-pointer font-semibold text-gray-800;
+    }
+
+    .kp-dt-filter-chevron-tailwind {
+        @apply inline-block transition-transform duration-200 text-lg;
+    }
+
+    .kp-dt-filter-open-tailwind .kp-dt-filter-chevron-tailwind {
+        @apply rotate-180;
+    }
 }
 
 @keyframes kp-dt-fade-in-tailwind {

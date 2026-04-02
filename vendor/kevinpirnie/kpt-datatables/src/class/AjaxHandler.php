@@ -413,11 +413,14 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 }
             }
 
+            // Sanitize and validate raw filter JSON from request
+            $filtersJson = $this->sanitizeJsonInput($_GET['filters'] ?? '[]');
+
             // Execute data query using fluent interface
-            $data = $this->executeDataQuery($search, $searchColumn, $sortColumn, $sortDirection, $page, $perPage);
+            $data  = $this->executeDataQuery($search, $searchColumn, $sortColumn, $sortDirection, $page, $perPage, $filtersJson);
 
             // Execute count query using fluent interface
-            $total = $this->executeCountQuery($search, $searchColumn);
+            $total = $this->executeCountQuery($search, $searchColumn, $filtersJson);
 
             // Extract total count from result
             $totalRecords = $total ? $total->total : 0;
@@ -454,10 +457,11 @@ if (! class_exists('KPT\AjaxHandler', false)) {
          * @param  string $sortDirection Sort direction - 'ASC' for ascending, 'DESC' for descending
          * @param  int    $page          Page number for pagination (1-based)
          * @param  int    $perPage       Number of records per page (0 for all records)
+         * @param  string $filtersJson   JSON string containing filter conditions (optional)
          * @return mixed                 Query result object or false on failure
          * @since  1.0.0
          */
-        private function executeDataQuery(string $search = '', string $searchColumn = '', string $sortColumn = '', string $sortDirection = 'ASC', int $page = 1, int $perPage = 25): mixed
+        private function executeDataQuery(string $search = '', string $searchColumn = '', string $sortColumn = '', string $sortDirection = 'ASC', int $page = 1, int $perPage = 25, string $filtersJson = '[]'): mixed
         {
             $selectFields = $this->getSelectFields();
             $tableName = $this->dataTable->getTableName();
@@ -514,6 +518,14 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 if (!empty($searchConditions)) {
                     $sql .= ($hasWhere ? ' AND ' : ' WHERE ') . '(' . implode(' OR ', $searchConditions) . ')';
                 }
+            }
+
+            // Apply user-facing filters on top of existing where() and search conditions
+            $filterClause = $this->buildFilterClause($filtersJson, $params);
+            if (!empty($filterClause)) {
+                // Determine correct joining keyword based on what precedes
+                $sql .= ($hasWhere || !empty($searchConditions)) ? ' AND ' : ' WHERE ';
+                $sql .= $filterClause;
             }
 
             // Add GROUP BY clause if configured
@@ -608,10 +620,11 @@ if (! class_exists('KPT\AjaxHandler', false)) {
          *
          * @param  string $search       Global search term to filter results
          * @param  string $searchColumn Specific column to search in (use 'all' for global search)
+         * @param  string $filtersJson  JSON string containing filter conditions (optional)
          * @return mixed                Query result object containing total count or false on failure
          * @since  1.0.0
          */
-        private function executeCountQuery(string $search = '', string $searchColumn = ''): mixed
+        private function executeCountQuery(string $search = '', string $searchColumn = '', string $filtersJson = '[]'): mixed
         {
             $tableName = $this->dataTable->getTableName();
 
@@ -674,6 +687,14 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 if (!empty($searchConditions)) {
                     $sql .= ($hasWhere ? ' AND ' : ' WHERE ') . '(' . implode(' OR ', $searchConditions) . ')';
                 }
+            }
+
+            // Apply user-facing filters on top of existing where() and search conditions
+            $filterClause = $this->buildFilterClause($filtersJson, $params);
+            if (!empty($filterClause)) {
+                // Determine correct joining keyword based on what precedes
+                $sql .= ($hasWhere || !empty($searchConditions)) ? ' AND ' : ' WHERE ';
+                $sql .= $filterClause;
             }
 
             // Wrap with GROUP BY subquery if configured
@@ -1248,6 +1269,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         {
             $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
             $searchColumn = $this->sanitizeColumnName($_GET['search_column'] ?? '');
+            $filtersJson = $this->sanitizeJsonInput($_GET['filters'] ?? '[]');
 
             $aggregations = $this->dataTable->getFooterAggregations();
             $calculatedColumns = $this->dataTable->getCalculatedColumns();
@@ -1317,6 +1339,13 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 }
             }
 
+            // Apply filters to aggregation query, consistent with data query
+            $filterClause = $this->buildFilterClause($filtersJson, $params);
+            if (!empty($filterClause)) {
+                $sql .= ($hasWhere || !empty($searchConditions)) ? ' AND ' : ' WHERE ';
+                $sql .= $filterClause;
+            }
+
             // Handle GROUP BY - must wrap as subquery for aggregating over grouped results
             $groupBy = $this->dataTable->getGroupBy();
             if (!empty($groupBy)) {
@@ -1365,6 +1394,13 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                     if (!empty($innerSearchConditions)) {
                         $innerSql .= (!empty($innerWhere) ? ' AND ' : ' WHERE ') . '(' . implode(' OR ', $innerSearchConditions) . ')';
                     }
+                }
+
+                // Apply filters to inner grouped subquery
+                $innerFilterClause = $this->buildFilterClause($filtersJson, $innerParams);
+                if (!empty($innerFilterClause)) {
+                    $innerSql .= (!empty($innerWhere) || !empty($innerSearchConditions)) ? ' AND ' : ' WHERE ';
+                    $innerSql .= $innerFilterClause;
                 }
 
                 $innerSql .= " GROUP BY {$groupExpr}";
@@ -1507,6 +1543,62 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private function sanitizeInput(string $input): string
         {
             return preg_replace('/[^a-zA-Z0-9_\-\.]/', '', trim($input));
+        }
+
+        /**
+         * Validate and sanitize a JSON filter input string
+         *
+         * Decodes, validates structure, whitelists operators, and sanitizes
+         * field names and values before re-encoding for safe downstream use.
+         *
+         * @param  mixed $input Raw input value
+         * @return string Sanitized JSON string
+         */
+        private function sanitizeJsonInput(mixed $input): string
+        {
+            if (!is_string($input) || strlen($input) > 10000) {
+                return '[]';
+            }
+
+            $decoded = json_decode($input, true);
+            if (!is_array($decoded)) {
+                return '[]';
+            }
+
+            $allowedOperators = ['=', '!=', '>', '>=', '<', '<=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN', 'BETWEEN', 'REGEXP'];
+            $sanitized = [];
+
+            foreach ($decoded as $filter) {
+                // Must be an array with required keys
+                if (!is_array($filter) || !isset($filter['field'], $filter['operator'])) {
+                    continue;
+                }
+
+                // Field names: alphanumeric, underscore, dot only (supports table.column)
+                $field = preg_replace('/[^a-zA-Z0-9_\.]/', '', $filter['field']);
+                if (empty($field)) {
+                    continue;
+                }
+
+                // Operator must be whitelisted
+                $operator = strtoupper(trim($filter['operator']));
+                if (!in_array($operator, $allowedOperators, true)) {
+                    continue;
+                }
+
+                // Sanitize value - trim but preserve content for SQL binding
+                $value   = isset($filter['value'])    ? trim((string)$filter['value'])    : '';
+                $valueTo = isset($filter['value_to']) ? trim((string)$filter['value_to']) : '';
+
+                $sanitized[] = [
+                    'field'    => $field,
+                    'operator' => $operator,
+                    'value'    => $value,
+                    'value_to' => $valueTo,
+                ];
+            }
+
+            return json_encode($sanitized);
         }
 
         /**
@@ -1738,6 +1830,92 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             }
 
             return !empty($whereParts) ? ' WHERE ' . implode(' AND ', $whereParts) : '';
+        }
+
+        /**
+         * Build SQL conditions from active filter parameters
+         *
+         * Parses the JSON filter payload and generates WHERE clause fragments.
+         * Layered on top of existing where() conditions, never replacing them.
+         *
+         * @param  string $filtersJson JSON-encoded array of {field, operator, value} objects
+         * @param  array  &$params     Parameters array to append bound values to
+         * @return string SQL condition string (without WHERE keyword), empty if no filters
+         */
+        private function buildFilterClause(string $filtersJson, array &$params): string
+        {
+            $filters = json_decode($filtersJson, true);
+            if (empty($filters) || !is_array($filters)) {
+                return '';
+            }
+
+            $parts = [];
+
+            foreach ($filters as $filter) {
+                $field    = $filter['field']    ?? '';
+                $operator = strtoupper($filter['operator'] ?? '');
+                $value    = $filter['value']    ?? '';
+                $valueTo  = $filter['value_to'] ?? ''; // BETWEEN upper bound
+
+                // Skip empty filter values, but allow 0
+                if ($value === '' && $valueTo === '') {
+                    continue;
+                }
+
+                // Build qualified or backtick-wrapped field expression
+                $fieldSql = strpos($field, '.') !== false ? $field : "`{$field}`";
+
+                switch ($operator) {
+                    case '=':
+                    case '!=':
+                    case '>':
+                    case '>=':
+                    case '<':
+                    case '<=':
+                        $parts[]  = "{$fieldSql} {$operator} ?";
+                        $params[] = $value;
+                        break;
+
+                    case 'LIKE':
+                    case 'NOT LIKE':
+                        $parts[]  = "{$fieldSql} {$operator} ?";
+                        $params[] = '%' . $value . '%';
+                        break;
+
+                    case 'IN':
+                    case 'NOT IN':
+                        $values = array_filter(array_map('trim', explode(',', $value)));
+                        if (empty($values)) {
+                            continue 2;
+                        }
+                        $placeholders = implode(',', array_fill(0, count($values), '?'));
+                        $parts[]      = "{$fieldSql} {$operator} ({$placeholders})";
+                        $params       = array_merge($params, array_values($values));
+                        break;
+
+                    case 'BETWEEN':
+                        // Apply single-bound if only one side is filled
+                        if ($value !== '' && $valueTo !== '') {
+                            $parts[]  = "{$fieldSql} BETWEEN ? AND ?";
+                            $params[] = $value;
+                            $params[] = $valueTo;
+                        } elseif ($value !== '') {
+                            $parts[]  = "{$fieldSql} >= ?";
+                            $params[] = $value;
+                        } elseif ($valueTo !== '') {
+                            $parts[]  = "{$fieldSql} <= ?";
+                            $params[] = $valueTo;
+                        }
+                        break;
+
+                    case 'REGEXP':
+                        $parts[]  = "{$fieldSql} REGEXP ?";
+                        $params[] = $value;
+                        break;
+                }
+            }
+
+            return implode(' AND ', $parts);
         }
 
         /**

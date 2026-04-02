@@ -458,6 +458,22 @@ if (! class_exists('KPT\DataTables', false)) {
         }
 
         /**
+         * Configure user-facing column filters
+         *
+         * Accepts shorthand (field => operator) or full config arrays per field.
+         * Supports qualified dot-notation keys for joined table columns.
+         *
+         * @param  array $filters Array of filter configurations
+         * @return self Returns self for method chaining
+         */
+        public function filter(array $filters): self
+        {
+            $this->filterConfig = $filters;
+            Logger::debug("DataTables filters configured", ['filter_count' => count($filters)]);
+            return $this;
+        }
+
+        /**
          * Define which columns can be sorted by users
          *
          * Only columns specified here will have clickable headers with sort indicators.
@@ -1032,6 +1048,16 @@ if (! class_exists('KPT\DataTables', false)) {
         public function renderSearchFormComponent(): string
         {
             return $this->renderSearchForm();
+        }
+
+        /**
+         * Render the filter accordion component
+         *
+         * @return string HTML for the filter accordion panel
+         */
+        public function renderFilterAccordionComponent(): string
+        {
+            return $this->renderFilterAccordion();
         }
 
         /**
