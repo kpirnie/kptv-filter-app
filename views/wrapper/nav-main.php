@@ -14,6 +14,9 @@
 // define the primary app path if not already defined
 defined('KPTV_PATH') || die('Direct Access is not allowed!');
 
+// compute export token for sidebar links
+$currentUser = KPTV_User::get_current_user() ?: null;
+$user_for_export = KPTV::encryptForUrl($currentUser?->id ?: 0);
 ?>
 
 <!-- Navigation -->

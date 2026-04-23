@@ -69,7 +69,7 @@ $get_static_routes = [
         'path' => '/',
         'handler' => 'view:pages/home.php',
         'should_cache' => true,
-        'cache_length' => KPTV::DAY_IN_SECONDS
+        'cache_length' => \KPT\DateTime::DAY_IN_SECONDS
     ],
     // Stream FAQ
     [
@@ -77,7 +77,7 @@ $get_static_routes = [
         'path' => '/streams/faq',
         'handler' => 'view:pages/stream/faq.php',
         'should_cache' => true,
-        'cache_length' => KPTV::DAY_IN_SECONDS
+        'cache_length' => \KPT\DateTime::DAY_IN_SECONDS
     ],
     // Account FAQ
     [
@@ -85,7 +85,7 @@ $get_static_routes = [
         'path' => '/users/faq',
         'handler' => 'view:pages/users/faq.php',
         'should_cache' => true,
-        'cache_length' => KPTV::DAY_IN_SECONDS
+        'cache_length' => \KPT\DateTime::DAY_IN_SECONDS
     ],
 
 ];
@@ -240,7 +240,7 @@ $get_stream_routes = [
         'method' => 'GET',
         'path' => '/movie/{username}/{password}/{streamId}',
         'handler' => 'KPTV_Xtream_API@handleStreamRedirect',
-           'should_cache' => false,
+        'should_cache' => false,
     ],
     [
         'method' => 'GET',
@@ -259,7 +259,7 @@ $get_admin_routes = [
         'path' => '/terms-of-use',
         'handler' => 'view:pages/terms.php',
         'should_cache' => true,
-        'cache_length' => KPTV::DAY_IN_SECONDS
+        'cache_length' => \KPT\DateTime::DAY_IN_SECONDS
     ],
 ];
 
@@ -377,7 +377,7 @@ $routes = array_merge(
 // Setup the cache settings
 $routesFile = __FILE__;
 $cacheKey = 'compiled_routes_' . md5($routesFile . filemtime($routesFile));
-$cacheTTL = KPTV::DAY_IN_SECONDS; // Cache for 1 day
+$cacheTTL = \KPT\DateTime::DAY_IN_SECONDS; // Cache for 1 day
 
 // Try to get cached routes (NOTE: We can't cache middleware definitions with closures)
 $cachedData = \KPT\Cache::get($cacheKey);
@@ -437,9 +437,9 @@ $router->addMiddleware(function () {
     if (! $enabled) return true;
 
     // Check if client IP is in any allowed CIDR range
-    $clientIp = KPTV::get_user_ip();
+    $clientIp = \KPT\Http::getUserIp();
     foreach ($allowedIPs as $allowed) {
-        if (KPTV::cidrMatch($clientIp, $allowed)) {
+        if (\KPT\Http::cidrMatch($clientIp, $allowed)) {
             return true;
         }
     }
@@ -470,7 +470,7 @@ $router->notFound(function () {
     // Log the 404 error
     $uri = $_SERVER['REQUEST_URI'] ?? 'unknown';
     $method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
-    $ip = KPTV::get_user_ip();
+    $ip = \KPT\Http::getUserIp();
     error_log("404 Error: $method $uri from $ip");
 
     // Check if it's an API request

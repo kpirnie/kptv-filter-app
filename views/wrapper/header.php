@@ -19,7 +19,7 @@ $current_route = \KPT\Router::getCurrentRoute();
 
 // get the current user and role
 $currentUser = KPTV_User::get_current_user() ?: null;
-$user_for_export = KPTV::encrypt($currentUser?->id ?: 0);
+$user_for_export = KPTV::encryptForUrl($currentUser?->id ?: 0);
 $user_role = $currentUser?->role ?: 0;
 
 // hold the route path

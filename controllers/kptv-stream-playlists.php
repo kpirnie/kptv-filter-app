@@ -108,7 +108,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
         {
 
             // setup the provider and user
-            $user = KPTV::decrypt($user);
+            $user = KPTV::decryptFromUrl($user);
 
             // if we need to get all
             if ($which === 50) {
@@ -163,7 +163,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
         {
 
             // setup the user
-            $user = KPTV::decrypt($user);
+            $user = KPTV::decryptFromUrl($user);
 
             // if we need to get all
             if ($which === 50) {
@@ -221,7 +221,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
             if ($records) {
 
                 // hold the user
-                $user = KPTV::decrypt($user);
+                $user = KPTV::decryptFromUrl($user);
 
                 // set the mimetype and filename to download
                 header('Content-Type: application/mpegurl');

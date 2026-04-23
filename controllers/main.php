@@ -11,15 +11,25 @@
  * 
  */
 
-// try to manage the session as early as possible
-/*session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'domain' => 'app.kptv.im',
-    'secure' => isset($_SERVER['HTTPS']),
-    'httponly' => true,
-    'samesite' => 'Lax'
-]);*/
+/*
+// catch fatal errors before logger is available
+register_shutdown_function(function () {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        error_log(sprintf(
+            'KPTV FATAL [%s:%d] %s',
+            $err['file'],
+            $err['line'],
+            $err['message']
+        ));
+    }
+});
+
+// force raw PHP errors to the server log during bootstrap
+@ini_set('log_errors', 1);
+@ini_set('display_errors', 0);
+error_reporting(E_ALL);
+*/
 
 // hold the app path
 $appPath = dirname(__FILE__, 2) . '/';
@@ -36,6 +46,19 @@ if (! class_exists('KPTV')) {
     // redeclare this
     class KPTV extends KPTV_Static {}
 }
+
+// ensure the cache directory exists and is writable
+$cachePath = KPTV_PATH . '.cache/';
+if (! is_dir($cachePath)) {
+    mkdir($cachePath, 0755, true);
+}
+
+// configure the cache BEFORE get_full_config() is called
+\KPT\Cache::configure([
+    'path'             => $cachePath,
+    'prefix'           => KPTV::get_cache_prefix(),
+    'allowed_backends' => ['array', 'opcache', 'file', 'redis', 'memcached'],
+]);
 
 // hold our full config to avoid repeated lookups
 $_config = KPTV::get_full_config();
@@ -57,13 +80,6 @@ $_db = $_config->database ?? new stdClass();
 
 // hold the database config in the global config for easy access
 $_config->database = $_db;
-
-// configure the cache
-\KPT\Cache::configure([
-    'path' => KPTV_PATH . '.cache/',
-    'prefix' => KPTV::get_cache_prefix(),
-    'allowed_backends' => ['array', 'opcache', 'file', 'redis', 'memcached'], // also: redis, memcached, apcu, yac, mysql, sqlite, shmop, file
-]);
 
 // define the app URI
 defined('KPTV_URI') || define('KPTV_URI', rtrim((string)($_config->mainuri ?? ''), '/') . '/');

@@ -211,8 +211,8 @@ if (! class_exists('KPTV_User')) {
             if (! \KPT\Validate::username($username)) {
                 $errors[] = 'The username you have typed in is not valid.';
             }
-            if (! \KPT\Validate::passwordStrength($password)) {
-                $errors[] = 'The password you typed is not valid.';
+            if (empty(trim($password))) {
+                $errors[] = 'Please enter your password.';
             }
 
             // if the errors aren't empty

@@ -14,7 +14,7 @@ defined('KPTV_PATH') || die('Direct Access is not allowed!');
 $userId = KPTV_User::get_current_user()->id;
 
 // setup the user string
-$userForExport = KPTV::encrypt($userId);
+$userForExport = KPTV::encryptForUrl($userId);
 
 // Configure database via constructor
 $dbconf = (array) KPTV::get_setting('database');

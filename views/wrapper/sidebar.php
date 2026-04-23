@@ -19,6 +19,10 @@ ob_start();
 
 // is there a logged in user?
 if (KPTV_User::is_user_logged_in()):
+
+    // compute export token for sidebar links
+    $currentUser = KPTV_User::get_current_user() ?: null;
+    $user_for_export = KPTV::encryptForUrl($currentUser?->id ?: 0);
 ?>
 
     <li class="uk-nav-header">STREAM MANAGER</li>

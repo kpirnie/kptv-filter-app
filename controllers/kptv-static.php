@@ -1346,7 +1346,12 @@ if (! class_exists('KPTV_Static')) {
 
             // setup the message
             $_SESSION['page_msg']['type'] = $_msg_type;
-            $_SESSION['page_msg']['msg'] = sprintf('<p>%s</p>', $_msg);
+            $_SESSION['page_msg']['msg']  = sprintf('<p>%s</p>', $_msg);
+
+            // build absolute URL if a relative path was passed
+            if (str_starts_with($_location, '/')) {
+                $_location = rtrim(KPTV_URI, '/') . $_location;
+            }
 
             // redirect
             \KPT\Http::tryRedirect($_location);
@@ -2014,6 +2019,22 @@ if (! class_exists('KPTV_Static')) {
 
             // return them
             return $ret;
+        }
+
+        /**
+         * Encrypt a value and return URL-safe base64
+         */
+        public static function encryptForUrl(string $_val): string
+        {
+            return rtrim(strtr(self::encrypt($_val), '+/', '-_'), '=');
+        }
+
+        /**
+         * Decrypt a URL-safe base64 encrypted value
+         */
+        public static function decryptFromUrl(string $_val): string
+        {
+            return self::decrypt(strtr($_val, '-_', '+/'));
         }
     }
 }
