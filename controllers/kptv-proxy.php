@@ -59,7 +59,6 @@ class KPTV_Proxy
 
             // Get and validate URL
             $this->url = \KPT\Sanitize::url($_GET['url']);
-
             if ($this->url === '') {
                 $this->sendError('No URL provided', 400);
                 return;
@@ -107,33 +106,20 @@ class KPTV_Proxy
      */
     private function handleM3U8(): void
     {
-        $ch = curl_init($this->url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS => MAX_REDIRECTS,
-            CURLOPT_CONNECTTIMEOUT => PROXY_CONNECT_TIMEOUT,
-            CURLOPT_TIMEOUT => PROXY_REQUEST_TIMEOUT,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-            CURLOPT_SSL_VERIFYPEER => PROXY_SSL_VERIFY,
-            CURLOPT_SSL_VERIFYHOST => PROXY_SSL_VERIFY ? 2 : 0,
-            CURLOPT_HTTPHEADER => [
-                'Connection: keep-alive',
-                'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept: application/vnd.apple.mpegurl, application/x-mpegURL, */*',
-            ],
-            CURLOPT_NOBODY => $this->requestMethod === 'HEAD',
-        ]);
 
-        $content = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        // setup the headers
+        $headers = [
+            'Connection'  => 'keep-alive',
+            'User-Agent'  => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept'      => 'application/vnd.apple.mpegurl, application/x-mpegURL, */*',
+        ];
 
-        if ($httpCode < 200 || $httpCode >= 400 || $content === false) {
-            $this->sendError('Failed to fetch playlist', 502);
+        // get the response and hold the content
+        $rsp = \KPT\Curl::safeGet($this->url, ['headers' => $headers]);
+        if (\KPT\Curl::retrieveResponseCode($rsp) != 200) {
             return;
         }
+        $content = \KPT\Curl::retrieveBody($rsp);
 
         // Send response with appropriate headers
         header('Access-Control-Allow-Origin: *');
@@ -144,10 +130,6 @@ class KPTV_Proxy
         header('Cache-Control: no-cache, no-store, must-revalidate');
         header('Pragma: no-cache');
         header('Expires: 0');
-
-        if ($this->requestMethod === 'HEAD') {
-            return;
-        }
 
         // Process playlist - convert relative URLs to absolute via proxy
         echo $this->processM3U8((string)$content);
@@ -372,15 +354,6 @@ class KPTV_Proxy
         header('Content-Type: text/plain');
         header('Access-Control-Allow-Origin: *');
         echo $message;
-    }
-
-    private function isPublicIp(string $ip): bool
-    {
-        return (bool)filter_var(
-            $ip,
-            FILTER_VALIDATE_IP,
-            FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-        );
     }
 }
 

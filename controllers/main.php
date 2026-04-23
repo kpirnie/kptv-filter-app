@@ -74,7 +74,7 @@ defined('KPTV_XC_URI') || define('KPTV_XC_URI', $_config->xcuri ?? '');
 defined('APP_NAME') || define('APP_NAME', $_config->appname ?? 'KPTV');
 
 // try to manage the session as early as possible
-KPTV::manage_the_session();
+\KPT\Session::start();
 
 // setup our environment
 $_debug = (bool)($_config->debug_app ?? false);

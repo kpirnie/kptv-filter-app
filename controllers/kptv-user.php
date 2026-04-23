@@ -786,7 +786,7 @@ if (! class_exists('KPTV_User')) {
          */
         private function processPasswordReset(string $username, string $email): void
         {
-            $newPassword = KPTV::generate_password();
+            $newPassword = \KPT\Crypto::generatePassword();
 
             // Hash password directly - NO ENCRYPTION
             $passwordHash = password_hash($newPassword, self::HASH_ALGO, self::HASH_OPTIONS);
@@ -879,7 +879,7 @@ if (! class_exists('KPTV_User')) {
          */
         private function processErrors(array $errors): void
         {
-            $referrer = KPTV::get_user_referer();
+            $referrer = \KPT\Http::getUserReferer();
             $message = '<ul class="uk-list uk-list-disc">';
 
             foreach ($errors as $error) {

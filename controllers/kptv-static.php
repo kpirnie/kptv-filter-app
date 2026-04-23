@@ -39,18 +39,6 @@ if (! class_exists('KPTV_Static')) {
     {
 
         /**
-         * These are our static time constants
-         * They look familiar, because we're mimicing Wordpress's
-         * time constants
-         */
-        const MINUTE_IN_SECONDS = 60;
-        const HOUR_IN_SECONDS = (self::MINUTE_IN_SECONDS * 60);
-        const DAY_IN_SECONDS = (self::HOUR_IN_SECONDS * 24);
-        const WEEK_IN_SECONDS = (self::DAY_IN_SECONDS * 7);
-        const MONTH_IN_SECONDS = (self::DAY_IN_SECONDS * 30);
-        const YEAR_IN_SECONDS = (self::DAY_IN_SECONDS * 365);
-
-        /**
          * Just something to specify the types of guides
          * This is more for me than anyone else, that way I can 
          * easily figure out which guide to use in Emby
@@ -1172,29 +1160,6 @@ if (! class_exists('KPTV_Static')) {
         }
 
         /** 
-         * days_in_between
-         * 
-         * Populate a message with our redirect
-         * 
-         * @since 8.4
-         * @access public
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_date1 The first date
-         * @param string $_date2 The second date
-         * 
-         * @return int This method returns the number of days between 2 dates
-         * 
-         */
-        public static function days_in_between($_date1, $_date2): int
-        {
-
-            //return the difference between the 2 dates
-            return date_diff(date_create($_date1), date_create($_date2))->format('%a');
-        }
-
-        /** 
          * active_link
          * 
          * Just gets if we're in a "page"
@@ -1337,71 +1302,6 @@ if (! class_exists('KPTV_Static')) {
         }
 
         /** 
-         * time_ago
-         * 
-         * How long ago
-         * 
-         * @since 8.4
-         * @access public
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         */
-        public static function time_ago(string $datetime): string
-        {
-            $time = strtotime($datetime);
-            $diff = time() - $time;
-
-            if ($diff < 60) {
-                return $diff . ' Seconds Ago';
-            }
-
-            if ($diff < 3600) {
-                return floor($diff / 60) . ' Minutes Ago';
-            }
-
-            if ($diff < 86400) {
-                return floor($diff / 3600) . ' Hours Ago';
-            }
-
-            if ($diff < 604800) {
-                return floor($diff / 86400) . ' Days Ago';
-            }
-
-            // Beyond a week, show the date
-            return date('M j', $time);
-        }
-
-        /** 
-         * manage_the_session
-         * 
-         * Attempt to manage our session
-         * 
-         * @since 8.3
-         * @access public
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @return void This method returns nothing
-         * 
-         */
-        public static function manage_the_session(): void
-        {
-
-            // check if the session has been started
-            if (session_status() !== PHP_SESSION_ACTIVE) {
-                session_start();
-            }
-
-            // Force session write and close to prevent locks
-            register_shutdown_function(function () {
-                if (session_status() === PHP_SESSION_ACTIVE) {
-                    session_write_close();
-                }
-            });
-        }
-
-        /** 
          * selected
          * 
          * Output "selected" for a drop-down
@@ -1449,56 +1349,7 @@ if (! class_exists('KPTV_Static')) {
             $_SESSION['page_msg']['msg'] = sprintf('<p>%s</p>', $_msg);
 
             // redirect
-            KPTV::try_redirect($_location);
-        }
-
-        /** 
-         * try_redirect
-         * 
-         * Try to redirect
-         * 
-         * @since 8.4
-         * @access public
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_location The page we want to try to redirect to
-         * @param int $_status The HTTP status code used for the redirection: default 301 permanent
-         * 
-         * @return void This method returns nothing
-         * 
-         */
-        public static function try_redirect(string $location, int $status = 301): void
-        {
-
-            // setup an error handler to handle the possible PHP warning you could get for modifying headers after output
-            set_error_handler(function ($errno, $errstr, $errfile, $errline) {
-
-                // make sure it throws an exception here
-                throw new \ErrorException($errstr, 0, $errno, $errfile, $errline);
-            }, E_WARNING);
-
-            // now we can setup a trap to catch the warning
-            try {
-
-                // try to redirect
-                header("Location: $location", true, $status);
-
-                // caught it!
-            } catch (\ErrorException $e) {
-
-                // escape the location for output
-                $escapedLocation = json_encode($location, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
-
-                // use javascript to do the redirect instead, as a fallback
-                echo '<script type="text/javascript">setTimeout( function( ) { window.location.href="' . $escapedLocation . '"; }, 100 );</script>';
-            }
-
-            // return the default error handler
-            restore_error_handler();
-
-            // now we need to kill anything extra after we do all of this
-            exit;
+            \KPT\Http::tryRedirect($_location);
         }
 
         /** 
@@ -1556,7 +1407,7 @@ if (! class_exists('KPTV_Static')) {
                 $content = file_get_contents($configPath);
 
                 // now set it to cache
-                \KPT\Cache::set('kptv_config', $content, self::DAY_IN_SECONDS);
+                \KPT\Cache::set('kptv_config', $content, \KPT\DateTime::DAY_IN_SECONDS);
             }
 
             // now, decode it so we can use it
@@ -1653,155 +1504,6 @@ if (! class_exists('KPTV_Static')) {
         }
 
         /** 
-         * get_ordinal
-         * 
-         * Static method for formatting a number as an ordinal number string
-         * ie: 1st, 32nd, 100th, etc...
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param int $_num The number to be formatted
-         * 
-         * @return string Returns the ordinal formatted number string
-         * 
-         */
-        public static function get_oridinal(int $_num): ?string
-        {
-
-            // return the ordinal formatted number
-            return $_num . substr(date('jS', mktime(0, 0, 0, 1, ($_num % 10 == 0 ? 9 : ($_num % 100 > 20 ? $_num % 10 : $_num % 100)), 2000)), -2);
-        }
-
-        /** 
-         * find_in_array
-         * 
-         * Static method for determining if a string is in an array
-         * search is case-insensitive
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_needle The string to find
-         * @param array $_haystack The array to search
-         * 
-         * @return bool Returns if the string was found or not
-         * 
-         */
-        public static function find_in_array(string $_needle, array $_haystack): bool
-        {
-
-            // see if our item is in any haystack
-            return array_any(
-                $_haystack,
-                fn($_item) => stripos($_item, $_needle) !== false
-            );
-        }
-
-        /** 
-         * multidim_array_sort
-         * 
-         * Static method for sorting a multi-dimensional array
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param array &$_array ByRef array to be sorted
-         * @param string $_subkey String to sort the array by
-         * @param bool $_sort_asc Boolean to determine the sort order
-         * 
-         */
-        public static function multidim_array_sort(array &$_array, string $_subkey = "id", bool $_sort_asc = false)
-        {
-
-            // make sure there is at least 1 item
-            if (count($_array))
-                $temp_array[key($_array)] = array_shift($_array);
-
-            // loop the array
-            foreach ($_array as $key => $val) {
-
-                // hold the offset
-                $offset = 0;
-
-                // hold the "found"
-                $found = false;
-
-                // loop over the inner keys
-                foreach ($temp_array as $tmp_key => $tmp_val) {
-
-                    // if found and the orignating key equals the found key
-                    if (! $found and strtolower($val[$_subkey]) > strtolower($tmp_val[$_subkey])) {
-
-                        // merge the arrays
-                        $temp_array = array_merge((array) array_slice($temp_array, 0, $offset), array($key => $val), array_slice($temp_array, $offset));
-
-                        // return true
-                        $found = true;
-                    }
-
-                    // increment the offset
-                    $offset++;
-                }
-
-                // if not found, merge
-                if (! $found) $temp_array = array_merge($temp_array, array($key => $val));
-            }
-
-            // if asc, reverse the sort
-            if ($_sort_asc) $_array = array_reverse($temp_array);
-
-            // otherwise we're good to go
-            else $_array = $temp_array;
-        }
-
-        /** 
-         * object_to_array
-         * 
-         * Static method for converting an object to an array
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param object $_val The object to be converted
-         * 
-         * @return array Returns the converted array
-         * 
-         */
-        public static function object_to_array(object $_val): array
-        {
-
-            // hold the returnable array
-            $result = array();
-
-            // if there is an object to be converted
-            if ($_val && is_object($_val)) {
-
-                // loop over the object properties
-                foreach ($_val as $key => $value) {
-
-                    // if the value is an array or object, convert it
-                    $result[$key] = (is_array($value) || is_object($value)) ? self::object_to_array($value) : $value;
-                }
-            }
-
-            // return the converted array
-            return $result;
-        }
-
-        /** 
          * encrypt
          * 
          * Static method for encrypting a string utilizing openssl libraries
@@ -1821,36 +1523,12 @@ if (! class_exists('KPTV_Static')) {
         public static function encrypt(string $_val): string
         {
 
-            // hold our return
-            $_ret = '';
-
-            // compress our value
-            $_val = gzcompress($_val);
-
-            // make sure the openssl library exists
-            if (! function_exists('openssl_encrypt')) {
-
-                // it does not, so all we can really do is base64encode the string
-                $_ret = base64_encode($_val);
-
-                // otherwise
-            } else {
-
-                // the encryption method
-                $_enc_method = "AES-256-CBC";
-
-                // generate a key based on the _key
-                $_the_key = hash('sha256', self::get_setting('mainkey'));
-
-                // generate an initialization vector based on the _secret
-                $_iv = substr(hash('sha256', self::get_setting('mainsecret')), 0, 16);
-
-                // return the base64 encoded version of our encrypted string
-                $_ret = base64_encode(openssl_encrypt($_val, $_enc_method, $_the_key, 0, $_iv));
-            }
-
-            // return our string
-            return $_ret;
+            // return the encrypted string
+            return \KPT\Crypto::encrypt(
+                $_val,
+                self::get_setting('mainkey'),
+                self::get_setting('mainsecret')
+            );
         }
 
         /** 
@@ -1873,301 +1551,11 @@ if (! class_exists('KPTV_Static')) {
         public static function decrypt(string $_val): string
         {
 
-            // hold our return
-            $_ret = '';
-
-            // make sure the openssl library exists
-            if (! function_exists('openssl_decrypt')) {
-
-                // it does not, so all we can really do is base64decode the string
-                $_ret = base64_decode($_val);
-
-                // otherwise
-            } else {
-
-                // the encryption method
-                $_enc_method = "AES-256-CBC";
-
-                // generate a key based on the _key
-                $_the_key = hash('sha256', self::get_setting('mainkey'));
-
-                // generate an initialization vector based on the _secret
-                $_iv = substr(hash('sha256', self::get_setting('mainsecret')), 0, 16);
-
-                // return the decrypted string
-                $_ret = openssl_decrypt(base64_decode($_val), $_enc_method, $_the_key, 0, $_iv);
-            }
-
-            // return our string
-            return ($_ret) ? gzuncompress($_ret) : '';
-        }
-
-        /** 
-         * generate_password
-         * 
-         * Generates a random "password" string
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param int $_min_length The minimum lenght string to generate. Default 32
-         * 
-         * @return string The randomly generated string
-         * 
-         */
-        public static function generate_password(int $_min_length = 32): string
-        {
-
-            // hold the character set
-            $alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%*';
-
-            // setup the randomizer
-            $randomizer = new \Random\Randomizer(new \Random\Engine\Secure());
-
-            // hold the length of the character set
-            $length = $randomizer->getInt($_min_length, 64);
-
-            // return the random string
-            return $randomizer->getBytesFromString($alphabet, $length);
-        }
-
-        /** 
-         * generate_rand_string
-         * 
-         * Generates a random "password" string
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param int $_min_length The minimum lenght string to generate. Default 8
-         * 
-         * @return string The randomly generated string
-         * 
-         */
-        public static function generate_rand_string(int $_min_length = 8): string
-        {
-
-            // hold the character set
-            $alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890';
-
-            // setup the randomizer
-            $randomizer = new \Random\Randomizer(new \Random\Engine\Secure());
-
-            // hold the length of the character set
-            $length = $randomizer->getInt($_min_length, 64);
-
-            // return the random string
-            return $randomizer->getBytesFromString($alphabet, $length);
-        }
-
-        /** 
-         * get_user_uri
-         * 
-         * Gets the current users URI that was attempted
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @return string Returns a string containing the URI
-         * 
-         */
-        public static function get_user_uri(): string
-        {
-
-            // return the current URL
-            return filter_var((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'], FILTER_SANITIZE_URL);
-        }
-
-        /** 
-         * get_user_ip
-         * 
-         * Gets the current users public IP address
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @return string Returns a string containing the users public IP address
-         * 
-         */
-        public static function get_user_ip(): string
-        {
-
-            // check if we've got a client ip header, and if it's valid
-            if (isset($_SERVER['HTTP_CLIENT_IP']) && filter_var($_SERVER['HTTP_CLIENT_IP'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-
-                // return it
-                return filter_var($_SERVER['HTTP_CLIENT_IP'], FILTER_SANITIZE_URL);
-
-                // maybe they're proxying?
-            } elseif (isset($_SERVER['HTTP_X_FORWARDED_FOR']) && filter_var($_SERVER['HTTP_X_FORWARDED_FOR'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-
-                // return it
-                return filter_var($_SERVER['HTTP_X_FORWARDED_FOR'], FILTER_SANITIZE_URL);
-
-                // if all else fails, this should exist!
-            } elseif (isset($_SERVER['REMOTE_ADDR']) && filter_var($_SERVER['REMOTE_ADDR'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-
-                // return it
-                return filter_var($_SERVER['REMOTE_ADDR'], FILTER_SANITIZE_URL);
-            }
-
-            // default return
-            return '';
-        }
-
-        /** 
-         * cidrMatch
-         * 
-         * match a possible cidr address
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @return string Returns a string containing the users public IP address
-         * 
-         */
-        public static function cidrMatch($ip, $cidr)
-        {
-
-            // Simple IP comparison if no CIDR mask
-            if (strpos($cidr, '/') === false) {
-                return $ip === $cidr;
-            }
-
-            // CIDR range comparison
-            list($subnet, $mask) = explode('/', $cidr);
-            $ipLong = ip2long($ip);
-            $subnetLong = ip2long($subnet);
-            $maskLong = ~((1 << (32 - $mask)) - 1);
-
-            // return if it's in range or not
-            return ($ipLong & $maskLong) === ($subnetLong & $maskLong);
-        }
-
-        /** 
-         * get_user_agent
-         * 
-         * Gets the current users browsers User Agent
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @return string Returns a string containing the users browsers User Agent
-         * 
-         */
-        public static function get_user_agent(): string
-        {
-
-            // possible browser info
-            $_browser = @get_browser();
-
-            // let's see if the user agent header exists
-            if (isset($_SERVER['HTTP_USER_AGENT'])) {
-
-                // return the user agent
-                return htmlspecialchars($_SERVER['HTTP_USER_AGENT']);
-
-                // let's see if we have browser data
-            } elseif ($_browser) {
-
-                // return the browser name pattern
-                return htmlspecialchars($_browser->browser_name_pattern);
-            }
-
-            // default return
-            return '';
-        }
-
-        /** 
-         * get_user_referer
-         * 
-         * Gets the current users referer
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @return string Returns a string containing the users referer
-         * 
-         */
-        public static function get_user_referer(): string
-        {
-
-            // return the referer if it exists
-            return isset($_SERVER['HTTP_REFERER']) ? filter_var($_SERVER['HTTP_REFERER'], FILTER_SANITIZE_URL) : '';
-        }
-
-        /** 
-         * str_contains_any
-         * 
-         * Does a string contain any other string
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_to_search The string we're searching
-         * @param array $_searching The string we're searching for
-         * 
-         * @return bool This method returns true or false
-         * 
-         */
-        public static function str_contains_any(string $_to_search, array $_searching): bool
-        {
-
-            // filter down the string
-            return array_any(
-                $_searching,
-                fn($n) => str_contains(strtolower($_to_search), strtolower($n))
-            );
-        }
-
-        /** 
-         * str_contains_any_re
-         * 
-         * Does a string contain any other string searching via regex
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_to_search The string we're searching
-         * @param array $_searching The string we're searching for
-         * 
-         * @return bool This method returns truw or false
-         * 
-         */
-        public static function str_contains_any_re(string $_to_search, array $_searching): bool
-        {
-
-            // return if it was found
-            return array_any(
-                $_searching,
-                fn($_i) => (bool) preg_match('~' . $_i . '~i', $_to_search)
+            // return the encrypted string
+            return \KPT\Crypto::decrypt(
+                $_val,
+                self::get_setting('mainkey'),
+                self::get_setting('mainsecret')
             );
         }
 
@@ -2361,76 +1749,6 @@ if (! class_exists('KPTV_Static')) {
         }
 
         /** 
-         * array_key_contains_Subset
-         * 
-         * Checks if any key in an array contains a given subset string and returns the array item if found.
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param array $array The array to search through.
-         * @param string $subset The subset string to look for in the keys.
-         * @param bool $caseSensitive Whether the search should be case-sensitive. Default is true.
-         * 
-         * @return array|bool Returns an array if the passed array contains the subset in any key, otherwise returns false
-         * 
-         */
-        public static function array_key_contains_Subset(array $array, string $subset, bool $caseSensitive = true): array|bool
-        {
-
-            // Return false immediately if the array is empty
-            if (empty($array)) {
-                return false;
-            }
-
-            // Use PHP 8.4's array_find_key to locate the first key containing the subset
-            // The callback receives both value and key, allowing us to search by key
-            $matchingKey = array_find_key(
-                $array,
-                fn($value, $key) => $caseSensitive
-                    // Case-sensitive: use str_contains for exact substring match
-                    ? str_contains((string) $key, $subset)
-                    // Case-insensitive: use stripos which ignores case
-                    : stripos((string) $key, $subset) !== false
-            );
-
-            // If a matching key was found, return its associated value
-            // Otherwise return false to indicate no match
-            return $matchingKey !== null ? $array[$matchingKey] : false;
-        }
-
-        /** 
-         * format_bytes
-         * 
-         * Static method for creating a human readable string from the number of bytes
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @return string Human readable string for the bytes
-         * 
-         **/
-        public static function format_bytes(int $size, int $precision = 2): string
-        {
-
-            // if the size is empty
-            if ($size <= 0) return '0 B';
-
-            // base size for the calculation
-            $base = log($size, 1024);
-            $suffixes = ['B', 'KB', 'MB', 'GB', 'TB'];
-
-            // return the value
-            return round(pow(1024, $base - floor($base)), $precision) . ' ' . $suffixes[floor($base)];
-        }
-
-        /** 
          * get_cache_prefix
          * 
          * Static method for creating a normalized global cache prefix
@@ -2448,7 +1766,7 @@ if (! class_exists('KPTV_Static')) {
         {
 
             // set the uri
-            $uri = self::get_user_uri();
+            $uri = \KPT\Http::getUserUri();
 
             // Remove protocol and www prefix
             $clean_uri = preg_replace('/^(https?:\/\/)?(www\.)?/', '', $uri);
@@ -2495,10 +1813,10 @@ if (! class_exists('KPTV_Static')) {
         {
 
             // parse out the querystring
-            $query_string = parse_url(self::get_user_uri(), PHP_URL_QUERY) ?? '';
+            $query_string = parse_url(\KPT\Http::getUserUri(), PHP_URL_QUERY) ?? '';
 
             // parse out the actual URL including the path browsed
-            $url = parse_url(self::get_user_uri(), PHP_URL_PATH) ?? '/';
+            $url = parse_url(\KPT\Http::getUserUri(), PHP_URL_PATH) ?? '/';
 
             // return the formatted string
             return sprintf('%s?%s', $url, $query_string);
