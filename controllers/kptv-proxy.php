@@ -58,7 +58,7 @@ class KPTV_Proxy
             }
 
             // Get and validate URL
-            $this->url = trim((string)($_GET['url'] ?? ''));
+            $this->url = \KPT\Sanitize::url($_GET['url']);
 
             if ($this->url === '') {
                 $this->sendError('No URL provided', 400);
@@ -71,28 +71,12 @@ class KPTV_Proxy
                 return;
             }
 
-            // Validate URL
-            if (!filter_var($this->url, FILTER_VALIDATE_URL)) {
-                $this->sendError('Invalid URL', 400);
-                return;
-            }
-
-            // make sure we're using a valid protocol
+            // parse the URL
             $parsedUrl = parse_url($this->url);
-            $scheme = strtolower($parsedUrl['scheme'] ?? '');
-            if (!in_array($scheme, ['http', 'https'], true)) {
-                $this->sendError('Unsupported URL scheme', 400);
-                return;
-            }
 
             // Handle OPTIONS request for CORS
             if (isset($parsedUrl['user']) || isset($parsedUrl['pass'])) {
                 $this->sendError('Credentials in URL are not allowed', 400);
-                return;
-            }
-
-            if (!$this->isPublicHost((string)($parsedUrl['host'] ?? ''))) {
-                $this->sendError('Blocked target host', 403);
                 return;
             }
 
@@ -388,38 +372,6 @@ class KPTV_Proxy
         header('Content-Type: text/plain');
         header('Access-Control-Allow-Origin: *');
         echo $message;
-    }
-
-    /**
-     * Block localhost/private/reserved destinations to reduce SSRF risk.
-     */
-    private function isPublicHost(string $host): bool
-    {
-        if ($host === '') {
-            return false;
-        }
-
-        if (filter_var($host, FILTER_VALIDATE_IP)) {
-            return $this->isPublicIp($host);
-        }
-
-        if (strtolower($host) === 'localhost') {
-            return false;
-        }
-
-        $records = @dns_get_record($host, DNS_A + DNS_AAAA);
-        if ($records === false || $records === []) {
-            return false;
-        }
-
-        foreach ($records as $record) {
-            $ip = $record['ip'] ?? $record['ipv6'] ?? null;
-            if ($ip !== null && !$this->isPublicIp($ip)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private function isPublicIp(string $ip): bool

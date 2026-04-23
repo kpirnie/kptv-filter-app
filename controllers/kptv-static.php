@@ -50,7 +50,16 @@ if (! class_exists('KPTV_Static')) {
         const MONTH_IN_SECONDS = (self::DAY_IN_SECONDS * 30);
         const YEAR_IN_SECONDS = (self::DAY_IN_SECONDS * 365);
 
-
+        /**
+         * Just something to specify the types of guides
+         * This is more for me than anyone else, that way I can 
+         * easily figure out which guide to use in Emby
+         * 
+         * @since 8.4
+         * @access public
+         * @author Kevin Pirnie <me@kpirnie.com>
+         * @package KP Library
+         */
         public static function guide_types()
         {
             return [
@@ -748,8 +757,6 @@ if (! class_exists('KPTV_Static')) {
                                                 $successCount++;
                                             }
                                         }
-                                        var_dump($successCount);
-                                        exit;
                                         // return
                                         return $successCount > 0;
                                     } catch (\Exception $e) {
@@ -1187,7 +1194,17 @@ if (! class_exists('KPTV_Static')) {
             return date_diff(date_create($_date1), date_create($_date2))->format('%a');
         }
 
-
+        /** 
+         * active_link
+         * 
+         * Just gets if we're in a "page"
+         * 
+         * @since 8.4
+         * @access public
+         * @author Kevin Pirnie <me@kpirnie.com>
+         * @package KP Library
+         * 
+         */
         public static function active_link(string $which): string
         {
 
@@ -1219,7 +1236,17 @@ if (! class_exists('KPTV_Static')) {
                 : '';
         }
 
-
+        /** 
+         * open_link
+         * 
+         * Just gets if we're in an open "page"
+         * 
+         * @since 8.4
+         * @access public
+         * @author Kevin Pirnie <me@kpirnie.com>
+         * @package KP Library
+         * 
+         */
         public static function open_link(string $which): string
         {
 
@@ -1242,7 +1269,17 @@ if (! class_exists('KPTV_Static')) {
                 : '';
         }
 
-
+        /** 
+         * get_counts
+         * 
+         * Gets all counts necessary for the dash
+         * 
+         * @since 8.4
+         * @access public
+         * @author Kevin Pirnie <me@kpirnie.com>
+         * @package KP Library
+         * 
+         */
         public static function get_counts(): array
         {
 
@@ -1299,6 +1336,17 @@ if (! class_exists('KPTV_Static')) {
             return $ret;
         }
 
+        /** 
+         * time_ago
+         * 
+         * How long ago
+         * 
+         * @since 8.4
+         * @access public
+         * @author Kevin Pirnie <me@kpirnie.com>
+         * @package KP Library
+         * 
+         */
         public static function time_ago(string $datetime): string
         {
             $time = strtotime($datetime);
@@ -1501,20 +1549,18 @@ if (! class_exists('KPTV_Static')) {
             // Use OPcache if available
             $configPath = KPTV_PATH . 'config.json';
 
-            if (
-                function_exists('opcache_is_script_cached') &&
-                opcache_is_script_cached($configPath)
-            ) {
+            // let's check the cache
+            $content = \KPT\Cache::get('kptv_config');
+            if (!$content) {
+                // grab it from the file itself
                 $content = file_get_contents($configPath);
-            } else {
-                $content = file_get_contents($configPath);
-                if (function_exists('opcache_compile_file')) {
-                    opcache_compile_file($configPath);
-                }
+
+                // now set it to cache
+                \KPT\Cache::set('kptv_config', $content, self::DAY_IN_SECONDS);
             }
 
+            // now, decode it so we can use it
             $config = json_decode($content);
-
             if (!$config) {
                 $config = new \stdClass();
             }
@@ -2520,7 +2566,15 @@ if (! class_exists('KPTV_Static')) {
             self::include_view('wrapper/footer', $data);
         }
 
-
+        /**
+         * Moves a stream from one type to another
+         * 
+         * @param object $db Our database object
+         * @param int $id The id of the record to move
+         * @param int $type The type we're moving
+         * 
+         * @return bool Returns the success
+         */
         public static function moveToType($db, int $id, int $type = 99): bool
         {
 
@@ -2568,6 +2622,15 @@ if (! class_exists('KPTV_Static')) {
             }
         }
 
+        /**
+         * Gets all providers for a user
+         * 
+         * @param object $db Our database object
+         * @param int $id The id of the record to move
+         * @param int $type The type we're moving
+         * 
+         * @return bool Returns the success
+         */
         public static function getProviders(int $userId): array
         {
 
@@ -2596,6 +2659,16 @@ if (! class_exists('KPTV_Static')) {
             // return them
             return $ret;
         }
+
+        /**
+         * Gets just the provider names for a user
+         * 
+         * @param object $db Our database object
+         * @param int $id The id of the record to move
+         * @param int $type The type we're moving
+         * 
+         * @return bool Returns the success
+         */
         public static function getProvidersNames(int $userId): array
         {
 
@@ -2623,395 +2696,6 @@ if (! class_exists('KPTV_Static')) {
 
             // return them
             return $ret;
-        }
-
-        /**---------------------------------------------------------------------------------------------------- */
-        /**---------------------------------------------------------------------------------------------------- */
-        /**---------------------------------------------------------------------------------------------------- */
-        /**---------------------------------------------------------------------------------------------------- */
-        /**---------------------------------------------------------------------------------------------------- */
-        /**---------------------------------------------------------------------------------------------------- */
-        /** 
-         * sanitize_string
-         * 
-         * Static method for sanitizing a string
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_val String to sanitize
-         * 
-         * @return string Returns a sanitized string
-         * 
-         */
-        public static function sanitize_string(string $_val): string
-        {
-
-            // return the sanitized string, or empty
-            return addslashes(mb_trim($_val));
-        }
-
-        /** 
-         * sanitize_numeric
-         * 
-         * Static method for sanitizing a number
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param var $_val Number to sanitize
-         * 
-         * @return var Returns a sanitized number
-         * 
-         */
-        public static function sanitize_numeric($_val)
-        {
-
-            // return the sanitized string, or 0
-            return filter_var($_val, FILTER_SANITIZE_NUMBER_FLOAT);
-        }
-
-        /** 
-         * sanitize_the_email
-         * 
-         * Static method for sanitizing an email address
-         * 
-         * @since 8.4
-         * @access public
-         * @static 
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_val Email address to sanitize
-         * 
-         * @return string Returns a sanitized email address
-         * 
-         */
-        public static function sanitize_the_email(string $_val): string
-        {
-
-            // return the sanitized email, or empty
-            return (empty($_val)) ? '' : filter_var($_val, FILTER_SANITIZE_EMAIL);
-        }
-
-        /** 
-         * sanitize_url
-         * 
-         * Static method for sanitizing a url
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_val URL to sanitize
-         * 
-         * @return string Returns a sanitized URL
-         * 
-         */
-        public static function sanitize_url(string $_val): string
-        {
-
-            // return the sanitized url, or empty
-            return (empty($_val)) ? '' : filter_var($_val, FILTER_SANITIZE_URL);
-        }
-
-        /** 
-         * sanitize_css_js
-         * 
-         * Static method for sanitizing a CSS or JS
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_val CSS or JS to sanitize
-         * 
-         * @return string Returns sanitized CSS or JS
-         * 
-         */
-        public static function sanitize_css_js(string $_val): string
-        {
-
-            // strip out script and style tags
-            $string = preg_replace('@<(script|style)[^>]*?>.*?</\\1>@si', '', $_val);
-
-            // strip out all other tage
-            $string = strip_tags($string);
-
-            // return the trimmed value
-            return mb_trim($string);
-        }
-
-        /** 
-         * sanitize_svg
-         * 
-         * Static method for sanitizing a svg's xml content
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_svg_xml SVG XML to sanitize
-         * 
-         * @return string Returns sanitized SVG XML
-         * 
-         */
-        public static function sanitize_svg(string $_svg_xml): ?string
-        {
-
-            // if the string is empty
-            if (empty($_svg_xml)) {
-
-                // just return an empty string
-                return '';
-            }
-
-            // return the clean xml
-            return $_svg_xml;
-        }
-
-        /**
-         * Sanitize path
-         * 
-         * @since 8.4
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * 
-         * @param string|null $path Path to sanitize
-         * @return string Sanitized path
-         */
-        public static function sanitize_path(?string $path): string
-        {
-
-            if (empty($path)) return '/';
-            $path = parse_url($path, PHP_URL_PATH) ?? '';
-            $path = preg_replace('#/+#', '/', $path); // Only normalize multiple slashes
-            $path = mb_trim($path, '/');
-            return $path === '' ? '/' : '/' . $path;
-        }
-
-        /** 
-         * validate_string
-         * 
-         * Static method for validating a string
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_val String to validate
-         * 
-         * @return bool Returns a true/false if the input is a valid string
-         * 
-         */
-        public static function validate_string(string $_val): bool
-        {
-
-            // check if the value is empty, then check if it's a string 
-            return (empty($_val)) ? false : is_string($_val);
-        }
-
-        /** 
-         * validate_number
-         * 
-         * Static method for validating a number
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param var $_val Variable input to validate
-         * 
-         * @return bool Returns a true/false if the input is a valid number.
-         * This includes float, decimal, integer, etc...
-         * 
-         */
-        public static function validate_number($_val): bool
-        {
-
-            // check if the value is empty, then check if it's a number 
-            return (empty($_val)) ? false : is_numeric($_val);
-        }
-
-        /** 
-         * validate_alphanum
-         * 
-         * Static method for validating an alpha-numeric string
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_val String to validate
-         * 
-         * @return bool Returns a true/false if the input is a valid alpha-numeric string
-         * 
-         */
-        public static function validate_alphanum(string $_val): bool
-        {
-
-            // check if the value is empty, then check if it's alpha numeric or space, _, -
-            return (empty($_val)) ? false : preg_match('/^[\p{L}\p{N} ._-]+$/', $_val);
-        }
-
-        /** 
-         * validate_username
-         * 
-         * Static method for validating an username string
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_val String to validate
-         * 
-         * @return bool Returns a true/false if the input is a valid username string
-         * 
-         */
-        public static function validate_username(string $_val): bool
-        {
-
-            // check if the value is empty, then check if it has alpha numeric characters, _, or - in it 
-            return (empty($_val)) ? false : preg_match('/^[\p{L}\p{N}._-]+$/', $_val);
-        }
-
-        /** 
-         * validate_name
-         * 
-         * Static method for validating a name
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_val String to validate
-         * 
-         * @return bool Returns a true/false if the input is a valid name string
-         * 
-         */
-        public static function validate_name(string $_value): bool
-        {
-
-            // validate the string
-            if (! preg_match('/((^(?(?![^,]+?,)((.*?) )?(([A-Za-zà-üÀ-Ü\']*?) )?(([A-Za-zà-üÀ-Ü\']*?) )?)([A-ZÀ-Ü\']((\'|[a-z]{1,2})[A-ZÀ-Ü\'])?[a-zà-ü\']+))(?(?=,)(, ([A-Za-zà-üÀ-Ü\']*?))?( ([A-Za-zà-üÀ-Ü\']*?))?( ([A-Za-zà-üÀ-Ü\']*?))?)$)/', $_value)) {
-                return false;
-            }
-
-            // otherwise, it all validates return true
-            return true;
-        }
-
-        /** 
-         * validate_email
-         * 
-         * Static method for validating an email address
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_val String email address to validate
-         * 
-         * @return bool Returns a true/false if the input is a valid string
-         * 
-         */
-        public static function validate_email(string $_val): bool
-        {
-
-            // check if the value is empty, then check if it's an email address
-            return (empty($_val)) ? false : filter_var($_val, FILTER_VALIDATE_EMAIL);
-        }
-
-        /** 
-         * validate_url
-         * 
-         * Static method for validating a URL
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_val String URL to validate
-         * 
-         * @return bool Returns a true/false if the input is a valid URL
-         * 
-         */
-        public static function validate_url(string $_val): bool
-        {
-
-            // check if the value is empty
-            if (empty($_val)) {
-
-                // it is, so return false
-                return false;
-            }
-
-            // parse the URL
-            $_url = parse_url($_val);
-
-            // we need a scheme at the least
-            if ($_url['scheme'] != 'http' && $_url['scheme'] != 'https') {
-
-                // we don't have a scheme, return false
-                return false;
-            }
-
-            // we have made it this far, return the domain validation
-            return filter_var($_url['host'], FILTER_VALIDATE_DOMAIN);
-        }
-
-        /** 
-         * validate_password
-         * 
-         * Static method for validating a password
-         * 
-         * @since 8.4
-         * @access public
-         * @static
-         * @author Kevin Pirnie <me@kpirnie.com>
-         * @package KP Library
-         * 
-         * @param string $_value String to validate
-         * 
-         * @return bool Returns a true/false if the input is a valid strong password
-         *              Password Rules: 6-64 alphanumeric characters plus at least 1 !@#$%*
-         * 
-         */
-        public static function validate_password(string $_value): bool
-        {
-
-            // validate the PW
-            if (! preg_match('/(?=^.{8,64}$)(?=.[a-zA-Z\d])(?=.*[!@#$%*])(?!.*\s).*$/', $_value)) {
-                return false;
-            }
-
-            // otherwise, it all validates return true
-            return true;
         }
     }
 }

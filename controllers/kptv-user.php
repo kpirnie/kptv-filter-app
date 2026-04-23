@@ -144,8 +144,8 @@ if (! class_exists('KPTV_User')) {
             }
 
             // make sure the strings are sanitized
-            $hash = KPTV::sanitize_string($_GET['v']);
-            $email = KPTV::sanitize_string($_GET['e']);
+            $hash = \KPT\Sanitize::string($_GET['v']);
+            $email = \KPT\Sanitize::string($_GET['e']);
 
             // try to validate the user
             try {
@@ -204,14 +204,14 @@ if (! class_exists('KPTV_User')) {
 
             // hold our errors
             $errors = [];
-            $username = $_POST['frmUsername'] ?? '';
-            $password = $_POST['frmPassword'] ?? '';
+            $username = \KPT\Sanitize::username($_POST['frmUsername'] ?? '');
+            $password = $_POST['frmPassword'] ?? ''; // this is getting hashed, and is parameterize after that
 
             // make sure the username and password are both valid
-            if (! KPTV::validate_username($username)) {
+            if (! \KPT\Validate::username($username)) {
                 $errors[] = 'The username you have typed in is not valid.';
             }
-            if (! KPTV::validate_password($password)) {
+            if (! \KPT\Validate::password_strength($password)) {
                 $errors[] = 'The password you typed is not valid.';
             }
 
@@ -279,16 +279,16 @@ if (! class_exists('KPTV_User')) {
             // setup the errors
             $errors = [];
 
-            // grab the username and email
-            $username = $_POST['frmUsername'] ?? '';
-            $email = $_POST['frmEmail'] ?? '';
+            // grab the username and email and clean them
+            $username = \KPT\Sanitize::username($_POST['frmUsername'] ?? '');
+            $email = \KPT\Sanitize::email($_POST['frmEmail'] ?? '');
 
             // check if the username and email validate
-            if (!KPTV::validate_username($username)) {
+            if (!\KPT\Validate::username($username)) {
                 $errors[] = 'The username you typed is not valid.';
             }
 
-            if (!KPTV::validate_email($email)) {
+            if (!\KPT\Validate::email($email)) {
                 $errors[] = 'The email address you typed is not valid.';
             }
 
@@ -339,16 +339,16 @@ if (! class_exists('KPTV_User')) {
             $newPass2 = $_POST['frmNewPassword2'] ?? '';
 
             // Validate current password matches stored hash
-            if (!KPTV::validate_password($currentPass)) {
+            if (!\KPT\Validate::password_strength($currentPass)) {
                 $errors[] = 'The current password you typed is not valid.';
             } elseif (!$this->verifyCurrentPassword($user->id, $currentPass)) {
                 $errors[] = 'Your current password does not match what we have in our system.';
             }
 
             // Validate new password meets requirements and matches confirmation
-            if (!KPTV::validate_password($newPass1)) {
+            if (!\KPT\Validate::password_strength($newPass1)) {
                 $errors[] = 'The new password you typed is not valid.';
-            } elseif ($newPass1 !== $newPass2) {
+            } elseif (!\KPT\Validate::confirmed($newPass1, $newPass2)) {
                 $errors[] = 'Your new passwords do not match each other.';
             }
 
@@ -452,10 +452,10 @@ if (! class_exists('KPTV_User')) {
         private function sanitizeRegistrationInput(array $input): array
         {
             return [
-                'firstName' => KPTV::sanitize_string($input['frmFirstName'] ?? ''),
-                'lastName'  => KPTV::sanitize_string($input['frmLastName'] ?? ''),
-                'username'  => KPTV::sanitize_string($input['frmUsername'] ?? ''),
-                'email'     => KPTV::sanitize_string($input['frmMainEmail'] ?? ''),
+                'firstName' => \KPT\Sanitize::string($input['frmFirstName'] ?? ''),
+                'lastName'  => \KPT\Sanitize::string($input['frmLastName'] ?? ''),
+                'username'  => \KPT\Sanitize::string($input['frmUsername'] ?? ''),
+                'email'     => \KPT\Sanitize::string($input['frmMainEmail'] ?? ''),
                 'password1' => mb_trim($input['frmPassword1']) ?? '',
                 'password2' => mb_trim($input['frmPassword2']) ?? ''
             ];
@@ -474,7 +474,7 @@ if (! class_exists('KPTV_User')) {
          */
         private function validateNameFields(array $input, array &$errors): void
         {
-            if (!KPTV::validate_name($input['firstName']) || !KPTV::validate_name($input['lastName'])) {
+            if (!\KPT\Validate::name($input['firstName']) || !\KPT\Validate::name($input['lastName'])) {
                 $errors[] = 'Are you sure your first and last name is correct?';
             }
         }
@@ -492,7 +492,7 @@ if (! class_exists('KPTV_User')) {
          */
         private function validateUsername(array $input, array &$errors): void
         {
-            if (!KPTV::validate_username($input['username'])) {
+            if (!\KPT\Validate::username($input['username'])) {
                 $errors[] = 'The username you have typed in is not valid.';
             } elseif ($this->check_username_exists($input['username'])) {
                 $errors[] = 'The username you have typed in already exists.';
@@ -512,7 +512,7 @@ if (! class_exists('KPTV_User')) {
          */
         private function validateEmail(array $input, array &$errors): void
         {
-            if (!KPTV::validate_email($input['email'])) {
+            if (!\KPT\Validate::email($input['email'])) {
                 $errors[] = 'The email address you have typed in is not valid.';
             } elseif ($this->check_email_exists($input['email'])) {
                 $errors[] = 'The email address you have typed in already exists.';
@@ -532,7 +532,7 @@ if (! class_exists('KPTV_User')) {
          */
         private function validatePasswords(array $input, array &$errors): void
         {
-            if (!KPTV::validate_password($input['password1'])) {
+            if (!\KPT\Validate::password_strength($input['password1'])) {
                 $errors[] = 'The password you typed is not valid.';
             } elseif ($input['password1'] !== $input['password2']) {
                 $errors[] = 'Your passwords do not match each other.';
@@ -1046,7 +1046,7 @@ if (! class_exists('KPTV_User')) {
         private function update_user(array $data, int $currentUserId): void
         {
             // Validate email format
-            if (!KPTV::validate_email($data['u_email'])) {
+            if (!\KPT\Validate::email($data['u_email'])) {
                 throw new Exception('Invalid email address');
             }
 
@@ -1077,13 +1077,13 @@ if (! class_exists('KPTV_User')) {
         {
 
             // grab the "global" items we'll need in here
-            $action = $_POST['action'] ?? '';
-            $userId = (int)($_POST['user_id']) ?? 0;
+            $action = \KPT\Sanitize::string($_POST['action'] ?? '');
+            $userId = \KPT\Sanitize::int((int)($_POST['user_id']) ?? 0);
             $currentUser = KPTV_User::get_current_user();
 
             // Get pagination parameters from request
-            $currentPage = $_GET['page'] ?? 1;
-            $perPage = $_GET['per_page'] ?? 25;
+            $currentPage = \KPT\Sanitize::int($_GET['page'] ?? 1);
+            $perPage = \KPT\Sanitize::int($_GET['per_page'] ?? 25);
 
             // switch the action we need to take
             switch ($action) {
@@ -1124,10 +1124,10 @@ if (! class_exists('KPTV_User')) {
 
                     // hold the data to update the user
                     $data = [
-                        'u_fname' => KPTV::sanitize_string($_POST['u_fname'] ?? ''),
-                        'u_lname' => KPTV::sanitize_string($_POST['u_lname'] ?? ''),
-                        'u_email' => KPTV::sanitize_string($_POST['u_email'] ?? ''),
-                        'u_role' => (int) ($_POST['u_role'] ?? 0),
+                        'u_fname' => \KPT\Sanitize::string($_POST['u_fname'] ?? ''),
+                        'u_lname' => \KPT\Sanitize::string($_POST['u_lname'] ?? ''),
+                        'u_email' => \KPT\Sanitize::email($_POST['u_email'] ?? ''),
+                        'u_role' => \KPT\Sanitize::int((int) ($_POST['u_role'] ?? 0)),
                         'id' => $userId
                     ];
 

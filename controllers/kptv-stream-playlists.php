@@ -122,7 +122,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                     a.`s_stream_uri` As Stream, 
                     COALESCE(nullif(a.`s_tvg_id`,""), a.`s_orig_name`) As TvgID, 
                     COALESCE(nullif(a.`s_tvg_group`,""), "live") As TvgGroup,
-                    COALESCE(nullif(a.`s_tvg_logo`,""), "https://cdn.kevp.us/tv/kptv-icon.svg") As TvgLogo, 
+                    COALESCE(nullif(a.`s_tvg_logo`,""), "https://cdn.kcp.im/tv/kptv-icon.svg") As TvgLogo, 
                     a.`p_id`,
                     b.`sp_priority` As TvgType,
                     a.`s_type_id` AS StreamType
@@ -177,7 +177,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                     a.`s_stream_uri` as Stream, 
                     COALESCE(nullif(a.`s_tvg_id`,""), a.`s_orig_name`) As TvgID, 
                     COALESCE(nullif(a.`s_tvg_group`,""), "live") As TvgGroup,
-                    COALESCE(nullif(a.`s_tvg_logo`,""), "https://cdn.kevp.us/tv/kptv-icon.svg") As TvgLogo, 
+                    COALESCE(nullif(a.`s_tvg_logo`,""), "https://cdn.kcp.im/tv/kptv-icon.svg") As TvgLogo, 
                     a.`p_id`,
                     b.`sp_priority` AS TvgType,
                     a.`s_type_id` AS StreamType
@@ -269,7 +269,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                         );
                         $the_logo = sprintf('https://cdn.kcp.im/tv/logos/%s.png', $chan);
                     }
-                    $stream_logo = ($the_logo) ?: $rec->TvgLogo ?? 'https://cdn.kevp.us/tv/kptv-logo.png';
+                    $stream_logo = ($the_logo) ?: $rec->TvgLogo ?? 'https://cdn.kcp.im/tv/kptv-logo.png';
 
                     // add the logo
                     $extinf .= sprintf(' tvg-logo="%s"', $stream_logo);

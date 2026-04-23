@@ -274,7 +274,7 @@ if (! class_exists('KPTV_Xtream_API')) {
                     a.s_name as name,
                     a.s_stream_uri as direct_source,
                     a.s_tvg_id as epg_channel_id,
-                    COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kevp.us/tv/kptv-icon.svg") as stream_icon,
+                    COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kcp.im/tv/kptv-icon.svg") as stream_icon,
                     a.s_tvg_group as category_name,
                     b.sp_priority as stream_type,
                     a.s_extras as custom_sid
@@ -344,7 +344,7 @@ if (! class_exists('KPTV_Xtream_API')) {
                     a.s_channel as num,
                     a.s_name as name,
                     a.s_stream_uri as direct_source,
-                    COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kevp.us/tv/kptv-icon.svg") as stream_icon,
+                    COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kcp.im/tv/kptv-icon.svg") as stream_icon,
                     a.s_tvg_group as category_name,
                     b.sp_priority as stream_type,
                     a.s_extras as container_extension
@@ -424,7 +424,7 @@ if (! class_exists('KPTV_Xtream_API')) {
                     a.id as stream_id,
                     a.s_name as name,
                     a.s_stream_uri as stream_url,
-                    COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kevp.us/tv/kptv-icon.svg") as stream_icon,
+                    COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kcp.im/tv/kptv-icon.svg") as stream_icon,
                     a.s_tvg_group as category_name,
                     a.s_extras as container_extension
                     FROM kptv_streams a
@@ -479,7 +479,7 @@ if (! class_exists('KPTV_Xtream_API')) {
                     a.s_channel as num,
                     a.s_name as name,
                     a.s_stream_uri as direct_source,
-                    COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kevp.us/tv/kptv-icon.svg") as cover,
+                    COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kcp.im/tv/kptv-icon.svg") as cover,
                     a.s_tvg_group as category_name,
                     b.sp_priority as stream_type
                     FROM kptv_streams a
@@ -559,7 +559,7 @@ if (! class_exists('KPTV_Xtream_API')) {
                     a.id as stream_id,
                     a.s_name as name,
                     a.s_stream_uri as stream_url,
-                    COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kevp.us/tv/kptv-icon.svg") as cover,
+                    COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kcp.im/tv/kptv-icon.svg") as cover,
                     a.s_tvg_group as category_name,
                     a.s_extras as container_extension
                     FROM kptv_streams a
