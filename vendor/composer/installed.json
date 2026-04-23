@@ -379,6 +379,72 @@
             "install-path": "../kevinpirnie/kpt-router"
         },
         {
+            "name": "kevinpirnie/kpt-utils",
+            "version": "v1.0.87",
+            "version_normalized": "1.0.87.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/kpirnie/kp-php-utils.git",
+                "reference": "51c0ae826c0b7c5fcb64c37a1b9307330d592566"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/kpirnie/kp-php-utils/zipball/51c0ae826c0b7c5fcb64c37a1b9307330d592566",
+                "reference": "51c0ae826c0b7c5fcb64c37a1b9307330d592566",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.2"
+            },
+            "require-dev": {
+                "squizlabs/php_codesniffer": "^3.6"
+            },
+            "time": "2026-04-23T13:05:31+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "KPT\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Kevin Pirnie",
+                    "email": "iam@kevinpirnie.com",
+                    "role": "Developer"
+                }
+            ],
+            "description": "A modern PHP 8.2+ utility library.",
+            "homepage": "https://github.com/kpirnie/kp-php-utils",
+            "keywords": [
+                "input",
+                "php",
+                "sanitize",
+                "security",
+                "validate"
+            ],
+            "support": {
+                "docs": "https://github.com/kpirnie/kp-php-utils/blob/main/README.md",
+                "issues": "https://github.com/kpirnie/kp-php-utils/issues",
+                "source": "https://github.com/kpirnie/kp-php-utils"
+            },
+            "funding": [
+                {
+                    "url": "https://ko-fi.com/kevinpirnie",
+                    "type": "ko-fi"
+                },
+                {
+                    "url": "https://www.paypal.biz/kevinpirnie",
+                    "type": "paypal"
+                }
+            ],
+            "install-path": "../kevinpirnie/kpt-utils"
+        },
+        {
             "name": "phpmailer/phpmailer",
             "version": "v7.0.2",
             "version_normalized": "7.0.2.0",

@@ -5,7 +5,7 @@
  *
  * This is our primary validation class
  *
- * @since      8.4
+ * @since      8.2
  * @author     Kevin Pirnie <me@kpirnie.com>
  * @package    KP Library
  */
@@ -15,16 +15,13 @@ declare(strict_types=1);
 // namespace this class
 namespace KPT;
 
-// define the primary app path if not already defined
-defined('KPTV_PATH') || die('Direct Access is not allowed!');
-
 // make sure the class does not already exist
 if (! class_exists('\KPT\Validate')) {
 
     /**
-     * KPTV_Validate
+     * Validate
      *
-     * A modern PHP 8.5 validation utility.  All methods return bool unless
+     * A modern PHP 8.2+ validation utility.  All methods return bool unless
      * otherwise noted.  Where a value benefits from pre-cleaning before
      * validation, KPT\Validate is used internally.
      *
@@ -35,7 +32,6 @@ if (! class_exists('\KPT\Validate')) {
      */
     class Validate
     {
-
         // -------------------------------------------------------------------------
         // Scalars
         // -------------------------------------------------------------------------
@@ -64,7 +60,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function is_string(mixed $value): bool
+        public static function isString(mixed $value): bool
         {
             return is_string($value);
         }
@@ -75,7 +71,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function is_int(mixed $value): bool
+        public static function isInt(mixed $value): bool
         {
             return filter_var($value, FILTER_VALIDATE_INT) !== false;
         }
@@ -86,7 +82,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function is_float(mixed $value): bool
+        public static function isFloat(mixed $value): bool
         {
             return filter_var($value, FILTER_VALIDATE_FLOAT) !== false;
         }
@@ -97,7 +93,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function is_numeric(mixed $value): bool
+        public static function isNumeric(mixed $value): bool
         {
             return is_numeric($value);
         }
@@ -110,7 +106,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function is_bool(mixed $value): bool
+        public static function isBool(mixed $value): bool
         {
             return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) !== null;
         }
@@ -121,7 +117,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function is_array(mixed $value): bool
+        public static function isArray(mixed $value): bool
         {
             return is_array($value);
         }
@@ -132,7 +128,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function is_null(mixed $value): bool
+        public static function isNull(mixed $value): bool
         {
             return is_null($value);
         }
@@ -143,7 +139,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function is_scalar(mixed $value): bool
+        public static function isScalar(mixed $value): bool
         {
             return is_scalar($value);
         }
@@ -159,7 +155,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  int    $min
          * @return bool
          */
-        public static function min_length(mixed $value, int $min): bool
+        public static function minLength(mixed $value, int $min): bool
         {
             return mb_strlen((string) $value) >= $min;
         }
@@ -171,7 +167,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  int    $max
          * @return bool
          */
-        public static function max_length(mixed $value, int $max): bool
+        public static function maxLength(mixed $value, int $max): bool
         {
             return mb_strlen((string) $value) <= $max;
         }
@@ -184,7 +180,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  int    $max
          * @return bool
          */
-        public static function length_between(mixed $value, int $min, int $max): bool
+        public static function lengthBetween(mixed $value, int $min, int $max): bool
         {
             $len = mb_strlen((string) $value);
 
@@ -198,7 +194,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  int    $length
          * @return bool
          */
-        public static function exact_length(mixed $value, int $length): bool
+        public static function exactLength(mixed $value, int $length): bool
         {
             return mb_strlen((string) $value) === $length;
         }
@@ -226,7 +222,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  bool    $case_sensitive
          * @return bool
          */
-        public static function starts_with(mixed $value, string $needle, bool $case_sensitive = true): bool
+        public static function startsWith(mixed $value, string $needle, bool $case_sensitive = true): bool
         {
             return $case_sensitive
                 ? str_starts_with((string) $value, $needle)
@@ -241,7 +237,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  bool    $case_sensitive
          * @return bool
          */
-        public static function ends_with(mixed $value, string $needle, bool $case_sensitive = true): bool
+        public static function endsWith(mixed $value, string $needle, bool $case_sensitive = true): bool
         {
             return $case_sensitive
                 ? str_ends_with((string) $value, $needle)
@@ -288,7 +284,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function no_whitespace(mixed $value): bool
+        public static function noWhitespace(mixed $value): bool
         {
             return ! preg_match('/\s/', (string) $value);
         }
@@ -304,9 +300,9 @@ if (! class_exists('\KPT\Validate')) {
          * @param  bool   $require_special  Require at least one special character.
          * @return bool
          */
-        public static function password_strength(
+        public static function passwordStrength(
             mixed $value,
-            int $min_length      = 8,
+            int $min_length = 8,
             bool $require_special = true
         ): bool {
             $str = (string) $value;
@@ -463,7 +459,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  int    $timeout  Seconds before giving up.
          * @return bool
          */
-        public static function url_reachable(mixed $value, int $timeout = 5): bool
+        public static function urlReachable(mixed $value, int $timeout = 5): bool
         {
             $url = \KPT\Sanitize::url($value);
 
@@ -503,8 +499,8 @@ if (! class_exists('\KPT\Validate')) {
          */
         public static function ip(
             mixed $value,
-            bool $ipv6     = true,
-            bool $private  = true,
+            bool $ipv6 = true,
+            bool $private = true,
             bool $reserved = true
         ): bool {
             return \KPT\Sanitize::ip($value, $ipv6, $private, $reserved) !== '';
@@ -549,9 +545,9 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function mac_address(mixed $value): bool
+        public static function macAddress(mixed $value): bool
         {
-            return \KPT\Sanitize::mac_address($value) !== '';
+            return \KPT\Sanitize::macAddress($value) !== '';
         }
 
         /**
@@ -588,9 +584,9 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function hex_color(mixed $value): bool
+        public static function hexColor(mixed $value): bool
         {
-            return \KPT\Sanitize::hex_color($value) !== '';
+            return \KPT\Sanitize::hexColor($value) !== '';
         }
 
         /**
@@ -601,7 +597,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function rgb_color(mixed $value): bool
+        public static function rgbColor(mixed $value): bool
         {
             return (bool) preg_match(
                 '/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(\s*,\s*(0|0?\.\d+|1(\.0)?))?\s*\)$/',
@@ -617,7 +613,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function hsl_color(mixed $value): bool
+        public static function hslColor(mixed $value): bool
         {
             return (bool) preg_match(
                 '/^hsla?\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%(\s*,\s*(0|0?\.\d+|1(\.0)?))?\s*\)$/',
@@ -633,9 +629,9 @@ if (! class_exists('\KPT\Validate')) {
          */
         public static function color(mixed $value): bool
         {
-            return self::hex_color($value)
-                || self::rgb_color($value)
-                || self::hsl_color($value);
+            return self::hexColor($value)
+                || self::rgbColor($value)
+                || self::hslColor($value);
         }
 
         /**
@@ -694,7 +690,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function country_code(mixed $value): bool
+        public static function countryCode(mixed $value): bool
         {
             return (bool) preg_match('/^[A-Z]{2}$/', strtoupper(trim((string) $value)));
         }
@@ -705,7 +701,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function language_code(mixed $value): bool
+        public static function languageCode(mixed $value): bool
         {
             return (bool) preg_match('/^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$/', trim((string) $value));
         }
@@ -727,7 +723,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function zip_code(mixed $value): bool
+        public static function zipCode(mixed $value): bool
         {
             return (bool) preg_match('/^\d{5}(?:-\d{4})?$/', trim((string) $value));
         }
@@ -741,7 +737,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  string  $country  ISO 3166-1 alpha-2 country code.
          * @return bool
          */
-        public static function postal_code(mixed $value, string $country = 'US'): bool
+        public static function postalCode(mixed $value, string $country = 'US'): bool
         {
             $str = trim((string) $value);
 
@@ -773,11 +769,11 @@ if (! class_exists('\KPT\Validate')) {
             $str = preg_replace('/[\s\-]/', '', (string) $value);
 
             if (strlen($str) === 10) {
-                return self::_isbn10($str);
+                return self::isbn10($str);
             }
 
             if (strlen($str) === 13) {
-                return self::_isbn13($str);
+                return self::isbn13($str);
             }
 
             return false;
@@ -789,7 +785,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function credit_card(mixed $value): bool
+        public static function creditCard(mixed $value): bool
         {
             // Strip spaces and hyphens before the Luhn check
             $str = preg_replace('/[\s\-]/', '', (string) $value);
@@ -798,7 +794,7 @@ if (! class_exists('\KPT\Validate')) {
                 return false;
             }
 
-            return self::_luhn($str);
+            return self::luhn($str);
         }
 
         // -------------------------------------------------------------------------
@@ -852,7 +848,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  string  $format
          * @return bool
          */
-        public static function date_before(mixed $value, string $before, string $format = 'Y-m-d'): bool
+        public static function dateBefore(mixed $value, string $before, string $format = 'Y-m-d'): bool
         {
             $dt    = \DateTimeImmutable::createFromFormat($format, (string) $value);
             $limit = \DateTimeImmutable::createFromFormat($format, $before);
@@ -868,7 +864,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  string  $format
          * @return bool
          */
-        public static function date_after(mixed $value, string $after, string $format = 'Y-m-d'): bool
+        public static function dateAfter(mixed $value, string $after, string $format = 'Y-m-d'): bool
         {
             $dt    = \DateTimeImmutable::createFromFormat($format, (string) $value);
             $limit = \DateTimeImmutable::createFromFormat($format, $after);
@@ -885,7 +881,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  string  $format
          * @return bool
          */
-        public static function date_between(mixed $value, string $start, string $end, string $format = 'Y-m-d'): bool
+        public static function dateBetween(mixed $value, string $start, string $end, string $format = 'Y-m-d'): bool
         {
             $dt    = \DateTimeImmutable::createFromFormat($format, (string) $value);
             $from  = \DateTimeImmutable::createFromFormat($format, $start);
@@ -905,7 +901,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  string  $format
          * @return bool
          */
-        public static function min_age(mixed $value, int $min, string $format = 'Y-m-d'): bool
+        public static function minAge(mixed $value, int $min, string $format = 'Y-m-d'): bool
         {
             $dob = \DateTimeImmutable::createFromFormat($format, (string) $value);
 
@@ -925,7 +921,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  string  $format
          * @return bool
          */
-        public static function max_age(mixed $value, int $max, string $format = 'Y-m-d'): bool
+        public static function maxAge(mixed $value, int $max, string $format = 'Y-m-d'): bool
         {
             $dob = \DateTimeImmutable::createFromFormat($format, (string) $value);
 
@@ -1005,7 +1001,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function non_negative(mixed $value): bool
+        public static function nonNegative(mixed $value): bool
         {
             return is_numeric($value) && $value >= 0;
         }
@@ -1017,7 +1013,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  int    $places
          * @return bool
          */
-        public static function decimal_places(mixed $value, int $places): bool
+        public static function decimalPlaces(mixed $value, int $places): bool
         {
             if (! is_numeric($value)) {
                 return false;
@@ -1036,7 +1032,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  int|float  $divisor
          * @return bool
          */
-        public static function divisible_by(mixed $value, int|float $divisor): bool
+        public static function divisibleBy(mixed $value, int|float $divisor): bool
         {
             if (! is_numeric($value) || $divisor == 0) {
                 return false;
@@ -1055,7 +1051,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value  Absolute file path.
          * @return bool
          */
-        public static function file_exists(mixed $value): bool
+        public static function fileExists(mixed $value): bool
         {
             $path = \KPT\Sanitize::path((string) $value);
 
@@ -1068,7 +1064,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function dir_exists(mixed $value): bool
+        public static function dirExists(mixed $value): bool
         {
             $path = \KPT\Sanitize::path((string) $value);
 
@@ -1084,7 +1080,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  array    $extensions  Allowed extensions without leading dot.
          * @return bool
          */
-        public static function file_extension(mixed $value, array $extensions): bool
+        public static function fileExtension(mixed $value, array $extensions): bool
         {
             $ext = strtolower(pathinfo((string) $value, PATHINFO_EXTENSION));
 
@@ -1098,7 +1094,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  int    $max_bytes
          * @return bool
          */
-        public static function file_size(mixed $value, int $max_bytes): bool
+        public static function fileSize(mixed $value, int $max_bytes): bool
         {
             $path = \KPT\Sanitize::path((string) $value);
 
@@ -1114,7 +1110,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  array   $allowed_mime  e.g. ['image/jpeg', 'image/png']
          * @return bool
          */
-        public static function file_mime(mixed $value, array $allowed_mime): bool
+        public static function fileMime(mixed $value, array $allowed_mime): bool
         {
             $path = \KPT\Sanitize::path((string) $value);
 
@@ -1138,7 +1134,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $value
          * @return bool
          */
-        public static function array_not_empty(mixed $value): bool
+        public static function arrayNotEmpty(mixed $value): bool
         {
             return is_array($value) && count($value) > 0;
         }
@@ -1150,7 +1146,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  int    $min
          * @return bool
          */
-        public static function array_min_count(mixed $value, int $min): bool
+        public static function arrayMinCount(mixed $value, int $min): bool
         {
             return is_array($value) && count($value) >= $min;
         }
@@ -1162,7 +1158,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  int    $max
          * @return bool
          */
-        public static function array_max_count(mixed $value, int $max): bool
+        public static function arrayMaxCount(mixed $value, int $max): bool
         {
             return is_array($value) && count($value) <= $max;
         }
@@ -1174,7 +1170,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  string|int $key
          * @return bool
          */
-        public static function array_has_key(mixed $value, string|int $key): bool
+        public static function arrayHasKey(mixed $value, string|int $key): bool
         {
             return is_array($value) && array_key_exists($key, $value);
         }
@@ -1186,7 +1182,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  array  $keys
          * @return bool
          */
-        public static function array_has_keys(mixed $value, array $keys): bool
+        public static function arrayHasKeys(mixed $value, array $keys): bool
         {
             if (! is_array($value)) {
                 return false;
@@ -1209,7 +1205,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  callable  $callback  Must return bool.
          * @return bool
          */
-        public static function array_all(mixed $value, callable $callback): bool
+        public static function arrayAll(mixed $value, callable $callback): bool
         {
             if (! is_array($value)) {
                 return false;
@@ -1231,7 +1227,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  callable  $callback  Must return bool.
          * @return bool
          */
-        public static function array_any(mixed $value, callable $callback): bool
+        public static function arrayAny(mixed $value, callable $callback): bool
         {
             if (! is_array($value)) {
                 return false;
@@ -1254,7 +1250,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  bool   $strict
          * @return bool
          */
-        public static function in_array(mixed $value, array $haystack, bool $strict = false): bool
+        public static function inArray(mixed $value, array $haystack, bool $strict = false): bool
         {
             return in_array($value, $haystack, $strict);
         }
@@ -1267,7 +1263,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  bool   $strict
          * @return bool
          */
-        public static function not_in_array(mixed $value, array $haystack, bool $strict = false): bool
+        public static function notInArray(mixed $value, array $haystack, bool $strict = false): bool
         {
             return ! in_array($value, $haystack, $strict);
         }
@@ -1295,7 +1291,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  mixed  $unexpected
          * @return bool
          */
-        public static function not_equals(mixed $value, mixed $unexpected): bool
+        public static function notEquals(mixed $value, mixed $unexpected): bool
         {
             return $value !== $unexpected;
         }
@@ -1307,7 +1303,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  string  $class
          * @return bool
          */
-        public static function instance_of(mixed $value, string $class): bool
+        public static function instanceOf(mixed $value, string $class): bool
         {
             return $value instanceof $class;
         }
@@ -1323,7 +1319,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  bool   $condition
          * @return bool
          */
-        public static function required_if(mixed $value, bool $condition): bool
+        public static function requiredIf(mixed $value, bool $condition): bool
         {
             return ! $condition || self::required($value);
         }
@@ -1335,7 +1331,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  bool   $condition
          * @return bool
          */
-        public static function required_unless(mixed $value, bool $condition): bool
+        public static function requiredUnless(mixed $value, bool $condition): bool
         {
             return $condition || self::required($value);
         }
@@ -1352,7 +1348,11 @@ if (! class_exists('\KPT\Validate')) {
          */
         public static function json(mixed $value): bool
         {
-            return json_validate(trim((string) $value));
+            $str = trim((string) $value);
+
+            return function_exists('json_validate')
+                ? json_validate($str)
+                : (json_decode($str) !== null || json_last_error() === JSON_ERROR_NONE);
         }
 
         /**
@@ -1449,7 +1449,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  string  $isbn  10-character string, digits only (X allowed as last char).
          * @return bool
          */
-        private static function _isbn10(string $isbn): bool
+        private static function isbn10(string $isbn): bool
         {
             if (! preg_match('/^\d{9}[\dX]$/', $isbn)) {
                 return false;
@@ -1474,7 +1474,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  string  $isbn  13-character digit string.
          * @return bool
          */
-        private static function _isbn13(string $isbn): bool
+        private static function isbn13(string $isbn): bool
         {
             if (! ctype_digit($isbn)) {
                 return false;
@@ -1498,7 +1498,7 @@ if (! class_exists('\KPT\Validate')) {
          * @param  string  $number  Digits only.
          * @return bool
          */
-        private static function _luhn(string $number): bool
+        private static function luhn(string $number): bool
         {
             $sum    = 0;
             $alt    = false;

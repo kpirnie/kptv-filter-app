@@ -44,14 +44,14 @@ if (KPTV_User::is_user_logged_in()) {
                     <label for="frmFirstName">First Name *</label>
                     <div class="uk-inline uk-width-1-1">
                         <span class="uk-form-icon" uk-icon="info"></span>
-                        <input value="<?php echo (isset($_POST['frmFirstName'])) ? KPTV::sanitize_string($_POST['frmFirstName']) : ''; ?>" tabindex="1" class="uk-input uk-form-danger" id="frmFirstName" type="text" placeholder="* First Name" name="frmFirstName" />
+                        <input value="<?php echo (isset($_POST['frmFirstName'])) ? \KPT\Sanitize::string($_POST['frmFirstName']) : ''; ?>" tabindex="1" class="uk-input uk-form-danger" id="frmFirstName" type="text" placeholder="* First Name" name="frmFirstName" />
                     </div>
                 </div>
                 <div class="uk-margin">
                     <label for="frmUsername">Username *</label>
                     <div class="uk-inline uk-width-1-1">
                         <span class="uk-form-icon" uk-icon="user"></span>
-                        <input value="<?php echo (isset($_POST['frmUsername'])) ? KPTV::sanitize_string($_POST['frmUsername']) : ''; ?>" tabindex="3" class="uk-input uk-form-danger" id="frmUsername" type="text" placeholder="* Username" name="frmUsername" />
+                        <input value="<?php echo (isset($_POST['frmUsername'])) ? \KPT\Sanitize::string($_POST['frmUsername']) : ''; ?>" tabindex="3" class="uk-input uk-form-danger" id="frmUsername" type="text" placeholder="* Username" name="frmUsername" />
                     </div>
                 </div>
                 <div class="uk-margin">
@@ -67,14 +67,14 @@ if (KPTV_User::is_user_logged_in()) {
                     <label for="frmLastName">Last Name *</label>
                     <div class="uk-inline uk-width-1-1">
                         <span class="uk-form-icon" uk-icon="info"></span>
-                        <input value="<?php echo (isset($_POST['frmLastName'])) ? KPTV::sanitize_string($_POST['frmLastName']) : ''; ?>" tabindex="2" class="uk-input uk-form-danger" id="frmLastName" type="text" placeholder="* Last Name" name="frmLastName" />
+                        <input value="<?php echo (isset($_POST['frmLastName'])) ? \KPT\Sanitize::string($_POST['frmLastName']) : ''; ?>" tabindex="2" class="uk-input uk-form-danger" id="frmLastName" type="text" placeholder="* Last Name" name="frmLastName" />
                     </div>
                 </div>
                 <div class="uk-margin">
                     <label for="frmMainEmail">Main Email *</label>
                     <div class="uk-inline uk-width-1-1">
                         <span class="uk-form-icon" uk-icon="mail"></span>
-                        <input value="<?php echo (isset($_POST['frmMainEmail'])) ? KPTV::sanitize_the_email($_POST['frmMainEmail']) : ''; ?>" tabindex="3" class="uk-input uk-form-danger" id="frmMainEmail" type="text" placeholder="* Main Email" name="frmMainEmail" />
+                        <input value="<?php echo (isset($_POST['frmMainEmail'])) ? \KPT\Sanitize::email($_POST['frmMainEmail']) : ''; ?>" tabindex="3" class="uk-input uk-form-danger" id="frmMainEmail" type="text" placeholder="* Main Email" name="frmMainEmail" />
                     </div>
                 </div>
                 <div class="uk-margin">

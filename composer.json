@@ -25,6 +25,7 @@
         "ext-pdo": "*",
         "kevinpirnie/kpt-datatables": "^2",
         "kevinpirnie/kpt-router": "^1.0",
+        "kevinpirnie/kpt-utils": "^1.0",
         "phpmailer/phpmailer": "^7.0"
     },
     "config": {

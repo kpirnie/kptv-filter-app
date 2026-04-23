@@ -8,5 +8,5 @@ $baseDir = dirname($vendorDir);
 return array(
     'PHPMailer\\PHPMailer\\' => array($vendorDir . '/phpmailer/phpmailer/src'),
     'Kptv\\IptvSync\\' => array($baseDir . '/sync/src'),
-    'KPT\\' => array($vendorDir . '/kevinpirnie/kpt-router/src', $vendorDir . '/kevinpirnie/kpt-datatables/src/class', $vendorDir . '/kevinpirnie/kpt-database/src', $vendorDir . '/kevinpirnie/kpt-cache/src', $vendorDir . '/kevinpirnie/kpt-logger/src'),
+    'KPT\\' => array($vendorDir . '/kevinpirnie/kpt-utils/src', $vendorDir . '/kevinpirnie/kpt-router/src', $vendorDir . '/kevinpirnie/kpt-datatables/src/class', $vendorDir . '/kevinpirnie/kpt-database/src', $vendorDir . '/kevinpirnie/kpt-cache/src', $vendorDir . '/kevinpirnie/kpt-logger/src'),
 );

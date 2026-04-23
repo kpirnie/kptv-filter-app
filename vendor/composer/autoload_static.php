@@ -29,11 +29,12 @@ class ComposerStaticInit2af29beba30e96aa03602b3d36e52aba
         ),
         'KPT\\' =>
         array (
-            0 => __DIR__ . '/..' . '/kevinpirnie/kpt-router/src',
-            1 => __DIR__ . '/..' . '/kevinpirnie/kpt-datatables/src/class',
-            2 => __DIR__ . '/..' . '/kevinpirnie/kpt-database/src',
-            3 => __DIR__ . '/..' . '/kevinpirnie/kpt-cache/src',
-            4 => __DIR__ . '/..' . '/kevinpirnie/kpt-logger/src',
+            0 => __DIR__ . '/..' . '/kevinpirnie/kpt-utils/src',
+            1 => __DIR__ . '/..' . '/kevinpirnie/kpt-router/src',
+            2 => __DIR__ . '/..' . '/kevinpirnie/kpt-datatables/src/class',
+            3 => __DIR__ . '/..' . '/kevinpirnie/kpt-database/src',
+            4 => __DIR__ . '/..' . '/kevinpirnie/kpt-cache/src',
+            5 => __DIR__ . '/..' . '/kevinpirnie/kpt-logger/src',
         ),
     );
 
@@ -80,9 +81,9 @@ class ComposerStaticInit2af29beba30e96aa03602b3d36e52aba
         'KPT\\RouterRequestProcessor' => __DIR__ . '/..' . '/kevinpirnie/kpt-router/src/router/request-processor.php',
         'KPT\\RouterResponseHandler' => __DIR__ . '/..' . '/kevinpirnie/kpt-router/src/router/response-handler.php',
         'KPT\\RouterRouteHandler' => __DIR__ . '/..' . '/kevinpirnie/kpt-router/src/router/route-handler.php',
-        'KPT\\Sanitize' => __DIR__ . '/../..' . '/controllers/kptv-sanitize.php',
+        'KPT\\Sanitize' => __DIR__ . '/..' . '/kevinpirnie/kpt-utils/src/Sanitize.php',
         'KPT\\ThemeManager' => __DIR__ . '/..' . '/kevinpirnie/kpt-datatables/src/class/ThemeManager.php',
-        'KPT\\Validate' => __DIR__ . '/../..' . '/controllers/kptv-validate.php',
+        'KPT\\Validate' => __DIR__ . '/..' . '/kevinpirnie/kpt-utils/src/Validate.php',
         'PHPMailer\\PHPMailer\\DSNConfigurator' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/DSNConfigurator.php',
         'PHPMailer\\PHPMailer\\Exception' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/Exception.php',
         'PHPMailer\\PHPMailer\\OAuth' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/OAuth.php',

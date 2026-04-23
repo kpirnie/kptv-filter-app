@@ -5,7 +5,7 @@
  *
  * This is our primary sanitize class
  *
- * @since      8.4
+ * @since      8.2
  * @author     Kevin Pirnie <me@kpirnie.com>
  * @package    KP Library
  */
@@ -15,16 +15,13 @@ declare(strict_types=1);
 // namespace this class
 namespace KPT;
 
-// define the primary app path if not already defined
-defined('KPTV_PATH') || die('Direct Access is not allowed!');
-
 // make sure the class does not already exist
 if (! class_exists('\KPT\Sanitize')) {
 
     /**
-     * KPTV_Sanitize
+     * Sanitize
      *
-     * A modern PHP 8.5 sanitization utility leveraging filter_var, filter_input,
+     * A modern PHP 8.2+ sanitization utility leveraging filter_var, filter_input,
      * and native string/type functions throughout.  Internal methods are reused
      * wherever a pre-clean pass is appropriate so logic is never duplicated.
      *
@@ -35,7 +32,6 @@ if (! class_exists('\KPT\Sanitize')) {
      */
     class Sanitize
     {
-
         // -------------------------------------------------------------------------
         // Scalars
         // -------------------------------------------------------------------------
@@ -53,7 +49,7 @@ if (! class_exists('\KPT\Sanitize')) {
          */
         public static function string(
             mixed $value,
-            bool $allow_newlines   = false,
+            bool $allow_newlines = false,
             bool $allow_whitespace = true
         ): string {
             // Encode special HTML characters first, then strip any remaining tags
@@ -225,8 +221,8 @@ if (! class_exists('\KPT\Sanitize')) {
          */
         public static function ip(
             mixed $value,
-            bool $ipv6     = true,
-            bool $private  = true,
+            bool $ipv6 = true,
+            bool $private = true,
             bool $reserved = true
         ): string {
             $flags = 0;
@@ -305,7 +301,7 @@ if (! class_exists('\KPT\Sanitize')) {
          * @param  mixed  $value
          * @return string  Normalised MAC address, or empty string on failure.
          */
-        public static function mac_address(mixed $value): string
+        public static function macAddress(mixed $value): string
         {
             // Pre-clean then normalise delimiter to colon before validation
             $str = strtolower(str_replace('-', ':', self::string($value, false, false)));
@@ -348,7 +344,7 @@ if (! class_exists('\KPT\Sanitize')) {
          * @param  mixed  $value
          * @return string  e.g. '#ff6600', or empty string on failure.
          */
-        public static function hex_color(mixed $value): string
+        public static function hexColor(mixed $value): string
         {
             // Pre-clean then strip the leading hash before validation
             $str = ltrim(self::string($value, false, false), '#');
@@ -516,7 +512,10 @@ if (! class_exists('\KPT\Sanitize')) {
             $str = trim((string) $value);
 
             // Fast structural check before full decode
-            if (! json_validate($str)) {
+            if (
+                function_exists('json_validate') ? ! json_validate($str) :
+                json_decode($str) === null && json_last_error() !== JSON_ERROR_NONE
+            ) {
                 return null;
             }
 
@@ -566,7 +565,7 @@ if (! class_exists('\KPT\Sanitize')) {
         ): string {
             try {
                 // Pre-clean: strip tags, special chars, and all whitespace
-                $dt = \DateTimeImmutable::createFromFormat($format, self::string($value, false, false));
+                $dt = \DateTimeImmutable::createFromFormat($format, self::string($value, false, true));
 
                 return $dt !== false ? $dt->format($output) : '';
             } catch (\Exception) {
@@ -617,12 +616,12 @@ if (! class_exists('\KPT\Sanitize')) {
             // Remove on* event attributes and any attribute containing javascript: or data:
             foreach (iterator_to_array($xpath->query('//@*')) as $attr) {
                 $name  = strtolower($attr->nodeName);
-                $value = strtolower($attr->nodeValue);
+                $attr_val = strtolower($attr->nodeValue);
 
                 if (
                     str_starts_with($name, 'on') ||
-                    str_contains($value, 'javascript:') ||
-                    str_contains($value, 'data:')
+                    str_contains($attr_val, 'javascript:') ||
+                    str_contains($attr_val, 'data:')
                 ) {
                     // ownerElement can be null if the node was already detached
                     $attr->ownerElement?->removeAttributeNode($attr);
@@ -704,8 +703,12 @@ if (! class_exists('\KPT\Sanitize')) {
          * @param  bool         $strict    Use strict type comparison.
          * @return mixed
          */
-        public static function whitelist(mixed $value, array $allowed, mixed $default = null, bool $strict = false): mixed
-        {
+        public static function whitelist(
+            mixed $value,
+            array $allowed,
+            mixed $default = null,
+            bool $strict = false
+        ): mixed {
             return in_array($value, $allowed, $strict) ? $value : $default;
         }
 
@@ -800,9 +803,9 @@ if (! class_exists('\KPT\Sanitize')) {
         public static function input(
             int $type,
             string $name,
-            int $filter        = FILTER_DEFAULT,
+            int $filter = FILTER_DEFAULT,
             array|int $options = 0,
-            mixed $default     = null
+            mixed $default = null
         ): mixed {
             // Normalize int flags to the options array form filter_input expects
             $opts   = is_array($options) ? $options : ['flags' => $options];
@@ -821,7 +824,7 @@ if (! class_exists('\KPT\Sanitize')) {
          * @param  array<string,int|array>  $definition  filter_input_array definition map.
          * @return array<string,mixed>
          */
-        public static function input_array(int $type, array $definition): array
+        public static function inputArray(int $type, array $definition): array
         {
             $result = filter_input_array($type, $definition, false);
 

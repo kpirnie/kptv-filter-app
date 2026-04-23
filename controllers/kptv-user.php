@@ -211,7 +211,7 @@ if (! class_exists('KPTV_User')) {
             if (! \KPT\Validate::username($username)) {
                 $errors[] = 'The username you have typed in is not valid.';
             }
-            if (! \KPT\Validate::password_strength($password)) {
+            if (! \KPT\Validate::passwordStrength($password)) {
                 $errors[] = 'The password you typed is not valid.';
             }
 
@@ -339,14 +339,14 @@ if (! class_exists('KPTV_User')) {
             $newPass2 = $_POST['frmNewPassword2'] ?? '';
 
             // Validate current password matches stored hash
-            if (!\KPT\Validate::password_strength($currentPass)) {
+            if (!\KPT\Validate::passwordStrength($currentPass)) {
                 $errors[] = 'The current password you typed is not valid.';
             } elseif (!$this->verifyCurrentPassword($user->id, $currentPass)) {
                 $errors[] = 'Your current password does not match what we have in our system.';
             }
 
             // Validate new password meets requirements and matches confirmation
-            if (!\KPT\Validate::password_strength($newPass1)) {
+            if (!\KPT\Validate::passwordStrength($newPass1)) {
                 $errors[] = 'The new password you typed is not valid.';
             } elseif (!\KPT\Validate::confirmed($newPass1, $newPass2)) {
                 $errors[] = 'Your new passwords do not match each other.';
@@ -532,7 +532,7 @@ if (! class_exists('KPTV_User')) {
          */
         private function validatePasswords(array $input, array &$errors): void
         {
-            if (!\KPT\Validate::password_strength($input['password1'])) {
+            if (!\KPT\Validate::passwordStrength($input['password1'])) {
                 $errors[] = 'The password you typed is not valid.';
             } elseif ($input['password1'] !== $input['password2']) {
                 $errors[] = 'Your passwords do not match each other.';
