@@ -380,26 +380,30 @@
         },
         {
             "name": "kevinpirnie/kpt-utils",
-            "version": "v1.0.87",
-            "version_normalized": "1.0.87.0",
+            "version": "v1.1.87",
+            "version_normalized": "1.1.87.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/kpirnie/kp-php-utils.git",
-                "reference": "51c0ae826c0b7c5fcb64c37a1b9307330d592566"
+                "reference": "0ae12c9a883d224d37157a22c3d071e9a0dcc091"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kpirnie/kp-php-utils/zipball/51c0ae826c0b7c5fcb64c37a1b9307330d592566",
-                "reference": "51c0ae826c0b7c5fcb64c37a1b9307330d592566",
+                "url": "https://api.github.com/repos/kpirnie/kp-php-utils/zipball/0ae12c9a883d224d37157a22c3d071e9a0dcc091",
+                "reference": "0ae12c9a883d224d37157a22c3d071e9a0dcc091",
                 "shasum": ""
             },
             "require": {
+                "ext-curl": "*",
+                "ext-intl": "*",
+                "ext-openssl": "*",
+                "ext-sodium": "*",
                 "php": ">=8.2"
             },
             "require-dev": {
                 "squizlabs/php_codesniffer": "^3.6"
             },
-            "time": "2026-04-23T13:05:31+00:00",
+            "time": "2026-04-23T18:42:20+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -421,14 +425,31 @@
             "description": "A modern PHP 8.2+ utility library.",
             "homepage": "https://github.com/kpirnie/kp-php-utils",
             "keywords": [
+                "array",
+                "cli",
+                "collection",
+                "crypto",
+                "curl",
+                "datetime",
+                "encryption",
+                "env",
+                "http",
                 "input",
+                "paginator",
                 "php",
+                "pipeline",
+                "retry",
                 "sanitize",
                 "security",
+                "session",
+                "string",
+                "token",
+                "utilities",
+                "uuid",
                 "validate"
             ],
             "support": {
-                "docs": "https://github.com/kpirnie/kp-php-utils/blob/main/README.md",
+                "docs": "https://github.com/kpirnie/kp-php-utils/blob/main/readme.md",
                 "issues": "https://github.com/kpirnie/kp-php-utils/issues",
                 "source": "https://github.com/kpirnie/kp-php-utils"
             },

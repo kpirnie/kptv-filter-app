@@ -3,11 +3,28 @@
     "type": "library",
     "description": "A modern PHP 8.2+ utility library.",
     "keywords": [
-        "sanitize",
-        "validate",
+        "array",
+        "cli",
+        "collection",
+        "crypto",
+        "curl",
+        "datetime",
+        "encryption",
+        "env",
+        "http",
         "input",
+        "paginator",
+        "php",
+        "sanitize",
         "security",
-        "php"
+        "session",
+        "string",
+        "token",
+        "utilities",
+        "uuid",
+        "validate",
+        "pipeline",
+        "retry"
     ],
     "homepage": "https://github.com/kpirnie/kp-php-utils",
     "license": "MIT",
@@ -29,7 +46,11 @@
         }
     ],
     "require": {
-        "php": ">=8.2"
+        "php": ">=8.2",
+        "ext-openssl": "*",
+        "ext-sodium": "*",
+        "ext-curl": "*",
+        "ext-intl": "*"
     },
     "require-dev": {
         "squizlabs/php_codesniffer": "^3.6"
@@ -56,6 +77,6 @@
     "support": {
         "issues": "https://github.com/kpirnie/kp-php-utils/issues",
         "source": "https://github.com/kpirnie/kp-php-utils",
-        "docs": "https://github.com/kpirnie/kp-php-utils/blob/main/README.md"
+        "docs": "https://github.com/kpirnie/kp-php-utils/blob/main/readme.md"
     }
 }
