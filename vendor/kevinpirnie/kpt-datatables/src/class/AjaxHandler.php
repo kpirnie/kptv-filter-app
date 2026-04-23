@@ -563,7 +563,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                     $parts = explode(' AS ', $sortColumn);
                     $aliasName = trim($parts[1], '`\'" ');
                     $sql .= " ORDER BY `{$aliasName}` {$direction}";
-                } else if (strpos($sortColumn, '.') !== false) {
+                } elseif (strpos($sortColumn, '.') !== false) {
                     $sql .= " ORDER BY {$sortColumn} {$direction}";
                 } else {
                     $sql .= " ORDER BY `{$sortColumn}` {$direction}";

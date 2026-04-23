@@ -63,10 +63,10 @@ if (! class_exists('KPTV_User')) {
         private const COOKIE_NAME = 'kpt_auth';
 
         /**
-         * Cookie lifetime in seconds (24 hours)
+         * Cookie lifetime in seconds (30 Days)
          * @var int
          */
-        private const COOKIE_LIFETIME = 86400;
+        private const COOKIE_LIFETIME = 2592000;
 
         /**
          * Constructor

@@ -12,14 +12,14 @@
  */
 
 // try to manage the session as early as possible
-session_set_cookie_params([
+/*session_set_cookie_params([
     'lifetime' => 0,
     'path' => '/',
-    'domain' => '',
+    'domain' => 'app.kptv.im',
     'secure' => isset($_SERVER['HTTPS']),
     'httponly' => true,
     'samesite' => 'Lax'
-]);
+]);*/
 
 // hold the app path
 $appPath = dirname(__FILE__, 2) . '/';

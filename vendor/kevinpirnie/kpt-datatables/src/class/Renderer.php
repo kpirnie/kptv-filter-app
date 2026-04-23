@@ -67,7 +67,6 @@ if (! class_exists('KPT\Renderer', false)) {
             $themeContainerClass = $tm->getClasses('container');
 
             $html = "<div class=\"{$containerClass} datatables-container {$themeContainerClass}\" data-table=\"{$tableName}\">\n";
-            $html .= $this->renderFilterAccordion();
             $html .= $this->renderTable();
             $html .= "</div>\n";
 
@@ -293,12 +292,15 @@ if (! class_exists('KPT\Renderer', false)) {
             // Build accordion wrapper based on theme
             if ($this->theme === 'uikit') {
                 $html = "<ul uk-accordion>\n<li>\n";
-                $html .= "<a class=\"uk-accordion-title\" href=\"#\">\n";
-                $html .= "<span>Filters</span>\n";
-                $html .= "<span class=\"datatables-filter-count uk-badge\" style=\"display:none;\"></span>\n";
-                $html .= "<a href=\"#\" class=\"uk-icon-link uk-margin-small-left\" onclick=\"DataTables.resetFilters(); return false;\" uk-icon=\"refresh\" uk-tooltip=\"Reset Filters\"></a>\n";
-                $html .= "</a>\n<div class=\"uk-accordion-content\">\n";
-                $html .= "<div class=\"uk-grid-small uk-child-width-auto\" uk-grid>\n";
+                $html .= "<div class=\"uk-accordion-title uk-flex uk-flex-middle uk-flex-between\">\n";
+                $html .= "<div><span>Filters</span><span class=\"datatables-filter-count uk-badge uk-margin-small-left\" style=\"display:none;\"></span></div>\n";
+                $html .= "<div class=\"uk-flex uk-flex-middle\">\n";
+                $html .= "<a href=\"#\" class=\"uk-icon-link\" onclick=\"DataTables.resetFilters(); event.stopPropagation(); return false;\" uk-icon=\"refresh\" uk-tooltip=\"Reset Filters\"></a>\n";
+                $html .= "<span class=\"uk-icon-link uk-margin-small-left datatables-filter-chevron\" uk-icon=\"chevron-down\"></span>\n";
+                $html .= "</div>\n";
+                $html .= "</div>\n<div class=\"uk-accordion-content\">\n";
+                $html .= "<div style=\"padding-left: 10px;\">\n";
+                $html .= "<div class=\"uk-grid-small uk-child-width-1-2@s uk-child-width-1-3@m\" uk-grid>\n";
             } elseif ($this->theme === 'bootstrap') {
                 $html = "<div class=\"accordion mb-3\">\n<div class=\"accordion-item\">\n";
                 $html .= "<h2 class=\"accordion-header\">\n";
@@ -326,7 +328,6 @@ if (! class_exists('KPT\Renderer', false)) {
 
             // Render each configured filter field
             foreach ($filterConfig as $field => $config) {
-
                 // Normalize shorthand (field => operator) to full config array
                 $config = $this->normalizeFilterConfig($config);
 
@@ -353,7 +354,7 @@ if (! class_exists('KPT\Renderer', false)) {
 
             // Close wrappers
             if ($this->theme === 'uikit') {
-                $html .= "</div>\n</div>\n</li>\n</ul>\n";
+                $html .= "</div>\n</div>\n</div>\n</li>\n</ul>\n";
             } elseif ($this->theme === 'bootstrap') {
                 $html .= "</div>\n</div>\n</div>\n</div>\n</div>\n";
             } else {
@@ -383,8 +384,17 @@ if (! class_exists('KPT\Renderer', false)) {
 
             // BETWEEN renders two inputs
             if ($operator === 'BETWEEN') {
-                $html  = "<input type=\"" . $this->filterInputType($type) . "\" class=\"{$inputClass} datatables-filter-between-from\" data-filter-field=\"{$field}\" data-filter-operator=\"BETWEEN\" placeholder=\"From\" style=\"margin-bottom:4px;\">\n";
-                $html .= "<input type=\"" . $this->filterInputType($type) . "\" class=\"datatables-filter-input datatables-filter-between-to\" data-filter-field=\"{$field}\" data-filter-operator=\"BETWEEN\" placeholder=\"To\">\n";
+                $labelClass = $tm->getClass('form.label');
+                $html  = "<div class=\"datatables-filter-between\">\n";
+                $html .= "<div class=\"datatables-filter-between-item\">\n";
+                $html .= "<label class=\"{$labelClass}\">From</label>\n";
+                $html .= "<input type=\"" . $this->filterInputType($type) . "\" class=\"{$inputClass} datatables-filter-input datatables-filter-between-from\" data-filter-field=\"{$field}\" data-filter-operator=\"BETWEEN\" placeholder=\"From\">\n";
+                $html .= "</div>\n";
+                $html .= "<div class=\"datatables-filter-between-item\">\n";
+                $html .= "<label class=\"{$labelClass}\">To</label>\n";
+                $html .= "<input type=\"" . $this->filterInputType($type) . "\" class=\"{$inputClass} datatables-filter-input datatables-filter-between-to\" data-filter-field=\"{$field}\" data-filter-operator=\"BETWEEN\" placeholder=\"To\">\n";
+                $html .= "</div>\n";
+                $html .= "</div>\n";
                 return $html;
             }
 

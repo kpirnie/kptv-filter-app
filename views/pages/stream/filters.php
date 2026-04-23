@@ -75,7 +75,7 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
     <?php
 
     // pull in the control panel
-    \KPTV::include_view('common/control-panel', ['dt' => $dt]);
+    \KPTV::include_view('common/control-panel', ['dt' => $dt, 'position' => 'top']);
     ?>
 </div>
 <div class="uk-margin">
@@ -89,7 +89,7 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
     <?php
 
     // pull in the control panel
-    \KPTV::include_view('common/control-panel', ['dt' => $dt]);
+    \KPTV::include_view('common/control-panel', ['dt' => $dt, 'position' => 'bottom']);
     ?>
 </div>
 <?php

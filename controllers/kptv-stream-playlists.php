@@ -26,10 +26,12 @@ if (! class_exists('KPTV_Stream_Playlists')) {
      */
     class KPTV_Stream_Playlists extends \KPT\Database
     {
+        private bool $logo = false;
 
         public function __construct()
         {
             parent::__construct(KPTV::get_setting('database'));
+            $this->logo = filter_input(INPUT_GET, 'logo', FILTER_VALIDATE_BOOLEAN) ?? false;
         }
 
         /**
@@ -257,7 +259,17 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                     }
 
                     // setup the stream logo
-                    $stream_logo = $rec->TvgLogo ?? 'https://cdn.kevp.us/tv/kptv-logo.png';
+                    $the_logo = null;
+                    if ($this->logo && 0 === $rec->StreamType) {
+                        // format the channel name
+                        $chan = preg_replace(
+                            ['/\s*&\s*/', '/[+\s]/', '/[^a-z0-9\-]/', '/-{2,}/'],
+                            ['-and-', '-', '', '-'],
+                            mb_strtolower(trim($rec->TvgName))
+                        );
+                        $the_logo = sprintf('https://cdn.kcp.im/tv/logos/%s.png', $chan);
+                    }
+                    $stream_logo = ($the_logo) ?: $rec->TvgLogo ?? 'https://cdn.kevp.us/tv/kptv-logo.png';
 
                     // add the logo
                     $extinf .= sprintf(' tvg-logo="%s"', $stream_logo);

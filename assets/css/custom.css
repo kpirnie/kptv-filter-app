@@ -284,3 +284,41 @@ input[type="file"]::file-selector-button {
         width: 100%;
     }
 }
+
+.datatables-filter-chevron svg {
+    transition: transform 0.2s ease-in-out;
+}
+
+.uk-open .datatables-filter-chevron svg {
+    transform: rotate(180deg);
+}
+
+.datatables-filter-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+.datatables-filter-padding {
+    padding-left: 10px;
+}
+.datatables-filter-between {
+    display: flex;
+    gap: 10px;
+}
+
+.datatables-filter-between-item {
+    flex: 1;
+}
+.uk-accordion-title .uk-badge {
+    background: var(--kptv-orange);
+    color: var(--kptv-dark-navy);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 4px;
+    padding: 2px 6px;
+    vertical-align: middle;
+}
+.datatables-bulk-actions {
+    gap: 3px;
+}

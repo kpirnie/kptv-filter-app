@@ -2596,6 +2596,34 @@ if (! class_exists('KPTV_Static')) {
             // return them
             return $ret;
         }
+        public static function getProvidersNames(int $userId): array
+        {
+
+            // setup the return
+            $ret = [];
+
+            $dbconf = self::get_setting('database') ?? (object)[];
+
+            // fire up the database class
+            $db = new \KPT\Database($dbconf);
+
+            // setup the recordset
+            $rs = $db->query("SELECT id, sp_name FROM kptv_stream_providers WHERE u_id = ?")
+                ->bind([$userId])
+                ->asArray()
+                ->fetch();
+
+            // loop the array, if it is an array
+            if (is_array($rs)) {
+                foreach ($rs as $rec) {
+                    // set the array items
+                    $ret[$rec['sp_name']] = $rec['sp_name'];
+                }
+            }
+
+            // return them
+            return $ret;
+        }
 
         /**---------------------------------------------------------------------------------------------------- */
         /**---------------------------------------------------------------------------------------------------- */

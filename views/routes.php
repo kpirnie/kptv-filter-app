@@ -240,7 +240,7 @@ $get_stream_routes = [
         'method' => 'GET',
         'path' => '/movie/{username}/{password}/{streamId}',
         'handler' => 'KPTV_Xtream_API@handleStreamRedirect',
-        'should_cache' => false,
+           'should_cache' => false,
     ],
     [
         'method' => 'GET',

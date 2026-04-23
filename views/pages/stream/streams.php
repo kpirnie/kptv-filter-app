@@ -64,14 +64,9 @@ $dt->table('kptv_streams s')
     ])
     ->filter([
         's_orig_name'  => ['operator' => 'LIKE', 'label' => 'Original Name', 'type' => 'text', 'placeholder' => 'Search by original name'],
-        'p.sp_name'    => ['operator' => 'LIKE', 'label' => 'Provider', 'type' => 'text', 'placeholder' => 'Search by provider'],
-        's_active'     => ['operator' => '=', 'label' => 'Active', 'type' => 'select', 'options' => ['1' => 'Yes', '0' => 'No']],
-        's_created_at' => [
-            'operator'    => 'BETWEEN',
-            'label'       => 'Created Between',
-            'type'        => 'date',
-            'placeholder' => '',
-        ],
+        'p.sp_name'    => ['operator' => '=', 'label' => 'Provider', 'type' => 'select', 'options' => \KPTV::getProvidersNames($userId)],
+        's_guide'      => ['operator' => '=', 'label' => 'Guide', 'type' => 'select', 'options' => \KPTV::guide_types()],
+
     ])
     ->tableClass('uk-table uk-table-divider uk-table-small uk-margin-bottom')
     ->columns([
@@ -135,7 +130,7 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
     <?php
 
     // pull in the control panel
-    \KPTV::include_view('common/control-panel', ['dt' => $dt]);
+    \KPTV::include_view('common/control-panel', ['dt' => $dt, 'position' => 'top']);
     ?>
 </div>
 <div class="uk-margin the-datatable">
@@ -149,7 +144,7 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
     <?php
 
     // pull in the control panel
-    \KPTV::include_view('common/control-panel', ['dt' => $dt]);
+    \KPTV::include_view('common/control-panel', ['dt' => $dt, 'position' => 'bottom']);
     ?>
 </div>
 <?php

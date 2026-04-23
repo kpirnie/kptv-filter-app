@@ -1,12 +1,21 @@
 # KPT DataTables
 
-Advanced PHP DataTables library with CRUD operations, search, sorting, pagination, bulk actions, JOIN support, calculated columns, footer aggregations, and multi-framework theme support (UIKit3, Bootstrap 5, Tailwind CSS, Plain).
+[![GitHub Issues](https://img.shields.io/github/issues/kpirnie/kp-datatables?style=for-the-badge&logo=github&color=006400&logoColor=white&labelColor=000)](https://github.com/kpirnie/kp-datatables/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/kpirnie/kptv-filter-app?style=for-the-badge&labelColor=000)](https://github.com/kpirnie/kptv-filter-app/commits/main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg?style=for-the-badge&logo=opensourceinitiative&logoColor=white&labelColor=000)](LICENSE)
+
+[![PHP](https://img.shields.io/badge/Up%20To-php8.4-777BB4?logo=php&logoColor=white&style=for-the-badge&labelColor=000)](https://php.net)
+[![Discord](https://img.shields.io/badge/Discord-Join-blue?logo=discord&logoColor=white&style=for-the-badge&labelColor=000)](https://discord.gg/bd4Qan3PaN)
+[![Kevin Pirnie](https://img.shields.io/badge/www-KevinPirnie.com-000d2d?style=for-the-badge&labelColor=000&logoColor=white&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz4KICA8ZWxsaXBzZSBjeD0iMTIiIGN5PSIxMiIgcng9IjQuNSIgcnk9IjEwIi8+CiAgPGxpbmUgeDE9IjIiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz4KICA8bGluZSB4MT0iNC41IiB5MT0iNi41IiB4Mj0iMTkuNSIgeTI9IjYuNSIvPgogIDxsaW5lIHgxPSI0LjUiIHkxPSIxNy41IiB4Mj0iMTkuNSIgeTI9IjE3LjUiLz4KPC9zdmc+Cg==)](https://kevinpirnie.com/)
+
+Advanced PHP DataTables library with CRUD operations, search, sorting, pagination, bulk actions, JOIN support, calculated columns, footer aggregations, column filters, and multi-framework theme support (UIKit3, Bootstrap 5, Tailwind CSS, Plain).
 
 ## Features
 
 - 🚀 **Full CRUD Operations** - Create, Read, Update, Delete with AJAX support
 - 🔗 **Advanced JOIN Support** - Complex database relationships with table aliases
 - 🔍 **Advanced Search** - Search all columns or specific columns with qualified column names
+- 🎛️ **Column Filters** - Collapsible filter accordion with per-column filter inputs, BETWEEN date ranges, selects, and more
 - 📊 **Sorting** - Multi-column sorting with visual indicators on joined tables
 - 📄 **Pagination** - Configurable page sizes with first/last navigation
 - ✅ **Bulk Actions** - Select multiple records for bulk operations with custom callbacks
@@ -21,7 +30,7 @@ Advanced PHP DataTables library with CRUD operations, search, sorting, paginatio
 
 ## Requirements
 
-- PHP 8.1 or higher
+- PHP 8.2 or higher
 - PDO extension
 - JSON extension
 
@@ -50,7 +59,6 @@ require 'vendor/autoload.php';
 
 use KPT\DataTables\DataTables;
 
-// Configure database via constructor
 $dbConfig = [
     'server' => 'localhost',
     'schema' => 'your_database',
@@ -66,17 +74,13 @@ $dataTable = new DataTables($dbConfig);
 ### 2. Include Required Assets
 
 ```php
-// Include CSS (with theme)
 echo DataTables::getCssIncludes('uikit', true, true);
-
-// Include JavaScript files
 echo DataTables::getJsIncludes('uikit', true, true);
 ```
 
 ### 3. Handle AJAX Requests
 
 ```php
-// Handle AJAX requests (before any HTML output)
 if (isset($_POST['action']) || isset($_GET['action'])) {
     $dataTable->handleAjax();
 }
@@ -85,9 +89,8 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
 ### 4. Simple Table
 
 ```php
-// Configure and render table
 echo $dataTable
-    ->theme('uikit')  // Set theme: 'plain', 'uikit', 'bootstrap', or 'tailwind'
+    ->theme('uikit')
     ->table('users')
     ->columns([
         'id' => 'ID',
@@ -115,10 +118,7 @@ KPT DataTables supports multiple UI frameworks through a flexible theming system
 ### Using Themes
 
 ```php
-// Set theme with CDN includes (default: true)
 $dataTable->theme('bootstrap', true);
-
-// Set theme without CDN (for self-hosted assets)
 $dataTable->theme('uikit', false);
 ```
 
@@ -127,16 +127,11 @@ $dataTable->theme('uikit', false);
 #### UIKit3 (Default)
 
 ```php
-// CSS and JS includes
 echo DataTables::getCssIncludes('uikit', true, true);
 echo DataTables::getJsIncludes('uikit', true, true);
 ```
 
-Automatically includes from CDN:
-
-- UIKit CSS
-- UIKit JS
-- UIKit Icons
+Automatically includes from CDN: UIKit CSS, UIKit JS, UIKit Icons.
 
 #### Bootstrap 5
 
@@ -145,11 +140,7 @@ echo DataTables::getCssIncludes('bootstrap', true, true);
 echo DataTables::getJsIncludes('bootstrap', true, true);
 ```
 
-Automatically includes from CDN:
-
-- Bootstrap CSS
-- Bootstrap Icons CSS
-- Bootstrap Bundle JS
+Automatically includes from CDN: Bootstrap CSS, Bootstrap Icons CSS, Bootstrap Bundle JS.
 
 #### Tailwind CSS
 
@@ -161,13 +152,8 @@ echo DataTables::getJsIncludes('tailwind', false, true);
 **Tailwind Compilation Required:**
 
 ```bash
-# Install dependencies
 npm install
-
-# Build CSS
 npm run build:tailwind
-
-# Watch for changes during development
 npm run watch:tailwind
 ```
 
@@ -178,56 +164,115 @@ echo DataTables::getCssIncludes('plain', false, true);
 echo DataTables::getJsIncludes('plain', false, true);
 ```
 
-The plain theme uses `kp-dt-*` prefixed classes for all elements, making it easy to customize or integrate with any CSS framework. Styled similarly to UIKit3.
+Uses `kp-dt-*` prefixed classes for all elements, making it easy to integrate with any CSS framework.
 
-### CSS Class Structure
+## Column Filters
 
-All themes include both framework-specific classes AND `kp-dt-*` prefixed classes for custom styling:
+The filter accordion provides a collapsible panel of per-column filter inputs rendered above the table. It supports text search, selects, booleans, and date ranges.
 
-```html
-<!-- Example table element -->
-<table class="uk-table uk-table-striped kp-dt-table-uikit datatables-table">
+### Basic Usage
+
+```php
+$dataTable
+    ->table('orders o')
+    ->join('LEFT', 'customers c', 'o.customer_id = c.id')
+    ->columns([...])
+    ->filter([
+        'o.status'      => '=',
+        'c.name'        => 'LIKE',
+        'o.created_at'  => 'BETWEEN',
+    ])
+    ->renderDataTableComponent();
 ```
 
-This allows you to:
+### Full Filter Configuration
 
-1. Override specific styles with `kp-dt-*` classes
-2. Target elements consistently across themes
-3. Add custom CSS without conflicts
+Each filter field accepts either a shorthand operator string or a full configuration array:
 
-### Custom Theme CSS
+```php
+->filter([
+    // Shorthand: field => operator
+    'name' => 'LIKE',
 
-Each theme has its own CSS file at:
+    // Full configuration
+    'status' => [
+        'operator'    => '=',
+        'label'       => 'Status',
+        'type'        => 'select',
+        'options'     => ['active' => 'Active', 'inactive' => 'Inactive'],
+        'placeholder' => '',
+    ],
 
+    // Boolean field renders as Active/Inactive dropdown
+    'is_active' => [
+        'operator' => '=',
+        'label'    => 'Active',
+        'type'     => 'boolean',
+    ],
+
+    // Date range renders two side-by-side date pickers with From/To labels
+    'created_at' => [
+        'operator' => 'BETWEEN',
+        'label'    => 'Created Between',
+        'type'     => 'date',
+    ],
+])
 ```
-/vendor/kevinpirnie/kpt-datatables/src/assets/css/themes/{theme}.css
+
+### Supported Filter Operators
+
+| Operator | Description | Input Rendered |
+|----------|-------------|----------------|
+| `=` | Exact match | Text input |
+| `!=` | Not equal | Text input |
+| `>` `>=` `<` `<=` | Comparisons | Text or number input |
+| `LIKE` | Partial match (auto-wraps `%value%`) | Text input |
+| `NOT LIKE` | Inverse partial match | Text input |
+| `IN` | Comma-separated value list | Text input (hint shown) |
+| `NOT IN` | Exclude comma-separated list | Text input |
+| `BETWEEN` | Date or number range | Two side-by-side inputs with From/To labels |
+| `REGEXP` | Regular expression match | Text input |
+
+### Rendering the Filter Accordion
+
+By default the filter accordion renders inside `renderDataTableComponent()` above the table. If you need control over placement — for example rendering it in a custom control panel — remove it from the default render and call it explicitly:
+
+```php
+// In your layout/control panel PHP
+echo $dt->renderFilterAccordionComponent();
 ```
 
-You can copy and modify these files for custom styling.
+> **Note:** If you call `renderFilterAccordionComponent()` manually, remove the internal call from `renderContainer()` in `Renderer.php` to avoid rendering it twice.
+
+### Filter Active Count Badge
+
+When filters are applied, a badge appears on the accordion title showing the number of active filters. It resets automatically when `resetFilters()` is called (the reset button is built into the accordion header).
 
 ## Advanced Usage with JOINs
-
-### JOIN Tables with Aliases
 
 ```php
 $dataTable = new DataTables($dbConfig);
 
 echo $dataTable
     ->theme('bootstrap')
-    ->table('kptv_stream_other s')  // Main table with alias
-    ->primaryKey('s.id')            // Qualified primary key
-    ->join('LEFT', 'kptv_stream_providers p', 's.p_id = p.id')  // JOIN with alias
+    ->table('kptv_stream_other s')
+    ->primaryKey('s.id')
+    ->join('LEFT', 'kptv_stream_providers p', 's.p_id = p.id')
     ->columns([
-        's.id' => 'ID',             // Qualified column names
+        's.id' => 'ID',
         's_orig_name' => 'Original Name',
         's_stream_uri' => 'Stream URI',
-        'p.sp_name' => 'Provider',  // Column from joined table
+        'p.sp_name' => 'Provider',
     ])
     ->columnClasses([
         's.id' => 'uk-min-width',
         's_stream_uri' => 'txt-truncate'
     ])
-    ->sortable(['s_orig_name', 'p.sp_name'])  // Sort on joined columns
+    ->sortable(['s_orig_name', 'p.sp_name'])
+    ->filter([
+        's_orig_name' => ['operator' => 'LIKE', 'label' => 'Name', 'placeholder' => 'Search by name'],
+        'p.sp_name'   => ['operator' => 'LIKE', 'label' => 'Provider'],
+    ])
     ->perPage(25)
     ->pageSizeOptions([25, 50, 100, 250], true)
     ->bulkActions(true)
@@ -240,7 +285,7 @@ echo $dataTable
                 'href' => '/export/{id}'
             ]
         ],
-        ['delete']  // Built-in delete action
+        ['delete']
     ])
     ->renderDataTableComponent();
 ```
@@ -251,7 +296,7 @@ echo $dataTable
 $dataTable = new DataTables($dbConfig);
 
 echo $dataTable
-    ->theme('uikit')  // Choose your theme
+    ->theme('uikit')
     ->table('users u')
     ->primaryKey('u.user_id')
     ->join('LEFT', 'user_roles r', 'u.role_id = r.role_id')
@@ -267,21 +312,20 @@ echo $dataTable
             'type' => 'boolean'
         ]
     ])
-    
-    // Configure sorting and editing
     ->sortable(['u.name', 'u.email', 'r.role_name', 'd.dept_name'])
     ->inlineEditable(['u.name', 'u.email', 'u.status'])
-    
-    // Pagination options
+    ->filter([
+        'u.name'       => ['operator' => 'LIKE', 'label' => 'Name'],
+        'r.role_name'  => ['operator' => 'LIKE', 'label' => 'Role'],
+        'u.status'     => ['operator' => '=', 'label' => 'Status', 'type' => 'boolean'],
+        'u.created_at' => ['operator' => 'BETWEEN', 'label' => 'Created Between', 'type' => 'date'],
+    ])
     ->perPage(25)
     ->pageSizeOptions([10, 25, 50, 100], true)
-    
-    // Enable bulk actions with custom callbacks
     ->bulkActions(true, [
         'activate' => [
             'label' => 'Activate Selected',
             'icon' => 'check',
-            'class' => 'uk-button-secondary',
             'confirm' => 'Activate selected users?',
             'callback' => function($ids, $db, $table) {
                 $placeholders = implode(',', array_fill(0, count($ids), '?'));
@@ -293,8 +337,6 @@ echo $dataTable
             'error_message' => 'Failed to activate users'
         ]
     ])
-    
-    // Configure action button groups
     ->actionGroups([
         [
             'email' => [
@@ -303,16 +345,9 @@ echo $dataTable
                 'class' => 'btn-email',
                 'href' => '/email/{id}'
             ],
-            'profile' => [
-                'icon' => 'user',
-                'title' => 'View Profile',
-                'href' => '/profile/{id}'
-            ]
         ],
-        ['edit', 'delete']  // Built-in actions
+        ['edit', 'delete']
     ])
-    
-    // Add form configuration
     ->addForm('Add New User', [
         'name' => [
             'type' => 'text',
@@ -324,7 +359,6 @@ echo $dataTable
             'type' => 'email',
             'label' => 'Email Address',
             'required' => true,
-            'placeholder' => 'user@example.com'
         ],
         'role_id' => [
             'type' => 'select',
@@ -335,10 +369,6 @@ echo $dataTable
                 '2' => 'Editor',
                 '3' => 'User'
             ]
-        ],
-        'avatar' => [
-            'type' => 'file',
-            'label' => 'Avatar Image'
         ],
         'status' => [
             'type' => 'boolean',
@@ -346,36 +376,16 @@ echo $dataTable
             'value' => '1'
         ]
     ])
-    
-    // Edit form (similar to add form)
     ->editForm('Edit User', [
-        'name' => [
-            'type' => 'text',
-            'label' => 'Full Name',
-            'required' => true
-        ],
-        'email' => [
-            'type' => 'email',
-            'label' => 'Email Address',
-            'required' => true
-        ],
+        'name' => ['type' => 'text', 'label' => 'Full Name', 'required' => true],
+        'email' => ['type' => 'email', 'label' => 'Email Address', 'required' => true],
         'role_id' => [
             'type' => 'select',
             'label' => 'Role',
-            'required' => true,
-            'options' => [
-                '1' => 'Administrator',
-                '2' => 'Editor',
-                '3' => 'User'
-            ]
+            'options' => ['1' => 'Administrator', '2' => 'Editor', '3' => 'User']
         ],
-        'status' => [
-            'type' => 'boolean',
-            'label' => 'Active Status'
-        ]
+        'status' => ['type' => 'boolean', 'label' => 'Active Status']
     ])
-    
-    // CSS customization
     ->tableClass('uk-table uk-table-striped uk-table-hover custom-table')
     ->rowClass('custom-row')
     ->columnClasses([
@@ -383,124 +393,8 @@ echo $dataTable
         'u.email' => 'uk-text-primary',
         'u.status' => 'uk-text-center'
     ])
-    
-    // File upload configuration
-    ->fileUpload('uploads/avatars/', ['jpg', 'jpeg', 'png', 'gif'], 5242880) // 5MB limit
-    
+    ->fileUpload('uploads/avatars/', ['jpg', 'jpeg', 'png', 'gif'], 5242880)
     ->renderDataTableComponent();
-```
-
-## Complete Working Example
-
-```php
-<?php
-require 'vendor/autoload.php';
-
-use KPT\DataTables\DataTables;
-
-// Database configuration
-$dbConfig = [
-    'server' => 'localhost',
-    'schema' => 'your_database',
-    'username' => 'your_username',
-    'password' => 'your_password',
-    'charset' => 'utf8mb4',
-    'collation' => 'utf8mb4_unicode_ci'
-];
-
-// Create DataTables instance
-$dataTable = new DataTables($dbConfig);
-
-// Handle AJAX requests first
-if (isset($_POST['action']) || isset($_GET['action'])) {
-    $dataTable->handleAjax();
-}
-
-// Choose your theme
-$theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
-?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>DataTables Example</title>
-    <?php echo DataTables::getCssIncludes($theme, true, true); ?>
-</head>
-<body>
-    <div class="uk-container uk-margin-top">
-        <?php
-        echo $dataTable
-            ->theme($theme)
-            ->table('users u')
-            ->primaryKey('u.id')
-            ->join('LEFT', 'user_roles r', 'u.role_id = r.role_id')
-            ->columns([
-                'u.id' => 'ID',
-                'u.name' => 'Name',
-                'u.email' => 'Email',
-                'r.role_name' => 'Role',
-                'u.status' => [
-                    'label' => 'Status',
-                    'type' => 'boolean'
-                ]
-            ])
-            ->sortable(['u.name', 'u.email', 'r.role_name'])
-            ->inlineEditable(['u.name', 'u.email', 'u.status'])
-            ->bulkActions(true)
-            ->addForm('Add User', [
-                'name' => [
-                    'type' => 'text',
-                    'label' => 'Full Name',
-                    'required' => true
-                ],
-                'email' => [
-                    'type' => 'email',
-                    'label' => 'Email',
-                    'required' => true
-                ],
-                'role_id' => [
-                    'type' => 'select',
-                    'label' => 'Role',
-                    'options' => [
-                        '1' => 'Admin',
-                        '2' => 'User'
-                    ]
-                ],
-                'status' => [
-                    'type' => 'boolean',
-                    'label' => 'Active',
-                    'value' => '1'
-                ]
-            ])
-            ->editForm('Edit User', [
-                'name' => [
-                    'type' => 'text',
-                    'label' => 'Full Name',
-                    'required' => true
-                ],
-                'email' => [
-                    'type' => 'email',
-                    'label' => 'Email',
-                    'required' => true
-                ],
-                'role_id' => [
-                    'type' => 'select',
-                    'label' => 'Role',
-                    'options' => [
-                        '1' => 'Admin',
-                        '2' => 'User'
-                    ]
-                ],
-                'status' => [
-                    'type' => 'boolean',
-                    'label' => 'Active'
-                ]
-            ])
-            ->renderDataTableComponent();
-        ?>
-    </div>
-    <?php echo DataTables::getJsIncludes($theme, true); ?>
-</body>
-</html>
 ```
 
 ## API Methods
@@ -514,6 +408,7 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 - `columns(array $columns)` - Configure table columns (supports qualified names)
 - `join(string $type, string $table, string $condition)` - Add JOIN clause with alias support
 - `where(array $conditions)` - Add WHERE conditions to filter records
+- `filter(array $filters)` - Configure user-facing column filter accordion
 
 ### Display Options
 
@@ -550,8 +445,13 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 
 ### Rendering
 
-- `renderDataTableComponent()` - Generate complete HTML output
+- `renderDataTableComponent()` - Generate complete HTML output (includes filter accordion by default)
 - `handleAjax()` - Handle AJAX requests
+- `renderFilterAccordionComponent()` - Render the filter accordion standalone (for custom placement)
+- `renderSearchFormComponent()` - Render the search form standalone
+- `renderBulkActionsComponent()` - Render the bulk actions toolbar standalone
+- `renderPageSizeSelectorComponent(bool $asButtonGroup)` - Render the page size selector standalone
+- `renderPaginationComponent()` - Render pagination standalone
 
 ### Static Methods
 
@@ -577,7 +477,7 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 
 ```php
 'active' => [
-    'type' => 'boolean', // Renders as select in forms, toggle in table
+    'type' => 'boolean',
     'label' => 'Active Status'
 ],
 'newsletter' => [
@@ -604,8 +504,6 @@ $theme = 'uikit'; // 'plain', 'uikit', 'bootstrap', 'tailwind'
 
 ### Select2 - AJAX Searchable Dropdown
 
-For large datasets where loading all options upfront is impractical, use Select2 fields with server-side search.
-
 ```php
 'user_id' => [
     'type' => 'select2',
@@ -613,43 +511,17 @@ For large datasets where loading all options upfront is impractical, use Select2
     'query' => 'SELECT id AS ID, u_name AS Label FROM kptv_users',
     'placeholder' => 'Select a user...',
     'required' => true,
-    'min_search_chars' => 2,  // Minimum characters before search
-    'max_results' => 50,       // Maximum results to return
+    'min_search_chars' => 2,
+    'max_results' => 50,
     'class' => 'uk-width-1-1'
 ]
 ```
 
-**Required Configuration:**
-
-- `query` - SQL query that returns `ID` (value) and `Label` (display text) columns
-- The query must use `AS ID` and `AS Label` aliases
-
-**Optional Configuration:**
-
-- `min_search_chars` - Minimum characters required before searching (default: 0)
-- `max_results` - Maximum number of results to return (default: 50)
-- `placeholder` - Placeholder text when no selection
-- `required` - Whether the field is required
-- `class` - CSS classes for styling
-
-**Features:**
-
-- ✅ AJAX-powered search as you type
-- ✅ Debounced search (300ms delay)
-- ✅ Works in add forms, edit forms, and inline editing
-- ✅ Supports all themes (UIKit, Bootstrap, Tailwind, Plain)
-- ✅ Displays labels in table, stores IDs in database
-- ✅ Automatically loads current selection in edit mode
+**Required:** `query` must return `ID` and `Label` aliased columns.
 
 **Query Parameter Substitution:**
 
-Use `{column_name}` placeholders in queries to reference other field values:
-
 ```php
-'state' => [
-    'type' => 'select',
-    'options' => [/* states */]
-],
 'city' => [
     'type' => 'select2',
     'query' => 'SELECT id AS ID, city_name AS Label FROM cities WHERE state_id = {state}',
@@ -668,37 +540,26 @@ Use `{column_name}` placeholders in queries to reference other field values:
 
 ## WHERE Conditions
 
-### Filter Records with Custom Conditions
-
 ```php
 ->where([
-    'AND' => [
-        [
-            'field' => 'status',
-            'comparison' => '=',
-            'value' => 'active'
-        ],
-        [
-            'field' => 'created_at',
-            'comparison' => '>=',
-            'value' => '2024-01-01'
-        ]
+    [
+        'field' => 'status',
+        'comparison' => '=',
+        'value' => 'active'
+    ],
+    [
+        'field' => 'created_at',
+        'comparison' => '>=',
+        'value' => '2024-01-01'
     ]
 ])
 ```
 
 ### Supported Comparison Operators
 
-- `=`, `!=`, `<>`, `>`, `<`, `>=`, `<=`
-- `LIKE`, `NOT LIKE`
-- `IN`, `NOT IN` (with array values)
-- `REGEXP`
+`=`, `!=`, `<>`, `>`, `<`, `>=`, `<=`, `LIKE`, `NOT LIKE`, `IN`, `NOT IN`, `REGEXP`
 
 ## Calculated Columns
-
-Add computed columns that perform math operations on existing numeric fields.
-
-### Basic Calculated Column
 
 ```php
 $dataTable
@@ -709,109 +570,37 @@ $dataTable
         'oi.unit_price' => 'Unit Price',
     ])
     ->calculatedColumn('line_total', 'Line Total', ['oi.quantity', 'oi.unit_price'], '*')
+    ->calculatedColumnRaw('profit_margin', 'Margin %', '((oi.sell_price - oi.cost_price) / oi.sell_price) * 100')
     ->renderDataTableComponent();
 ```
 
 ### Supported Operators
 
-| Operator | Description    | Example                          |
-|----------|----------------|----------------------------------|
-| `+`      | Addition       | `['col_a', 'col_b'], '+'`       |
-| `-`      | Subtraction    | `['col_a', 'col_b'], '-'`       |
-| `*`      | Multiplication | `['qty', 'price'], '*'`         |
-| `/`      | Division       | `['total', 'count'], '/'`       |
-| `%`      | Modulus        | `['value', 'divisor'], '%'`     |
-
-### Multiple Columns
-
-Calculations can span more than two columns:
-
-```php
-->calculatedColumn('total', 'Grand Total', ['subtotal', 'tax', 'shipping'], '+')
-```
-
-### Custom SQL Expressions
-
-For complex calculations that go beyond a single operator:
-
-```php
-->calculatedColumnRaw('profit_margin', 'Margin %', '((oi.sell_price - oi.cost_price) / oi.sell_price) * 100')
-```
+| Operator | Description    |
+|----------|----------------|
+| `+`      | Addition       |
+| `-`      | Subtraction    |
+| `*`      | Multiplication |
+| `/`      | Division       |
+| `%`      | Modulus        |
 
 ## Footer Aggregations
-
-Display sum and/or average values in the table footer for numeric columns, scoped to the current page, the full filtered recordset, or both.
-
-### Basic Usage
 
 ```php
 $dataTable
     ->table('orders')
-    ->columns([
-        'id' => 'ID',
-        'customer' => 'Customer',
-        'amount' => 'Amount',
-        'tax' => 'Tax',
-    ])
+    ->columns([...])
     ->footerAggregate('amount', 'sum', 'both')
     ->footerAggregate('tax', 'avg', 'all')
+    ->footerAggregateColumns(['amount', 'tax', 'shipping'], 'both', 'both')
     ->renderDataTableComponent();
-```
-
-### Aggregate Multiple Columns
-
-Apply the same aggregation type and scope to multiple columns at once:
-
-```php
-->footerAggregateColumns(['amount', 'tax', 'shipping'], 'both', 'both')
 ```
 
 ### Configuration Options
 
-**Type** - What calculation to display:
+**Type:** `sum`, `avg`, `both`
 
-| Type   | Description                     |
-|--------|---------------------------------|
-| `sum`  | Total of all values             |
-| `avg`  | Average of all values           |
-| `both` | Display both sum and average    |
-
-**Scope** - Which records to calculate across:
-
-| Scope  | Description                                      |
-|--------|--------------------------------------------------|
-| `page` | Calculate using only records on the current page  |
-| `all`  | Calculate using the full filtered recordset       |
-| `both` | Display both page-level and full recordset values |
-
-### Aggregation with Calculated Columns
-
-Footer aggregations work with calculated columns by referencing the alias:
-
-```php
-$dataTable
-    ->table('order_items oi')
-    ->columns([
-        'oi.id' => 'ID',
-        'oi.quantity' => 'Quantity',
-        'oi.unit_price' => 'Unit Price',
-    ])
-    ->calculatedColumn('line_total', 'Line Total', ['oi.quantity', 'oi.unit_price'], '*')
-    ->footerAggregate('line_total', 'sum', 'both')
-    ->footerAggregate('oi.unit_price', 'avg', 'all')
-    ->renderDataTableComponent();
-```
-
-### Footer Row Output
-
-Depending on configuration, the table footer will display up to four aggregation rows:
-
-| Row Label | Type | Scope | Description                          |
-|-----------|------|-------|--------------------------------------|
-| Page Sum  | sum  | page  | Sum of values on the current page    |
-| Total Sum | sum  | all   | Sum of all filtered records          |
-| Page Avg  | avg  | page  | Average of values on the current page|
-| Total Avg | avg  | all   | Average of all filtered records      |
+**Scope:** `page`, `all`, `both`
 
 ## Browser Support
 
@@ -831,35 +620,19 @@ Depending on configuration, the table footer will display up to four aggregation
 ## Testing
 
 ```bash
-# Run tests
 composer test
-
-# Run tests with coverage
 composer test-coverage
-
-# Run static analysis
 composer phpstan
-
-# Run code style check
 composer cs-check
 ```
 
 ## Building Assets
 
 ```bash
-# Install Node dependencies
 npm install
-
-# Build everything (Tailwind + JS bundle + CSS minification)
 npm run build
-
-# Build JS bundle only
 npm run build:js
-
-# Build CSS minification only
 npm run build:css
-
-# Tailwind watch mode for development
 npm run watch:tailwind
 ```
 
@@ -889,7 +662,8 @@ The MIT License (MIT). Please see [License File](LICENSE) for more information.
 - [ ] REST API endpoints
 - [x] Multi-framework theme support
 - [x] Calculated columns and footer aggregations
+- [x] Column filter accordion with BETWEEN date range support
 
 ---
 
-**Made with ❤️ by [Kevin Pirnie](https://kkevinpirniecom)**
+**Made with ❤️ by [Kevin Pirnie](https://kevinpirnie.com)**

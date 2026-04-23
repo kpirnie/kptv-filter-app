@@ -564,20 +564,20 @@ if (! class_exists('KPT\DataTablesBase', false)) {
             return $this->groupBy;
         }
 
-        /** 
+        /**
          * Get the filter configuration for user-facing column filters
-         * 
-         * @return array Filter configuration 
+         *
+         * @return array Filter configuration
          */
         public function getFilterConfig(): array
         {
             return $this->filterConfig;
         }
 
-        /** 
+        /**
          * Get the active filter values
-         * 
-         * @return array Active filter values 
+         *
+         * @return array Active filter values
          */
         public function getActiveFilters(): array
         {

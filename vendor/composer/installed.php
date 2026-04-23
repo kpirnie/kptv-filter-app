@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'kevinpirnie/kp-kptv-filter-app',
-        'pretty_version' => 'dev-main',
-        'version' => 'dev-main',
-        'reference' => '486ed20667658e90f830f2780890b359c8e4f214',
+        'pretty_version' => 'dev-develop',
+        'version' => 'dev-develop',
+        'reference' => '209f15fa63f0052d73941acb5658dbaf3628c2c6',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -11,9 +11,9 @@
     ),
     'versions' => array(
         'kevinpirnie/kp-kptv-filter-app' => array(
-            'pretty_version' => 'dev-main',
-            'version' => 'dev-main',
-            'reference' => '486ed20667658e90f830f2780890b359c8e4f214',
+            'pretty_version' => 'dev-develop',
+            'version' => 'dev-develop',
+            'reference' => '209f15fa63f0052d73941acb5658dbaf3628c2c6',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -38,9 +38,9 @@
             'dev_requirement' => false,
         ),
         'kevinpirnie/kpt-datatables' => array(
-            'pretty_version' => 'v2.2.13',
-            'version' => '2.2.13.0',
-            'reference' => '6b84d5f83a17e2826cb649cc99633956561430a4',
+            'pretty_version' => 'v2.2.88',
+            'version' => '2.2.88.0',
+            'reference' => 'f8b9f481e3885138f69f0ebb29578dfe02b54151',
             'type' => 'library',
             'install_path' => __DIR__ . '/../kevinpirnie/kpt-datatables',
             'aliases' => array(),
