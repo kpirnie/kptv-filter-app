@@ -27,6 +27,7 @@ if (KPTV_User::is_user_logged_in()) {
 ?>
     <h2 class="kptv-heading uk-heading-bullet">Forgot Your Password?</h2>
     <form action="/users/forgot" method="POST" class="uk-form-stacked" id="t-forgot">
+        <?php echo \KPT\Token::field('csrf'); ?>
         <div class="uk-margin">
             <?php KPTV::show_message(
                 'info',

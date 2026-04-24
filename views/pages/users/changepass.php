@@ -27,6 +27,7 @@ if (! KPTV_User::is_user_logged_in()) {
 ?>
     <h2 class="kptv-heading uk-heading-bullet">Change Your Password</h2>
     <form action="/users/changepass" method="POST" class="uk-form-stacked" style="padding-bottom: 40px !important;">
+        <?php echo \KPT\Token::field('csrf'); ?>
         <div class="uk-margin">
             <div class="uk-inline uk-width-1-1">
                 <span class="uk-form-icon" uk-icon="unlock"></span>

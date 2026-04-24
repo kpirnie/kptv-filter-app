@@ -51,6 +51,40 @@ $middlewareDefinitions = [
         return true;
     },
 
+    // csrf protection
+    'csrf_protection' => function () {
+        // only check POST requests
+        if (\KPT\Http::method() !== 'POST') return true;
+
+        // exempt non-browser API endpoints
+        $uri = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $exempt = ['/api/xtream', '/xc', '/player_api.php', '/live/', '/movie/', '/series/'];
+        foreach ($exempt as $path) {
+            if (str_starts_with($uri, $path)) return true;
+        }
+
+        // check POST field or AJAX header
+        $token = $_POST['csrf'] ?? \KPT\Sanitize::string($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+        $isAjax = \KPT\Http::isAjax() || !empty($_SERVER['HTTP_X_CSRF_TOKEN']);
+
+        if (!\KPT\Token::verify($token, 'csrf', false)) {
+            if ($isAjax) {
+                header('Content-Type: application/json');
+                http_response_code(403);
+                echo json_encode(['error' => 'Invalid CSRF token. Please refresh and try again.']);
+                exit;
+            }
+            KPTV::message_with_redirect(
+                \KPT\Http::getUserReferer() ?: '/',
+                'danger',
+                'Invalid security token. Please try again.'
+            );
+            exit;
+        }
+
+        return true;
+    },
+
 ];
 
 // =============================================================
@@ -273,7 +307,7 @@ $post_user_routes = [
     [
         'method' => 'POST',
         'path' => '/users/login',
-        'middleware' => ['guest_only'],
+        'middleware' => ['guest_only', 'csrf_protection'],
         'handler' => 'KPTV_User@login' // Class@Method
     ],
 
@@ -281,7 +315,7 @@ $post_user_routes = [
     [
         'method' => 'POST',
         'path' => '/users/register',
-        'middleware' => ['guest_only'],
+        'middleware' => ['guest_only', 'csrf_protection'],
         'handler' => 'KPTV_User@register' // Class@Method
     ],
 
@@ -289,7 +323,7 @@ $post_user_routes = [
     [
         'method' => 'POST',
         'path' => '/users/changepass',
-        'middleware' => ['auth_required'],
+        'middleware' => ['auth_required', 'csrf_protection'],
         'handler' => 'KPTV_User@change_pass' // Class@Method
     ],
 
@@ -297,7 +331,7 @@ $post_user_routes = [
     [
         'method' => 'POST',
         'path' => '/users/forgot',
-        'middleware' => ['guest_only'],
+        'middleware' => ['guest_only', 'csrf_protection'],
         'handler' => 'KPTV_User@forgot' // Class@Method
     ],
 ];
@@ -308,7 +342,7 @@ $post_stream_routes = [
     [
         'method' => 'POST',
         'path' => '/filters',
-        'middleware' => ['auth_required'],
+        'middleware' => ['auth_required', 'csrf_protection'],
         'handler' => 'view:pages/stream/filters.php', // Class@Method
         //'handler' => 'KPTV_Stream_Filters@handleFormSubmission', // Class@Method
     ],
@@ -317,31 +351,23 @@ $post_stream_routes = [
     [
         'method' => 'POST',
         'path' => '/providers',
-        'middleware' => ['auth_required'],
+        'middleware' => ['auth_required', 'csrf_protection'],
         'handler' => 'view:pages/stream/providers.php', // Class@Method
         //'handler' => 'KPTV_Stream_Providers@handleFormSubmission', // Class@Method
-    ],
-
-    // EPGs form submission
-    [
-        'method' => 'POST',
-        'path' => '/epgs',
-        'handler' => 'view:pages/stream/epgs.php',
-        'should_cache' => false,
     ],
 
     // Streams form submission with parameters
     [
         'method' => 'POST',
         'path' => '/streams/{which}',
-        'middleware' => ['auth_required'],
+        'middleware' => ['auth_required', 'csrf_protection'],
         'handler' => 'view:pages/stream/streams.php',
         'data' => ['currentRoute' => true]
     ],
     [
         'method' => 'POST',
         'path' => '/streams/{which}/{type}',
-        'middleware' => ['auth_required'],
+        'middleware' => ['auth_required', 'csrf_protection'],
         'handler' => 'view:pages/stream/streams.php',
         //'handler' => 'KPTV_Streams@handleFormSubmission', // Class@Method
         'data' => ['currentRoute' => true]
@@ -351,7 +377,7 @@ $post_stream_routes = [
     [
         'method' => 'POST',
         'path' => '/missing',
-        'middleware' => ['auth_required'],
+        'middleware' => ['auth_required', 'csrf_protection'],
         'handler' => 'view:pages/stream/missing.php'
     ],
 ];

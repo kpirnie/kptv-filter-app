@@ -44,6 +44,7 @@ $route_path = $current_route->path;
     <?php KPTV::include_css(); ?>
     <link rel="stylesheet" href="/assets/css/custom.css?_=<?php echo time(); ?>" />
     <link rel="icon" type="image/png" href="/assets/images/kptv-icon.png" />
+    <meta name="csrf-token" content="<?php echo \KPT\Token::generate('csrf'); ?>">
 </head>
 
 <body uk-height-viewport="offset-top: true">

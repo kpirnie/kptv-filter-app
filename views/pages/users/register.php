@@ -27,6 +27,7 @@ if (KPTV_User::is_user_logged_in()) {
 ?>
     <h2 class="kptv-heading uk-heading-bullet">Register For an Account</h2>
     <form action="/users/register" method="POST" class="uk-form-stacked" id="t-register">
+        <?php echo \KPT\Token::field('csrf'); ?>
         <div class="uk-width-1-1">
             <?php KPTV::show_message(
                 'info',
