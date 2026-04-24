@@ -498,7 +498,7 @@ $router->registerRoutes($routes);
 $router->addMiddleware(function () {
 
     // Check for maintenance mode configuration
-    $maintenanceConfigFile = $_SERVER['DOCUMENT_ROOT'] . '/.maintenance.json';
+    $maintenanceConfigFile = dirname($_SERVER['DOCUMENT_ROOT']) . '/.maintenance.json';
 
     // Skip if no maintenance config exists
     if (! file_exists($maintenanceConfigFile)) return true;
@@ -511,7 +511,6 @@ $router->addMiddleware(function () {
 
     // Skip if maintenance not enabled
     if (! $enabled) return true;
-
 
     // use REMOTE_ADDR only - cannot be spoofed unlike proxy headers
     $clientIp = $_SERVER['REMOTE_ADDR'] ?? '';
@@ -550,7 +549,11 @@ $router->notFound(function () {
     $uri = $_SERVER['REQUEST_URI'] ?? 'unknown';
     $method = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
     $ip = \KPT\Http::getUserIp();
-    error_log("404 Error: $method $uri from $ip");
+    \KPT\Logger::error('404 Not Found', [
+        'method' => $method,
+        'uri'    => $uri,
+        'ip'     => $ip,
+    ]);
 
     // Check if it's an API request
     if (strpos($uri, '/api/') !== false) {
