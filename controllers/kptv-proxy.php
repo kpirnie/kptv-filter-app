@@ -10,11 +10,7 @@
 defined('KPTV_PATH') || die('Direct Access is not allowed!');
 
 // Configuration
-define('ALLOWED_DOMAINS', [
-    // Add your allowed stream domains here for security
-    // Example: 'stream.example.com',
-    // Leave empty to allow all (not recommended for production)
-]);
+define('ALLOWED_DOMAINS', (array)(KPTV::get_setting('proxy')?->allowed_domains ?? []));
 
 define('MAX_REDIRECTS', 5);
 define('STREAM_CHUNK_SIZE', 4096); // 4KB chunks for streaming
@@ -337,12 +333,20 @@ class KPTV_Proxy
      */
     private function isDomainAllowed(): bool
     {
-        if (empty(ALLOWED_DOMAINS)) {
-            return true; // Allow all if not configured
+        $host = parse_url($this->url, PHP_URL_HOST);
+
+        if (!is_string($host) || empty($host)) return false;
+
+        // always block private/loopback regardless of allowlist
+        $ip = gethostbyname($host);
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+            return false;
         }
 
-        $host = parse_url($this->url, PHP_URL_HOST);
-        return is_string($host) && in_array($host, ALLOWED_DOMAINS, true);
+        // if no allowlist configured, block everything for safety
+        if (empty(ALLOWED_DOMAINS)) return false;
+
+        return in_array($host, ALLOWED_DOMAINS, true);
     }
 
     /**

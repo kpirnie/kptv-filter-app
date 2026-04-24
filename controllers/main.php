@@ -11,25 +11,8 @@
  * 
  */
 
-/*
-// catch fatal errors before logger is available
-register_shutdown_function(function () {
-    $err = error_get_last();
-    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-        error_log(sprintf(
-            'KPTV FATAL [%s:%d] %s',
-            $err['file'],
-            $err['line'],
-            $err['message']
-        ));
-    }
-});
-
-// force raw PHP errors to the server log during bootstrap
-@ini_set('log_errors', 1);
+// force off regardless of debug setting -- never expose to browser
 @ini_set('display_errors', 0);
-error_reporting(E_ALL);
-*/
 
 // hold the app path
 $appPath = dirname(__FILE__, 2) . '/';
@@ -39,6 +22,9 @@ include_once $appPath . 'vendor/autoload.php';
 
 // define the primary app path if not already defined
 defined('KPTV_PATH') || define('KPTV_PATH', $appPath);
+
+// config lives outside webroot
+defined('KPTV_CONFIG_PATH') || define('KPTV_CONFIG_PATH', dirname(KPTV_PATH) . '/config.json');
 
 // create our fake alias if it doesn't already exist
 if (! class_exists('KPTV')) {
@@ -98,15 +84,9 @@ defined('KPTV_DEBUG') || define('KPTV_DEBUG', $_debug);
 
 // if we are debugging
 if ($_debug) {
-
-    // force PHP to render our errors
-    @ini_set('display_errors', 1);
-    @ini_set('display_startup_errors', 1);
     error_reporting(E_ALL);
+    @ini_set('log_errors', 1);
 } else {
-
-    // force php to NOT render our errors
-    @ini_set('display_errors', 0);
     error_reporting(0);
 }
 

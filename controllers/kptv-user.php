@@ -89,6 +89,11 @@ if (! class_exists('KPTV_User')) {
             // hold our errors
             $errors = [];
 
+            // verify the captcha
+            if (!$this->verifyRecaptcha()) {
+                $errors[] = ['reCAPTCHA verification failed. Please try again.'];
+            }
+
             // sanitize the input
             $input = $this->sanitizeRegistrationInput($_POST);
 
@@ -121,7 +126,7 @@ if (! class_exists('KPTV_User')) {
 
                 // whoopsie... log the error then process it
             } catch (Exception $e) {
-                error_log("Registration failed: " . $e->getMessage());
+                \KPT\Logger::error('Registration failed', ['message' => $e->getMessage()]);
                 $this->processErrors(["Registration failed: " . $e->getMessage()]);
             }
         }
@@ -188,7 +193,7 @@ if (! class_exists('KPTV_User')) {
             } catch (Exception $e) {
 
                 // log the error and process it
-                error_log("Account validation failed: " . $e->getMessage());
+                \KPT\Logger::error('Account validation failed', ['message' => $e->getMessage()]);
                 $this->processErrors(["Account validation failed: " . $e->getMessage()]);
             }
         }
@@ -204,6 +209,13 @@ if (! class_exists('KPTV_User')) {
 
             // hold our errors
             $errors = [];
+
+            // verify the captcha
+            if (!$this->verifyRecaptcha()) {
+                $errors[] = ['reCAPTCHA verification failed. Please try again.'];
+            }
+
+            // hold our variables
             $username = \KPT\Sanitize::username($_POST['frmUsername'] ?? '');
             $password = $_POST['frmPassword'] ?? ''; // this is getting hashed, and is parameterize after that
 
@@ -240,7 +252,7 @@ if (! class_exists('KPTV_User')) {
             } catch (Exception $e) {
 
                 // log the error and process it
-                error_log("Login failed: " . $e->getMessage());
+                \KPT\Logger::error('Login failed', ['message' => $e->getMessage()]);
                 $this->processErrors(["Login failed: " . $e->getMessage()]);
             }
         }
@@ -279,6 +291,11 @@ if (! class_exists('KPTV_User')) {
             // setup the errors
             $errors = [];
 
+            // verify the captcha
+            if (!$this->verifyRecaptcha()) {
+                $errors[] = ['reCAPTCHA verification failed. Please try again.'];
+            }
+
             // grab the username and email and clean them
             $username = \KPT\Sanitize::username($_POST['frmUsername'] ?? '');
             $email = \KPT\Sanitize::email($_POST['frmEmail'] ?? '');
@@ -306,7 +323,7 @@ if (! class_exists('KPTV_User')) {
                     'Your password has been reset and emailed to you. Please change your password as soon as you can.'
                 );
             } catch (Exception $e) {
-                error_log("Password reset failed: " . $e->getMessage());
+                \KPT\Logger::error('Password reset failed', ['message' => $e->getMessage()]);
                 $this->processErrors(["Password reset failed: " . $e->getMessage()]);
             }
         }
@@ -367,7 +384,7 @@ if (! class_exists('KPTV_User')) {
                     'Your password has successfully been changed.'
                 );
             } catch (Exception $e) {
-                error_log("Password change failed: " . $e->getMessage());
+                \KPT\Logger::error('Password change failed', ['message' => $e->getMessage()]);
                 $this->processErrors(["Password change failed: " . $e->getMessage()]);
             }
         }
@@ -400,37 +417,33 @@ if (! class_exists('KPTV_User')) {
          */
         public static function get_current_user(): object|bool
         {
-            if (!isset($_COOKIE[self::COOKIE_NAME])) {
-                return false;
-            }
+            if (!isset($_COOKIE[self::COOKIE_NAME])) return false;
 
             try {
-                // Decrypt user ID from cookie
-                $encryptedUserId = base64_decode($_COOKIE[self::COOKIE_NAME]);
-                $userId = KPTV::decrypt($encryptedUserId);
+                $decrypted = KPTV::decrypt(base64_decode($_COOKIE[self::COOKIE_NAME]));
+                $parts = explode('|', $decrypted, 2);
 
-                if (!$userId || !is_numeric($userId)) {
-                    return false;
-                }
+                if (count($parts) !== 2) return false;
 
-                // Get full user data from database
-                $db = new self();
-                $user = $db->query('SELECT id, u_name, u_email, u_role, u_fname, u_lname FROM kptv_users WHERE id = ? AND u_active = 1')
-                    ->bind([$userId])
+                [$userId, $sessionToken] = $parts;
+
+                if (!$userId || !is_numeric($userId) || empty($sessionToken)) return false;
+
+                $db   = new self();
+                $user = $db->query('SELECT id, u_name, u_email, u_role, u_fname, u_lname FROM kptv_users WHERE id = ? AND u_active = 1 AND session_token = ?')
+                    ->bind([$userId, $sessionToken])
                     ->single()
                     ->fetch();
 
-                if (!$user) {
-                    return false;
-                }
+                if (!$user) return false;
 
                 return (object) [
-                    'id' => $user->id,
-                    'username' => $user->u_name,
-                    'email' => $user->u_email,
-                    'role' => $user->u_role,
+                    'id'        => $user->id,
+                    'username'  => $user->u_name,
+                    'email'     => $user->u_email,
+                    'role'      => $user->u_role,
                     'firstName' => $user->u_fname ?? '',
-                    'lastName' => $user->u_lname ?? ''
+                    'lastName'  => $user->u_lname ?? '',
                 ];
             } catch (Exception $e) {
                 return false;
@@ -710,11 +723,14 @@ if (! class_exists('KPTV_User')) {
          */
         private function authenticateUser(string $username, string $password): void
         {
+
+            // get the user record
             $user = $this->query('SELECT id, u_pass, u_email, u_role, locked_until FROM kptv_users WHERE u_name = ?')
                 ->bind([$username])
                 ->single()
                 ->fetch();
 
+            // make sure it exists
             if (!$user || !is_object($user)) {
                 throw new Exception("User not found: $username");
             }
@@ -735,19 +751,30 @@ if (! class_exists('KPTV_User')) {
                 ->bind([$user->id])
                 ->execute();
 
+            // rehash the password on every login
             $this->rehash_password($user->id, $password);
 
-            // Encrypt user ID and set cookie
-            $encryptedUserId = base64_encode(KPTV::encrypt($user->id));
+            // regenerate session ID to prevent fixation attacks
+            \KPT\Session::regenerate(true);
 
+            // generate a session token and store it
+            $sessionToken = \KPT\Crypto::generateToken(48);
+            $this->query('UPDATE kptv_users SET session_token = ?, login_attempts = 0, locked_until = NULL, last_login = CURRENT_TIMESTAMP WHERE id = ?')
+                ->bind([$sessionToken, $user->id])
+                ->execute();
+
+            // encrypt both user ID and session token together
+            $payload = base64_encode(KPTV::encrypt($user->id . '|' . $sessionToken));
+
+            // set out cookie
             setcookie(
                 self::COOKIE_NAME,
-                $encryptedUserId,
+                $payload,
                 [
-                    'expires' => time() + self::COOKIE_LIFETIME,
-                    'path' => '/',
-                    'domain' => '',
-                    'secure' => true,
+                    'expires'  => time() + self::COOKIE_LIFETIME,
+                    'path'     => '/',
+                    'domain'   => '',
+                    'secure'   => true,
                     'httponly' => true,
                     'samesite' => 'Lax'
                 ]
@@ -903,15 +930,30 @@ if (! class_exists('KPTV_User')) {
          */
         private function destroyCookie(): void
         {
-            // Clear cookie by setting it to expire in the past
+            // invalidate server-side session token
+            if (isset($_COOKIE[self::COOKIE_NAME])) {
+                try {
+                    $decrypted = KPTV::decrypt(base64_decode($_COOKIE[self::COOKIE_NAME]));
+                    $parts     = explode('|', $decrypted, 2);
+                    if (count($parts) === 2 && is_numeric($parts[0])) {
+                        $this->query('UPDATE kptv_users SET session_token = NULL WHERE id = ?')
+                            ->bind([$parts[0]])
+                            ->execute();
+                    }
+                } catch (Exception $e) {
+                    // cookie was malformed, nothing to invalidate
+                }
+            }
+
+            // expire the cookie client-side
             setcookie(
                 self::COOKIE_NAME,
                 '',
                 [
-                    'expires' => time() - 3600,
-                    'path' => '/',
-                    'domain' => '',
-                    'secure' => true,
+                    'expires'  => time() - 3600,
+                    'path'     => '/',
+                    'domain'   => '',
+                    'secure'   => true,
                     'httponly' => true,
                     'samesite' => 'Strict'
                 ]
@@ -1140,6 +1182,33 @@ if (! class_exists('KPTV_User')) {
                     );
                     break;
             }
+        }
+
+        /**
+         * Verify reCAPTCHA response token against Google's API
+         */
+        private function verifyRecaptcha(): bool
+        {
+            $token = $_POST['g-recaptcha-response'] ?? '';
+            if (empty($token)) return false;
+
+            $secret = KPTV::get_setting('recaptcha')?->secretkey ?? '';
+            if (empty($secret)) return false;
+
+            $rsp = \KPT\Curl::post('https://www.google.com/recaptcha/api/siteverify', [
+                'body' => http_build_query([
+                    'secret'   => $secret,
+                    'response' => $token,
+                    'remoteip' => \KPT\Http::getUserIp(),
+                ]),
+                'headers' => ['Content-Type' => 'application/x-www-form-urlencoded'],
+            ]);
+
+            if (\KPT\Curl::isError($rsp)) return false;
+
+            $data = json_decode(\KPT\Curl::retrieveBody($rsp));
+
+            return ($data?->success === true && ($data?->score ?? 0) >= 0.5);
         }
     }
 }

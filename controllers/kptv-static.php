@@ -27,13 +27,6 @@ if (! class_exists('KPTV_Static')) {
      * @author Kevin Pirnie <me@kpirnie.com>
      * @package KP Library
      * 
-     * @var int MINUTE_IN_SECONDS Constant defining 60 seconds
-     * @var int HOUR_IN_SECONDS Constant defining 3600 seconds
-     * @var int DAY_IN_SECONDS Constant defining 86400 seconds
-     * @var int WEEK_IN_SECONDS Constant defining 604800 seconds based on 7 days
-     * @var int MONTH_IN_SECONDS Constant defining 2592000 seconds based on 30 days
-     * @var int YEAR_IN_SECONDS Constant defining 31536000 seconds based on 365 days
-     * 
      */
     class KPTV_Static
     {
@@ -228,6 +221,7 @@ if (! class_exists('KPTV_Static')) {
                                     $db->query("DELETE FROM `kptv_streams` WHERE `p_id` = ?")
                                         ->bind($rowId)
                                         ->execute();
+                                    $tableName = KPTV::validateTableName($tableName);
                                     // now delete the provider
                                     return $db->query("DELETE FROM {$tableName} WHERE id = ?")
                                         ->bind($rowId)
@@ -370,7 +364,7 @@ if (! class_exists('KPTV_Static')) {
 
                                     // make sure we have records selected
                                     if (empty($selectedIds)) return false;
-
+                                    $tableName = KPTV::validateTableName($tableName);
                                     // setup the placeholders and the query
                                     $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
                                     $sql = "UPDATE {$tableName} SET s_active = NOT s_active WHERE id IN ({$placeholders})";
@@ -482,7 +476,7 @@ if (! class_exists('KPTV_Static')) {
 
                                     // make sure we have records selected
                                     if (empty($selectedIds)) return false;
-
+                                    $tableName = KPTV::validateTableName($tableName);
                                     // setup the placeholders and the query
                                     $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
                                     $sql = "UPDATE {$tableName} SET s_active = NOT s_active WHERE id IN ({$placeholders})";
@@ -1045,7 +1039,7 @@ if (! class_exists('KPTV_Static')) {
                             'callback' => function ($selectedIds, $db, $tableName) {
                                 // make sure we have records selected
                                 if (empty($selectedIds)) return false;
-
+                                $tableName = KPTV::validateTableName($tableName);
                                 // setup the placeholders and the query
                                 $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
                                 $sql = "SELECT stream_id FROM {$tableName} WHERE id IN ({$placeholders})";
@@ -1079,7 +1073,7 @@ if (! class_exists('KPTV_Static')) {
                             'callback' => function ($selectedIds, $db, $tableName) {
                                 // make sure we have records selected
                                 if (empty($selectedIds)) return false;
-
+                                $tableName = KPTV::validateTableName($tableName);
                                 // setup the placeholders and the query
                                 $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
 
@@ -1402,8 +1396,10 @@ if (! class_exists('KPTV_Static')) {
                 return $config;
             }
 
-            // Use OPcache if available
-            $configPath = KPTV_PATH . 'config.json';
+            // look for config outside webroot first, fall back to app root
+            $configPath = defined('KPTV_CONFIG_PATH')
+                ? KPTV_CONFIG_PATH
+                : dirname(KPTV_PATH) . '/config.json';
 
             // let's check the cache
             $content = \KPT\Cache::get('kptv_config');
@@ -1641,7 +1637,7 @@ if (! class_exists('KPTV_Static')) {
 
             //send the message, check for errors
             if (! $mail->send()) {
-                var_dump($mail->ErrorInfo);
+                \KPT\Logger::error('SMTP send failed', ['error' => $mail->ErrorInfo]);
                 return false;
             } else {
                 return true;
@@ -2035,6 +2031,26 @@ if (! class_exists('KPTV_Static')) {
         public static function decryptFromUrl(string $_val): string
         {
             return self::decrypt(strtr($_val, '-_', '+/'));
+        }
+
+        /**
+         * Validate table name against allowlist to prevent SQL injection
+         */
+        public static function validateTableName(string $tableName): string
+        {
+            $allowed = [
+                'kptv_users',
+                'kptv_streams',
+                'kptv_stream_filters',
+                'kptv_stream_providers',
+                'kptv_stream_missing',
+            ];
+
+            if (!in_array($tableName, $allowed, true)) {
+                throw new \InvalidArgumentException("Invalid table name: {$tableName}");
+            }
+
+            return $tableName;
         }
     }
 }

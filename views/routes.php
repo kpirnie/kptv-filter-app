@@ -85,6 +85,55 @@ $middlewareDefinitions = [
         return true;
     },
 
+    'auth_rate_limit' => function () {
+        $ip       = \KPT\Http::getUserIp();
+        $cacheKey = 'auth_rl_' . md5($ip);
+        $limit    = 10;  // max attempts
+        $window   = 300; // 5 minutes
+
+        $attempts = \KPT\Cache::get($cacheKey) ?: 0;
+
+        if ($attempts >= $limit) {
+            if (\KPT\Http::isAjax()) {
+                header('Content-Type: application/json');
+                http_response_code(429);
+                echo json_encode(['error' => 'Too many attempts. Please try again later.']);
+                exit;
+            }
+            KPTV::message_with_redirect(
+                '/users/login',
+                'danger',
+                'Too many attempts. Please try again in 5 minutes.'
+            );
+            exit;
+        }
+
+        \KPT\Cache::set($cacheKey, $attempts + 1, $window);
+
+        return true;
+    },
+
+    'api_rate_limit' => function () {
+        $ip       = \KPT\Http::getUserIp();
+        $userId   = \KPTV_User::get_current_user()->id ?? 'anon';
+        $cacheKey = 'api_rl_' . md5($ip . $userId);
+        $limit    = 120; // max attempts
+        $window   = 60;  // 1 minute
+
+        $attempts = \KPT\Cache::get($cacheKey) ?: 0;
+
+        if ($attempts >= $limit) {
+            header('Content-Type: application/json');
+            http_response_code(429);
+            echo json_encode(['error' => 'Too many requests. Please slow down.']);
+            exit;
+        }
+
+        \KPT\Cache::set($cacheKey, $attempts + 1, $window);
+
+        return true;
+    },
+
 ];
 
 // =============================================================
@@ -303,11 +352,12 @@ $get_admin_routes = [
 
 // User-related POST routes
 $post_user_routes = [
+
     // Login form submission (using controller)
     [
         'method' => 'POST',
         'path' => '/users/login',
-        'middleware' => ['guest_only', 'csrf_protection'],
+        'middleware' => ['guest_only', 'auth_rate_limit', 'csrf_protection'],
         'handler' => 'KPTV_User@login' // Class@Method
     ],
 
@@ -315,7 +365,7 @@ $post_user_routes = [
     [
         'method' => 'POST',
         'path' => '/users/register',
-        'middleware' => ['guest_only', 'csrf_protection'],
+        'middleware' => ['guest_only', 'auth_rate_limit', 'csrf_protection'],
         'handler' => 'KPTV_User@register' // Class@Method
     ],
 
@@ -331,7 +381,7 @@ $post_user_routes = [
     [
         'method' => 'POST',
         'path' => '/users/forgot',
-        'middleware' => ['guest_only', 'csrf_protection'],
+        'middleware' => ['guest_only', 'auth_rate_limit', 'csrf_protection'],
         'handler' => 'KPTV_User@forgot' // Class@Method
     ],
 ];
@@ -342,7 +392,7 @@ $post_stream_routes = [
     [
         'method' => 'POST',
         'path' => '/filters',
-        'middleware' => ['auth_required', 'csrf_protection'],
+        'middleware' => ['auth_required', 'api_rate_limit', 'csrf_protection'],
         'handler' => 'view:pages/stream/filters.php', // Class@Method
         //'handler' => 'KPTV_Stream_Filters@handleFormSubmission', // Class@Method
     ],
@@ -351,7 +401,7 @@ $post_stream_routes = [
     [
         'method' => 'POST',
         'path' => '/providers',
-        'middleware' => ['auth_required', 'csrf_protection'],
+        'middleware' => ['auth_required', 'api_rate_limit', 'csrf_protection'],
         'handler' => 'view:pages/stream/providers.php', // Class@Method
         //'handler' => 'KPTV_Stream_Providers@handleFormSubmission', // Class@Method
     ],
@@ -360,14 +410,14 @@ $post_stream_routes = [
     [
         'method' => 'POST',
         'path' => '/streams/{which}',
-        'middleware' => ['auth_required', 'csrf_protection'],
+        'middleware' => ['auth_required', 'api_rate_limit', 'csrf_protection'],
         'handler' => 'view:pages/stream/streams.php',
         'data' => ['currentRoute' => true]
     ],
     [
         'method' => 'POST',
         'path' => '/streams/{which}/{type}',
-        'middleware' => ['auth_required', 'csrf_protection'],
+        'middleware' => ['auth_required', 'api_rate_limit', 'csrf_protection'],
         'handler' => 'view:pages/stream/streams.php',
         //'handler' => 'KPTV_Streams@handleFormSubmission', // Class@Method
         'data' => ['currentRoute' => true]
@@ -377,7 +427,7 @@ $post_stream_routes = [
     [
         'method' => 'POST',
         'path' => '/missing',
-        'middleware' => ['auth_required', 'csrf_protection'],
+        'middleware' => ['auth_required', 'api_rate_limit', 'csrf_protection'],
         'handler' => 'view:pages/stream/missing.php'
     ],
 ];
@@ -448,13 +498,13 @@ $router->registerRoutes($routes);
 $router->addMiddleware(function () {
 
     // Check for maintenance mode configuration
-    $configFile = $_SERVER['DOCUMENT_ROOT'] . '/.maintenance.json';
+    $maintenanceConfigFile = $_SERVER['DOCUMENT_ROOT'] . '/.maintenance.json';
 
     // Skip if no maintenance config exists
-    if (! file_exists($configFile)) return true;
+    if (! file_exists($maintenanceConfigFile)) return true;
 
     // Load maintenance configuration
-    $config = json_decode(file_get_contents($configFile), true);
+    $config = json_decode(file_get_contents($maintenanceConfigFile), true);
     $enabled = $config['enabled'] ?? false;
     $allowedIPs = $config['allowed_ips'] ?? ['127.0.0.1/32'];
     $message = $config['message'] ?? 'Down for maintenance';
@@ -462,8 +512,11 @@ $router->addMiddleware(function () {
     // Skip if maintenance not enabled
     if (! $enabled) return true;
 
+
+    // use REMOTE_ADDR only - cannot be spoofed unlike proxy headers
+    $clientIp = $_SERVER['REMOTE_ADDR'] ?? '';
+
     // Check if client IP is in any allowed CIDR range
-    $clientIp = \KPT\Http::getUserIp();
     foreach ($allowedIPs as $allowed) {
         if (\KPT\Http::cidrMatch($clientIp, $allowed)) {
             return true;
