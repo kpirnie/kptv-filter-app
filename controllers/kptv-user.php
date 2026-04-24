@@ -91,7 +91,7 @@ if (! class_exists('KPTV_User')) {
 
             // verify the captcha
             if (!$this->verifyRecaptcha()) {
-                $errors[] = ['reCAPTCHA verification failed. Please try again.'];
+                $errors[] = 'reCAPTCHA verification failed. Please try again.';
             }
 
             // sanitize the input
@@ -212,7 +212,7 @@ if (! class_exists('KPTV_User')) {
 
             // verify the captcha
             if (!$this->verifyRecaptcha()) {
-                $errors[] = ['reCAPTCHA verification failed. Please try again.'];
+                $errors[] = 'reCAPTCHA verification failed. Please try again.';
             }
 
             // hold our variables
@@ -293,7 +293,7 @@ if (! class_exists('KPTV_User')) {
 
             // verify the captcha
             if (!$this->verifyRecaptcha()) {
-                $errors[] = ['reCAPTCHA verification failed. Please try again.'];
+                $errors[] = 'reCAPTCHA verification failed. Please try again.';
             }
 
             // grab the username and email and clean them

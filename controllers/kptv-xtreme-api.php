@@ -626,9 +626,6 @@ if (! class_exists('KPTV_Xtream_API')) {
          */
         private function getShortEpg(): void
         {
-            $streamId = $_GET['stream_id'] ?? null;
-            $limit = $_GET['limit'] ?? 4;
-
             // Return empty EPG data
             $this->sendSuccess([
                 'epg_listings' => [],

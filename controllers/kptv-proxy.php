@@ -92,7 +92,7 @@ class KPTV_Proxy
                 default => $this->streamDirect(),
             };
         } catch (Exception $e) {
-            error_log('Stream proxy error: ' . $e->getMessage());
+            \KPT\Logger::error('Stream proxy error: ' . $e->getMessage());
             $this->sendError('Proxy error', 500);
         }
     }
@@ -238,7 +238,7 @@ class KPTV_Proxy
         curl_exec($ch);
 
         if (curl_errno($ch)) {
-            error_log('cURL error: ' . curl_error($ch));
+            \KPT\Logger::error('cURL error: ' . curl_error($ch));
         }
 
         curl_close($ch);

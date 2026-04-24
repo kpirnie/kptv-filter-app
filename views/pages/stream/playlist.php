@@ -42,8 +42,8 @@ if ($records) {
     header('Content-Disposition: attachment; filename="' . $which . '.m3u8"');
 
     // set the expires and caching headers
-    header('Expires: ' . gmdate("D, d M Y H:i:s", time() + KPTV::DAY_IN_SECONDS) . " GMT", true);
-    header('Cache-Control: public, max-age=' . KPTV::DAY_IN_SECONDS, true);
+    header('Expires: ' . gmdate("D, d M Y H:i:s", time() + \KPT\DateTime::DAY_IN_SECONDS) . " GMT", true);
+    header('Cache-Control: public, max-age=' . \KPT\DateTime::DAY_IN_SECONDS, true);
     header_remove('set-cookie');
 
     // start the M3U no matter what
