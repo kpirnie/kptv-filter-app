@@ -108,7 +108,12 @@ if (! class_exists('KPTV_Stream_Playlists')) {
         {
 
             // setup the provider and user
-            $user = KPTV::decryptFromUrl($user);
+            $result = $this->query('SELECT id FROM kptv_users WHERE export_token = ? AND u_active = 1')
+                ->bind([$user])
+                ->single()
+                ->fetch();
+            if (!$result) return false;
+            $user = $result->id;
 
             // if we need to get all
             if ($which === 50) {
@@ -261,13 +266,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                     // setup the stream logo
                     $the_logo = null;
                     if ($this->logo && 0 === $rec->StreamType) {
-                        // format the channel name
-                        $chan = preg_replace(
-                            ['/\s*&\s*/', '/[+\s]/', '/[^a-z0-9\-]/', '/-{2,}/'],
-                            ['-and-', '-', '', '-'],
-                            mb_strtolower(trim($rec->TvgName))
-                        );
-                        $the_logo = sprintf('https://cdn.kcp.im/tv/logos/%s.png', $chan);
+                        $the_logo = \KPTV::getLogoFromName($rec->TvgName);
                     }
                     $stream_logo = ($the_logo) ?: $rec->TvgLogo ?? 'https://cdn.kcp.im/tv/kptv-logo.png';
 
@@ -281,6 +280,9 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                     // write out the stream url line
                     echo $rec->Stream . PHP_EOL;
                 }
+
+                // exit the writeout
+                exit;
             }
         }
 

@@ -16,7 +16,7 @@ defined('KPTV_PATH') || die('Direct Access is not allowed!');
 
 // compute export token for sidebar links
 $currentUser = KPTV_User::get_current_user() ?: null;
-$user_for_export = KPTV::encryptForUrl($currentUser?->id ?: 0);
+$user_for_export = $currentUser ? KPTV::getExportToken($currentUser->id) : '';
 ?>
 
 <!-- Navigation -->
@@ -84,6 +84,16 @@ $user_for_export = KPTV::encryptForUrl($currentUser?->id ?: 0);
                             </div>
                         </li>
                     <?php endif; ?>
+                    <?php
+                    // check if we're an admin
+                    if ($currentUser->role == 99) {
+                    ?>
+                        <li class="">
+                            <a href="/users/admin">User Admin</a>
+                        </li>
+                    <?php
+                    }
+                    ?>
                     <li class="<?php echo KPTV::active_link('account'); ?>">
                         <a href="#">Your Account <span uk-navbar-parent-icon></span></a>
                         <div class="uk-navbar-dropdown">

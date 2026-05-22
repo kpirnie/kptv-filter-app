@@ -1239,8 +1239,7 @@ class DataTablesJS {
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.data) {
-                    // Populate all form fields with the fetched data
-                    this.populateEditForm(data.data);
+                    this.populateEditForm(data.data, data.field_overrides || {});
                 } else {
                     console.error('Failed to fetch record:', data.message);
                     this.showNotification(data.message || 'Failed to fetch record data', 'danger');
@@ -1252,7 +1251,7 @@ class DataTablesJS {
             });
     }
 
-    populateEditForm(recordData) {
+    populateEditForm(recordData, fieldOverrides = {}) {
         // Get unqualified primary key name
         let unqualifiedPK = this.primaryKey;
         if (this.primaryKey.includes('.')) {
@@ -1321,6 +1320,14 @@ class DataTablesJS {
             }
         });
 
+        // Populate static display fields from record data
+        editForm.querySelectorAll('.datatables-static-field').forEach(el => {
+            const fieldName = el.getAttribute('data-display-field');
+            if (fieldName && recordData[fieldName] !== undefined && recordData[fieldName] !== null) {
+                el.textContent = recordData[fieldName];
+            }
+        });
+
         // Update Select2 fields with record data for query parameter substitution
         const select2Fields = editForm.querySelectorAll('select[data-select2]');
         if (select2Fields.length > 0) {
@@ -1337,6 +1344,34 @@ class DataTablesJS {
                 }
             });
         }
+
+        // Apply field_overrides from server-side allow_on evaluation
+        Object.entries(fieldOverrides).forEach(([fieldName, override]) => {
+            const el = editForm.querySelector(`[name="${fieldName}"]`);
+            if (!el) return;
+
+            if (Object.prototype.hasOwnProperty.call(override, 'set_value')) {
+                if (el.type === 'checkbox') {
+                    el.checked = override.set_value == '1' || override.set_value === true;
+                } else {
+                    el.value = override.set_value ?? '';
+                }
+            }
+
+            if (override.set_attributes) {
+                Object.entries(override.set_attributes).forEach(([attr, val]) => {
+                    if (val === null || val === false) {
+                        el.removeAttribute(attr);
+                    } else {
+                        el.setAttribute(attr, val);
+                    }
+                });
+            }
+
+            if (override.set_classes && Array.isArray(override.set_classes)) {
+                override.set_classes.forEach(cls => el.classList.add(cls));
+            }
+        });
     }
 
     submitAddForm(event) {

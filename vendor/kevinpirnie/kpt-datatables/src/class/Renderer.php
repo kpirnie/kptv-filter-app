@@ -1153,6 +1153,15 @@ if (! class_exists('KPT\Renderer', false)) {
                     $html .= "</div>\n";
                     break;
 
+                case 'static':
+                    /**
+                     * Static display field — renders a read-only paragraph in a field wrapper.
+                     */
+                    $content = $config['content'] ?? '';
+                    $html .= "<label class=\"{$formLabelClass}\">{$label}</label>\n";
+                    $html .= "<p class=\"" . $tm->getClass('text.muted') . " datatables-static-field\" data-display-field=\"{$fieldName}\">{$content}</p>\n";
+                    break;
+
                 default:
                     // Standard text/email input
                     $html .= "<label class=\"{$formLabelClass}\" for=\"{$fieldId}\">{$label}" . ($required ? " <span class=\"{$dangerClass}\">*</span>" : "") . "</label>\n";

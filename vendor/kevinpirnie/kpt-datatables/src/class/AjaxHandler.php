@@ -1003,42 +1003,98 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             }
 
             $unqualifiedPK = $this->getUnqualifiedPrimaryKey();
+            $primaryKey    = $this->dataTable->getPrimaryKey();
+            $idColumn      = strpos($primaryKey, '.') !== false ? $unqualifiedPK : $primaryKey;
 
-            // For qualified primary keys in WHERE, we need to check both
-            $primaryKey = $this->dataTable->getPrimaryKey();
-            $idColumn = strpos($primaryKey, '.') !== false ? $unqualifiedPK : $primaryKey;
-
-            $sql = "SELECT * FROM `{$this->dataTable->getBaseTableName()}`";
+            $sql    = "SELECT * FROM `{$this->dataTable->getBaseTableName()}`";
             $params = [$id];
 
-            // Add WHERE conditions
-            $whereConditions = $this->dataTable->getWhereConditions();
+            $whereConditions  = $this->dataTable->getWhereConditions();
             $additionalParams = [];
-            $whereClause = $this->buildWhereClause($whereConditions, $additionalParams, true);
+            $whereClause      = $this->buildWhereClause($whereConditions, $additionalParams, true);
 
             if (!empty($whereClause)) {
-                $sql .= $whereClause . " AND `{$idColumn}` = ?";
-                $params = array_merge($additionalParams, $params);
+                $sql    .= $whereClause . " AND `{$idColumn}` = ?";
+                $params  = array_merge($additionalParams, $params);
             } else {
                 $sql .= " WHERE `{$idColumn}` = ?";
             }
 
-            $result = $this->dataTable->getDatabase()
-                ->query($sql)
-                ->bind($params)
-                ->single()
-                ->fetch();
-
+            $result  = $this->dataTable->getDatabase()->query($sql)->bind($params)->single()->fetch();
             $success = $result !== false;
-            $message = $success ? 'Record fetched successfully' : 'Record not found';
+
+            // Evaluate allow_on conditions against fetched record
+            $fieldOverrides = [];
+            if ($success && $result) {
+                $fields      = $this->dataTable->getEditFormConfig()['fields'] ?? [];
+                $recordArray = (array) $result;
+
+                foreach ($fields as $fieldName => $fieldConfig) {
+                    if (!isset($fieldConfig['allow_on'])) {
+                        continue;
+                    }
+
+                    $allowOn      = $fieldConfig['allow_on'];
+                    $compareField = $allowOn['field']    ?? '';
+                    $compareValue = $allowOn['value']    ?? null;
+                    $operator     = $allowOn['operator'] ?? '==';
+                    $action       = $allowOn['action']   ?? [];
+
+                    if (empty($compareField) || empty($action)) {
+                        continue;
+                    }
+
+                    if (!$this->evaluateAllowOn($recordArray[$compareField] ?? null, $operator, $compareValue)) {
+                        continue;
+                    }
+
+                    $override = [];
+                    if (array_key_exists('set_value', $action)) {
+                        $override['set_value'] = $action['set_value'];
+                    }
+                    if (!empty($action['set_attributes'])) {
+                        $override['set_attributes'] = $action['set_attributes'];
+                    }
+                    if (!empty($action['set_classes'])) {
+                        $override['set_classes'] = $action['set_classes'];
+                    }
+                    if (!empty($override)) {
+                        $fieldOverrides[$fieldName] = $override;
+                    }
+                }
+            }
 
             header('Content-Type: application/json');
             echo json_encode([
-                'success' => $success,
-                'message' => $message,
-                'data' => $result ?: null
+                'success'        => $success,
+                'message'        => $success ? 'Record fetched successfully' : 'Record not found',
+                'data'           => $result ?: null,
+                'field_overrides' => $fieldOverrides,
             ]);
             exit;
+        }
+
+        /**
+         * Evaluate an allow_on condition
+         *
+         * @param  mixed  $recordValue  Value from the fetched record
+         * @param  string $operator     Comparison operator
+         * @param  mixed  $compareValue Value to compare against
+         * @return bool
+         */
+        private function evaluateAllowOn(mixed $recordValue, string $operator, mixed $compareValue): bool
+        {
+            return match ($operator) {
+                '=='     => $recordValue == $compareValue,
+                '!='     => $recordValue != $compareValue,
+                '>'      => $recordValue >  $compareValue,
+                '>='     => $recordValue >= $compareValue,
+                '<'      => $recordValue <  $compareValue,
+                '<='     => $recordValue <= $compareValue,
+                'IN'     => is_array($compareValue) && in_array($recordValue, $compareValue),
+                'NOT IN' => is_array($compareValue) && !in_array($recordValue, $compareValue),
+                default  => false,
+            };
         }
 
         /**

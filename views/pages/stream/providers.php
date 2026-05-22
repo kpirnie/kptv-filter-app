@@ -14,7 +14,7 @@ defined('KPTV_PATH') || die('Direct Access is not allowed!');
 $userId = KPTV_User::get_current_user()->id;
 
 // setup the user string
-$userForExport = KPTV::encryptForUrl($userId);
+$userForExport = KPTV::getExportToken($userId);
 
 // Configure database via constructor
 $dbconf = (array) KPTV::get_setting('database');
@@ -41,7 +41,7 @@ $dt->table('kptv_stream_providers p')
     ->primaryKey('p.id')
     ->columns([
         'p.id' => 'ID',
-        'p.sp_should_filter' => ['type' => 'boolean', 'label' => 'Active'],
+        'p.sp_should_filter' => ['type' => 'boolean', 'label' => 'Filter?'],
         'p.sp_priority' => [
             'label' => 'Priority',
         ],
@@ -106,6 +106,3 @@ KPTV::pull_header();
 
 // pull in the footer
 KPTV::pull_footer();
-
-// clean up
-unset($dt, $formFields, $dbconf);

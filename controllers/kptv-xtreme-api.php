@@ -25,9 +25,12 @@ if (! class_exists('KPTV_Xtream_API')) {
         private ?int $providerId = null;
         private ?object $userRecord = null;
 
+        private bool $logo = false;
+
         public function __construct()
         {
             parent::__construct(KPTV::get_setting('database'));
+            $this->logo = \KPT\Sanitize::input(INPUT_GET, 'logo', FILTER_VALIDATE_BOOLEAN) ?? false;
         }
 
         /**
@@ -36,14 +39,16 @@ if (! class_exists('KPTV_Xtream_API')) {
         public function handleRequest(): void
         {
 
+            // hold the action to take
+            $action = \KPT\Sanitize::string($_GET['action'] ?? $_POST['action'] ?? '', false, false);
+
+            // 
             try {
                 // Authenticate user first
                 if (! $this->authenticateUser()) {
                     $this->sendError('Authentication failed', 401);
                     return;
                 }
-
-                $action = $_GET['action'] ?? '';
 
                 // If no action, return user/server info (standard XC behavior)
                 if (empty($action)) {
@@ -77,7 +82,7 @@ if (! class_exists('KPTV_Xtream_API')) {
                 };
             } catch (\Throwable $e) {
                 \KPT\Logger::error("XtreamAPI error", [
-                    'action' => $_GET['action'] ?? '',
+                    'action' => $action,
                     'error' => $e->getMessage()
                 ]);
 
@@ -92,21 +97,25 @@ if (! class_exists('KPTV_Xtream_API')) {
         {
 
             // Try standard XC format: username & password
-            $username = $_GET['username'] ?? '';
-            $password = $_GET['password'] ?? '';
+            $username = \KPT\Sanitize::username($_GET['username'] ?? $_POST['username'] ?? '');
+            // password is an encrypted URL-safe base64 token - must preserve -_= chars
+            $password = $_GET['password'] ?? $_POST['password'] ?? '';
+            $password = preg_replace('/[^A-Za-z0-9\-_=]/', '', $password);
 
             // Also support legacy format: user parameter (encrypted user ID)
-            $userParam = $_GET['user'] ?? '';
+            $userParam = \KPT\Sanitize::username($_GET['user'] ?? $_POST['user'] ?? '');
 
             // Provider filter from GET param (legacy support)
-            $providerParam = isset($_GET['provider']) ? (int)$_GET['provider'] : null;
+            $providerParam = \KPT\Cast::intOrNull($_GET['provider'] ?? $_POST['provider'] ?? null);
 
-            // Method 1: Encrypted user ID (legacy/direct)
+            // Method 1
             if (!empty($userParam)) {
-                $decrypted = KPTV::decryptFromUrl($userParam);
-                if ($decrypted && is_numeric($decrypted)) {
-                    $this->userId = (int)$decrypted;
-                    // Use GET provider param for legacy URLs
+                $result = $this->query('SELECT id FROM kptv_users WHERE export_token = ? AND u_active = 1')
+                    ->bind([$userParam])
+                    ->single()
+                    ->fetch();
+                if ($result) {
+                    $this->userId = (int)$result->id;
                     if ($providerParam !== null) {
                         $this->providerId = $providerParam;
                     }
@@ -114,17 +123,17 @@ if (! class_exists('KPTV_Xtream_API')) {
                 }
             }
 
-            // Method 2: Username is provider ID, password is encrypted user ID
+            // Method 2
             if (!empty($password)) {
-                $decrypted = KPTV::decryptFromUrl($password);
-                if ($decrypted && is_numeric($decrypted)) {
-                    $this->userId = (int)$decrypted;
-
-                    // Username is the provider ID (if numeric)
+                $result = $this->query('SELECT id FROM kptv_users WHERE export_token = ? AND u_active = 1')
+                    ->bind([$password])
+                    ->single()
+                    ->fetch();
+                if ($result) {
+                    $this->userId = (int)$result->id;
                     if (!empty($username) && is_numeric($username)) {
                         $this->providerId = (int)$username;
                     }
-
                     return $this->validateUserId();
                 }
             }
@@ -141,6 +150,7 @@ if (! class_exists('KPTV_Xtream_API')) {
                 return false;
             }
 
+            // get the users record
             $user = $this->query('SELECT id, u_name, u_email, u_created FROM kptv_users WHERE id = ? AND u_active = 1')
                 ->bind([$this->userId])
                 ->single()
@@ -172,8 +182,8 @@ if (! class_exists('KPTV_Xtream_API')) {
             ];
 
             $userInfo = [
-                'username' => $this->userRecord->u_name ?? 'user',
-                'password' => 'hidden',
+                'username' => $_GET['username'] ?? $_POST['username'] ?? '',
+                'password' => $_GET['password'] ?? $_POST['password'] ?? '',
                 'message' => 'Welcome to KPTV Stream Manager',
                 'auth' => 1,
                 'status' => 'Active',
@@ -266,7 +276,8 @@ if (! class_exists('KPTV_Xtream_API')) {
         private function getLiveStreams(): void
         {
 
-            $categoryId = $_GET['category_id'] ?? null;
+            $categoryId = \KPT\Cast::intOrNull($_GET['category_id'] ?? $_POST['category_id'] ?? null);
+
 
             $sql = 'SELECT
                     a.id as stream_id,
@@ -310,13 +321,20 @@ if (! class_exists('KPTV_Xtream_API')) {
             $catMap = $this->buildCategoryMap(self::TYPE_LIVE);
 
             foreach ($results as $row) {
-                $catName = !empty($row->category_name) ? $row->category_name : 'live';
+                // setup the stream logo
+                $the_logo = null;
+                if ($this->logo) {
+                    $the_logo = \KPTV::getLogoFromName($row->name);
+                }
+                $stream_logo = ($the_logo) ?: $row->stream_icon ?? 'https://cdn.kcp.im/tv/kptv-logo.png';
+
+                $catName = !empty($row->category_name) ? $row->category_name : 'Uncategorized';
                 $streams[] = [
                     'num' => (int)$row->num,
                     'name' => $row->name,
                     'stream_type' => 'live',
                     'stream_id' => (int)$row->stream_id,
-                    'stream_icon' => $row->stream_icon,
+                    'stream_icon' => $stream_logo,
                     'epg_channel_id' => $row->epg_channel_id,
                     'added' => time(),
                     'category_id' => (string)($catMap[$catName] ?? 1),
@@ -336,8 +354,7 @@ if (! class_exists('KPTV_Xtream_API')) {
          */
         private function getVodStreams(): void
         {
-
-            $categoryId = $_GET['category_id'] ?? null;
+            $categoryId = \KPT\Cast::intOrNull($_GET['category_id'] ?? $_POST['category_id'] ?? null);
 
             $sql = 'SELECT
                     a.id as stream_id,
@@ -380,7 +397,7 @@ if (! class_exists('KPTV_Xtream_API')) {
             $catMap = $this->buildCategoryMap(self::TYPE_VOD);
 
             foreach ($results as $row) {
-                $catName = !empty($row->category_name) ? $row->category_name : 'VOD';
+                $catName = !empty($row->category_name) ? $row->category_name : 'Uncategorized';
 
                 $extension = $row->container_extension;
                 if (empty($extension)) {
@@ -413,8 +430,7 @@ if (! class_exists('KPTV_Xtream_API')) {
         private function getVodInfo(): void
         {
 
-            $vodId = $_GET['vod_id'] ?? null;
-
+            $vodId = \KPT\Cast::intOrNull($_GET['vod_id'] ?? $_POST['vod_id'] ?? null);
             if (!$vodId) {
                 $this->sendError('vod_id required', 400);
                 return;
@@ -472,7 +488,7 @@ if (! class_exists('KPTV_Xtream_API')) {
         private function getSeries(): void
         {
 
-            $categoryId = $_GET['category_id'] ?? null;
+            $categoryId = \KPT\Cast::intOrNull($_GET['category_id'] ?? $_POST['category_id'] ?? null);
 
             $sql = 'SELECT
                     a.id as series_id,
@@ -515,7 +531,7 @@ if (! class_exists('KPTV_Xtream_API')) {
 
             $idx = 1;
             foreach ($results as $row) {
-                $catName = !empty($row->category_name) ? $row->category_name : 'series';
+                $catName = !empty($row->category_name) ? $row->category_name : 'Uncategorized';
                 $series[] = [
                     'num' => $idx,
                     'name' => $row->name,
@@ -548,7 +564,7 @@ if (! class_exists('KPTV_Xtream_API')) {
         private function getSeriesInfo(): void
         {
 
-            $seriesId = $_GET['series_id'] ?? null;
+            $seriesId = \KPT\Cast::intOrNull($_GET['series_id'] ?? $_POST['series_id'] ?? null);
 
             if (!$seriesId) {
                 $this->sendError('series_id required', 400);
@@ -695,6 +711,9 @@ if (! class_exists('KPTV_Xtream_API')) {
             // Authenticate - username is provider ID, password is encrypted user
             $_GET['username'] = $username;
             $_GET['password'] = $password;
+            $_POST['username'] = $username;
+            $_POST['password'] = $password;
+
 
             if (!$this->authenticateUser()) {
                 http_response_code(401);
@@ -722,6 +741,43 @@ if (! class_exists('KPTV_Xtream_API')) {
 
             // Redirect to actual stream URL
             header('Location: ' . $result->s_stream_uri, true, 302);
+            exit;
+        }
+
+        /**
+         * Handle XMLTV EPG request
+         */
+        public function handleXmltvRequest(): void
+        {
+            if (!$this->authenticateUser()) {
+                http_response_code(401);
+                die('Unauthorized');
+            }
+
+            header('Content-Type: text/xml; charset=utf-8');
+            header('Cache-Control: no-cache');
+            echo '<?xml version="1.0" encoding="utf-8"?>' . PHP_EOL;
+            echo '<!DOCTYPE tv SYSTEM "xmltv.dtd">' . PHP_EOL;
+            echo '<tv generator-info-name="KPTV Stream Manager" source-info-name="KPTV Stream Manager">';
+
+            // loop streams and output basic channel entries so the app has something to map
+            $sql = 'SELECT s_tvg_id, s_name, s_tvg_logo FROM kptv_streams 
+            WHERE u_id = ? AND s_active = 1 AND s_type_id = 0 AND s_tvg_id != ""
+            GROUP BY s_tvg_id';
+            $results = $this->query($sql)->bind([$this->userId])->fetch();
+
+            if ($results) {
+                foreach ($results as $row) {
+                    echo sprintf(
+                        '<channel id="%s"><display-name>%s</display-name><icon src="%s" /></channel>',
+                        htmlspecialchars($row->s_tvg_id),
+                        htmlspecialchars($row->s_name),
+                        htmlspecialchars($row->s_tvg_logo ?? '')
+                    ) . PHP_EOL;
+                }
+            }
+
+            echo '</tv>' . PHP_EOL;
             exit;
         }
     }

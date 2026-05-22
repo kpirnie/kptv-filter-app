@@ -54,6 +54,18 @@ if (! KPTV_User::is_user_logged_in()) {
             </div>
         </div>
     </form>
+    <h2 class="kptv-heading uk-heading-bullet uk-margin-large-top">Your Export Token</h2>
+    <p class="uk-text-meta">This token is used in your playlist URLs and IPTV app connections. Regenerating it will break all existing connections until you update them.</p>
+    <div class="uk-flex uk-flex-middle" style="gap: 12px;">
+        <code class="uk-text-break"><?php echo htmlspecialchars(KPTV::getExportToken(KPTV_User::get_current_user()->id)); ?></code>
+    </div>
+    <form action="/users/export-token/regenerate" method="POST" class="uk-margin-top">
+        <?php echo \KPT\Token::field('csrf'); ?>
+        <button class="uk-button uk-button-danger uk-border-rounded" type="submit"
+            onclick="return confirm('Are you sure? This will break all existing playlist URLs and IPTV app connections.')">
+            Regenerate Export Token <span uk-icon="refresh"></span>
+        </button>
+    </form>
 <?php
 
 }

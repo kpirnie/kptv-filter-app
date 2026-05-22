@@ -22,7 +22,7 @@ if (KPTV_User::is_user_logged_in()):
 
     // compute export token for sidebar links
     $currentUser = KPTV_User::get_current_user() ?: null;
-    $user_for_export = KPTV::encryptForUrl($currentUser?->id ?: 0);
+    $user_for_export = $currentUser ? KPTV::getExportToken($currentUser->id) : '';
 ?>
 
     <li class="uk-nav-header">STREAM MANAGER</li>
@@ -86,6 +86,19 @@ if (KPTV_User::is_user_logged_in()):
     <li class="uk-nav-divider"></li>
 <?php endif; ?>
 <li class="uk-nav-header">ACCOUNT MANAGER</li>
+<?php
+// check if we're an admin
+if ($currentUser->role == 99) {
+?>
+    <li>
+        <a href="/users/admin">
+            <span uk-icon="users" class="kptv-icon-dual"></span>
+            User Admin
+        </a>
+    </li>
+<?php
+}
+?>
 <li class="uk-parent <?php echo KPTV::open_link('account'); ?>">
     <a href="#">
         <span uk-icon="user" class="kptv-icon-dual"></span>

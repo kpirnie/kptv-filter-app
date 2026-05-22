@@ -151,6 +151,3 @@ if (isset($_POST['action']) || isset($_GET['action'])) {
 
 // pull in the footer
 \KPTV::pull_footer();
-
-// clean up
-unset($dt, $formFields, $actionGroups, $bulkActions, $dbconf);

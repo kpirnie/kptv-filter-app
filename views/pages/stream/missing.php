@@ -94,6 +94,3 @@ KPTV::pull_header();
 
 // pull in the footer
 KPTV::pull_footer();
-
-// clean up
-unset($dt, $formFields, $actionGroups, $bulkActions, $dbconf);

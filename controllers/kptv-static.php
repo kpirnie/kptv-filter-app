@@ -104,6 +104,79 @@ if (! class_exists('KPTV_Static')) {
 
             // just return the matching config we need to present
             return (object) match ($which) {
+                'users' => [
+                    'bulk' => [],
+                    'row' => [],
+                    'form' => [
+                        // general
+                        'u_name' => [
+                            'type' => 'text',
+                            'required' => true,
+                            'class' => 'uk-width-1-1 uk-margin-bottom',
+                            'label' => 'Username',
+                            'attributes' => ['disabled' => 'true'],
+                            'tab' => 'general',
+                        ],
+                        'u_email' => [
+                            'type' => 'email',
+                            'required' => true,
+                            'class' => 'uk-width-1-1 uk-margin-bottom',
+                            'label' => 'Email Address',
+                            'tab' => 'general',
+                        ],
+                        'u_fname' => [
+                            'type' => 'text',
+                            'required' => false,
+                            'class' => 'uk-width-1-2 uk-margin-bottom',
+                            'label' => 'First Name',
+                            'tab' => 'general',
+                        ],
+                        'u_lname' => [
+                            'type' => 'text',
+                            'required' => false,
+                            'class' => 'uk-width-1-2 uk-margin-bottom',
+                            'label' => 'Last Name',
+                            'tab' => 'general',
+                        ],
+                        // access
+                        'u_role' => [
+                            'type' => 'select',
+                            'required' => true,
+                            'class' => 'uk-width-1-2 uk-margin-bottom',
+                            'label' => 'User Role',
+                            'options' => ['0' => 'User', '99' => 'Admin'],
+                            'tab' => 'access',
+                        ],
+                        'u_active' => [
+                            'type' => 'boolean',
+                            'required' => true,
+                            'class' => 'uk-width-1-2 uk-margin-bottom',
+                            'label' => 'User Active',
+                            'tab' => 'access',
+                        ],
+                        'login_attempts' => [
+                            'type' => 'number',
+                            'required' => false,
+                            'class' => 'uk-width-1-2 uk-margin-bottom',
+                            'label' => 'Login Attempts',
+                            'tab' => 'access',
+                        ],
+                        'locked_until' => [
+                            'type' => 'datepicker',
+                            'required' => false,
+                            'class' => 'uk-width-1-2 uk-margin-bottom',
+                            'label' => 'Locked Until',
+                            'formatter' => 'YYYY-MM-DD',
+                            'tab' => 'access',
+                        ],
+                        'u_created' => [
+                            'type' => 'static',
+                            'class' => 'uk-width-1-1 uk-margin-bottom',
+                            'label' => 'Account Created',
+                            'tab' => 'access',
+                        ],
+                    ]
+                ],
                 'filters' => [
                     'bulk' => [],
                     'row' => [],
@@ -2051,6 +2124,43 @@ if (! class_exists('KPTV_Static')) {
             }
 
             return $tableName;
+        }
+
+        public static function getLogoFromName(string $name): ?string
+        {
+            if (empty($name)) {
+                return null;
+            }
+            // format the channel name
+            $chan = preg_replace(
+                ['/\s*&\s*/', '/[+\s]/', '/[^a-z0-9\-]/', '/-{2,}/'],
+                ['-and-', '-', '', '-'],
+                mb_strtolower(trim($name))
+            );
+            return sprintf('https://cdn.kcp.im/tv/logos/%s.png', $chan);
+        }
+
+        /**
+         * Get the stable export token for a user
+         */
+        public static function getExportToken(int $userId): string
+        {
+            $db   = new \KPT\Database(self::get_setting('database'));
+            $user = $db->query('SELECT export_token FROM kptv_users WHERE id = ?')
+                ->bind([$userId])
+                ->single()
+                ->fetch();
+
+            // generate one if it doesn't exist (existing users)
+            if (!$user || empty($user->export_token)) {
+                $token = \KPT\Crypto::generateToken(48);
+                $db->query('UPDATE kptv_users SET export_token = ? WHERE id = ?')
+                    ->bind([$token, $userId])
+                    ->execute();
+                return $token;
+            }
+
+            return $user->export_token;
         }
     }
 }

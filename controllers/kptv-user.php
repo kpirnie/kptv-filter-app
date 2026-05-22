@@ -1210,5 +1210,30 @@ if (! class_exists('KPTV_User')) {
 
             return ($data?->success === true && ($data?->score ?? 0) >= 0.5);
         }
+
+        /**
+         * Regenerate the export token for a user
+         */
+        public function regenerateExportToken(): void
+        {
+            $user = self::get_current_user();
+            if (!$user) {
+                KPTV::message_with_redirect('/', 'danger', 'You must be logged in.');
+                return;
+            }
+
+            $this->query('UPDATE kptv_users SET export_token = ? WHERE id = ?')
+                ->bind([\KPT\Crypto::generateToken(48), $user->id])
+                ->execute();
+
+            // invalidate the cache
+            \KPT\Cache::delete('export_token_' . $user->id);
+
+            KPTV::message_with_redirect(
+                '/users/changepass',
+                'warning',
+                'Your export token has been regenerated. All existing playlist URLs and IPTV app connections will need to be updated.'
+            );
+        }
     }
 }

@@ -93,6 +93,13 @@ if ($_debug) {
 // initialize the logger
 new \KPT\Logger(KPTV_DEBUG);
 
+/*echo \KPT\Crypto::encrypt(
+    'wRxPQ1oCSwAbQ1OYEXDNNAS7hzi3NkrN',
+    \KPTV::get_setting('mainkey'),
+    \KPTV::get_setting('mainsecret')
+);
+exit;*/
+
 // hold our constant definitions
 defined('DB_DRIVER') || define('DB_DRIVER', (string)($_db->driver ?? 'sqlite'));
 defined('DB_SERVER') || define('DB_SERVER', (string)($_db->server ?? ''));

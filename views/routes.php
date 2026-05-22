@@ -215,6 +215,14 @@ $get_user_routes = [
         'handler' => 'view:pages/users/changepass.php'
     ],
 
+    // User admin page
+    [
+        'method' => 'GET',
+        'path' => '/users/admin',
+        'middleware' => ['admin_required'],
+        'handler' => 'view:pages/users/admin.php'
+    ],
+
     // Account validation (using controller)
     [
         'method' => 'GET',
@@ -332,6 +340,19 @@ $get_stream_routes = [
         'should_cache' => false,
     ],
 
+    [
+        'method' => 'GET',
+        'path' => '/xmltv.php',
+        'handler' => 'KPTV_Xtream_API@handleXmltvRequest',
+        'should_cache' => false,
+    ],
+    [
+        'method' => 'GET',
+        'path' => '/api/xmltv',
+        'handler' => 'KPTV_Xtream_API@handleXmltvRequest',
+        'should_cache' => false,
+    ],
+
 ];
 
 // Admin-related GET routes
@@ -384,6 +405,22 @@ $post_user_routes = [
         'middleware' => ['guest_only', 'auth_rate_limit', 'csrf_protection'],
         'handler' => 'KPTV_User@forgot' // Class@Method
     ],
+
+    [
+        'method'     => 'POST',
+        'path'       => '/users/export-token/regenerate',
+        'middleware' => ['auth_required', 'csrf_protection'],
+        'handler'    => 'KPTV_User@regenerateExportToken'
+    ],
+
+    [
+        'method' => 'POST',
+        'path' => '/users/admin',
+        'middleware' => ['auth_required', 'api_rate_limit', 'csrf_protection'],
+        'handler' => 'view:pages/users/admin.php', // Class@Method
+        //'handler' => 'KPTV_Stream_Filters@handleFormSubmission', // Class@Method
+    ],
+
 ];
 
 // Stream-related POST routes
@@ -429,6 +466,26 @@ $post_stream_routes = [
         'path' => '/missing',
         'middleware' => ['auth_required', 'api_rate_limit', 'csrf_protection'],
         'handler' => 'view:pages/stream/missing.php'
+    ],
+
+    // XtreamCodes API routes - POST support for IPTV apps
+    [
+        'method' => 'POST',
+        'path' => '/player_api.php',
+        'handler' => 'KPTV_Xtream_API@handleRequest',
+        'should_cache' => false,
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/xc',
+        'handler' => 'KPTV_Xtream_API@handleRequest',
+        'should_cache' => false,
+    ],
+    [
+        'method' => 'POST',
+        'path' => '/api/xtream',
+        'handler' => 'KPTV_Xtream_API@handleRequest',
+        'should_cache' => false,
     ],
 ];
 
