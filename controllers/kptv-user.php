@@ -211,9 +211,9 @@ if (! class_exists('KPTV_User')) {
             $errors = [];
 
             // verify the captcha
-            if (!$this->verifyRecaptcha()) {
+            /*if (!$this->verifyRecaptcha()) {
                 $errors[] = 'reCAPTCHA verification failed. Please try again.';
-            }
+            }*/
 
             // hold our variables
             $username = \KPT\Sanitize::username($_POST['frmUsername'] ?? '');

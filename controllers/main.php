@@ -24,7 +24,7 @@ include_once $appPath . 'vendor/autoload.php';
 defined('KPTV_PATH') || define('KPTV_PATH', $appPath);
 
 // config lives outside webroot
-defined('KPTV_CONFIG_PATH') || define('KPTV_CONFIG_PATH', dirname(KPTV_PATH) . '/config.json');
+defined('KPTV_CONFIG_PATH') || define('KPTV_CONFIG_PATH', KPTV_PATH . '/config.json');
 
 // create our fake alias if it doesn't already exist
 if (! class_exists('KPTV')) {

@@ -1,6 +1,7 @@
 assets/config.json
 config.json
 .cache/
+.composer/
 tmp/
 epgs/
 node_modules/
@@ -9,3 +10,4 @@ package-lock.json
 refresh.sh
 kptv.sqlite
 /my_epg/*.xml
+/my_epg/epg-sync.log
