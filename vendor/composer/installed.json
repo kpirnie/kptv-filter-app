@@ -380,17 +380,17 @@
         },
         {
             "name": "kevinpirnie/kpt-utils",
-            "version": "v1.1.87",
-            "version_normalized": "1.1.87.0",
+            "version": "v1.2.02",
+            "version_normalized": "1.2.02.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/kpirnie/kp-php-utils.git",
-                "reference": "0ae12c9a883d224d37157a22c3d071e9a0dcc091"
+                "reference": "24fa5fc2d9774f87eca7268408534c8ce5307ffe"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kpirnie/kp-php-utils/zipball/0ae12c9a883d224d37157a22c3d071e9a0dcc091",
-                "reference": "0ae12c9a883d224d37157a22c3d071e9a0dcc091",
+                "url": "https://api.github.com/repos/kpirnie/kp-php-utils/zipball/24fa5fc2d9774f87eca7268408534c8ce5307ffe",
+                "reference": "24fa5fc2d9774f87eca7268408534c8ce5307ffe",
                 "shasum": ""
             },
             "require": {
@@ -403,7 +403,7 @@
             "require-dev": {
                 "squizlabs/php_codesniffer": "^3.6"
             },
-            "time": "2026-04-23T18:42:20+00:00",
+            "time": "2026-06-12T11:21:33+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {

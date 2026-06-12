@@ -45,9 +45,16 @@ class CurlClient
             $body  = curl_exec($ch);
             $errno = curl_errno($ch);
             $error = curl_error($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
 
             if ($body !== false && $errno === 0) {
+                // Treat 4xx/5xx as fatal — no retry will help auth errors
+                if ($httpCode >= 400) {
+                    throw new \RuntimeException(
+                        "HTTP {$httpCode} response — {$url}"
+                    );
+                }
                 return $body;
             }
 
@@ -117,7 +124,6 @@ class CurlClient
             if ($running) {
                 curl_multi_select($multi, 0.1);
             }
-
         } while ($running || !empty($active));
 
         curl_multi_close($multi);

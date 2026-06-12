@@ -1,0 +1,14 @@
+services:
+  zap2xml:
+    container_name: zap2xml
+    image: ghcr.io/jcbird1012/zap2xml:latest
+    network_mode: host
+    environment:
+      CONFIG_FILE: /config/listings.yaml
+
+    volumes:
+      - ./config.yaml:/config/listings.yaml:ro
+      - ./epgs:/xmltv
+    restart: unless-stopped
+
+# USA, CAN

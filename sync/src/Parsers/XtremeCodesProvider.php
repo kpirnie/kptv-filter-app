@@ -77,7 +77,11 @@ class XtremeCodesProvider extends BaseProvider
         $data = json_decode($response, true);
 
         if (!is_array($data)) {
-            throw new \RuntimeException('Invalid API response - expected array');
+            // Surface the actual response for diagnosis
+            $preview = substr($response, 0, 300);
+            throw new \RuntimeException(
+                "Invalid API response - expected array, got: {$preview}"
+            );
         }
 
         $streams = [];

@@ -1,0 +1,37 @@
+defaults: # optional section
+  timespan: "72" # optional, overridable per listing
+  timezone: "America/New_York" # optional, overridable per listing
+  appendAsterisk: true # optional, overridable per listing
+  mediaportal: false # optional, overridable per listing
+  nextpvr: false # optional, overridable per listing
+
+listings:
+  - name: "xfinity" # optional
+    lineupId: "USA-MA20432-X"
+    country: "USA" # optional, defaults to USA
+    postalCode: "01030" # optional, required for OTA
+    outputFile: "/xmltv/xfinity.xml"
+
+  - name: "spectrum" # optional
+    lineupId: "USA-MA20442-X"
+    country: "USA" # optional, defaults to USA
+    postalCode: "01020" # optional, required for OTA
+    outputFile: "/xmltv/spectrum.xml"
+
+  - name: "directtv" # optional
+    lineupId: "USA-DITV543-X"
+    country: "USA" # optional, defaults to USA
+    postalCode: "01030" # optional, required for OTA
+    outputFile: "/xmltv/directtv.xml"
+
+  - name: "dish" # optional
+    lineupId: "USA-DISH543-X"
+    country: "USA" # optional, defaults to USA
+    postalCode: "01030" # optional, required for OTA
+    outputFile: "/xmltv/dish.xml"
+
+  - name: "ota" # optional
+    lineupId: "USA-OTA01030"
+    country: "USA" # optional, defaults to USA
+    postalCode: "01030" # optional, required for OTA
+    outputFile: "/xmltv/ota.xml"

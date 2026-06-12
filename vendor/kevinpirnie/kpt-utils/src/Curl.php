@@ -295,6 +295,113 @@ if (! class_exists('\KPT\Curl')) {
         }
 
         /**
+         * Perform multiple GET requests concurrently, streaming each response
+         * body directly to a temp file rather than buffering in memory.
+         *
+         * Returns a keyed array matching the input keys:
+         * <code>
+         * [
+         *     'file'  => '/tmp/epg_abc123',  // path to temp file (caller must unlink)
+         *     'code'  => 200,
+         *     'error' => '',
+         * ]
+         * </code>
+         *
+         * @param  array   $urls         Keyed or indexed array of URLs.
+         * @param  string  $tmpDir       Directory to write temp files into.
+         * @param  array   $options      Shared options (timeout, user-agent, sslverify, etc.).
+         * @param  int     $concurrency  Max simultaneous handles (0 = unlimited).
+         * @return array                 Keyed result arrays (see above).
+         */
+        public static function multiGetToFiles(
+            array $urls,
+            string $tmpDir,
+            array $options = [],
+            int $concurrency = 0
+        ): array {
+            if (! extension_loaded('curl')) {
+                return array_map(fn(): array => ['file' => '', 'code' => 0,
+                         'error' => 'The curl extension is required.'], $urls);
+            }
+
+            $handles     = [];
+            $fileHandles = [];
+            $filePaths   = [];
+            $results     = [];
+
+            $opts = array_merge([
+                'method'      => self::METHOD_GET,
+                'timeout'     => self::DEFAULT_TIMEOUT,
+                'redirection' => self::DEFAULT_REDIRECTS,
+                'headers'     => [],
+                'body'        => null,
+                'cookies'     => [],
+                'sslverify'   => true,
+                'user-agent'  => self::USER_AGENT,
+                'auth'        => [],
+                'decompress'  => true,
+            ], $options);
+
+            foreach ($urls as $key => $url) {
+                $sanitized = \KPT\Sanitize::url((string) $url);
+
+                if ($sanitized === '') {
+                    $results[$key] = ['file' => '', 'code' => 0, 'error' => 'Invalid or empty URL.'];
+                    continue;
+                }
+
+                $tmpPath = rtrim($tmpDir, '/') . '/kpt_curl_' . $key . '_' . uniqid('', true);
+                $fh      = fopen($tmpPath, 'w+b');
+
+                if ($fh === false) {
+                    $results[$key] = ['file' => '', 'code' => 0, 'error' => 'Failed to open temp file: ' . $tmpPath];
+                    continue;
+                }
+
+                // Build handle without CURLOPT_RETURNTRANSFER; stream directly to file
+                $unusedHeaders = [];
+                $unusedCookies = [];
+                $ch            = self::buildHandle($sanitized, $opts, $unusedHeaders, $unusedCookies);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+                curl_setopt($ch, CURLOPT_FILE, $fh);
+
+                $handles[$key]     = $ch;
+                $fileHandles[$key] = $fh;
+                $filePaths[$key]   = $tmpPath;
+            }
+
+            if (! empty($handles)) {
+                $multiResults = self::executeMultiToFiles($handles, $fileHandles, $concurrency);
+
+                foreach ($multiResults as $key => $res) {
+                    // Close the file handle; caller reads via the path
+                    if (isset($fileHandles[$key])) {
+                        fclose($fileHandles[$key]);
+                        unset($fileHandles[$key]);
+                    }
+
+                    $results[$key] = [
+                        'file'  => $res['error'] === '' ? $filePaths[$key] : '',
+                        'code'  => $res['code'],
+                        'error' => $res['error'],
+                    ];
+
+                    // Clean up temp file on fetch error
+                    if ($res['error'] !== '' && isset($filePaths[$key]) && file_exists($filePaths[$key])) {
+                        @unlink($filePaths[$key]);
+                    }
+                }
+            }
+
+            // Close any file handles that didn't make it into executeMultiToFiles (pre-validation failures)
+            foreach ($fileHandles as $fh) {
+                fclose($fh);
+            }
+
+            return $results;
+        }
+
+        /**
          * Perform multiple POST requests concurrently.
          *
          * Each entry in $requests must contain a 'url' key and may include a
@@ -829,6 +936,75 @@ if (! class_exists('\KPT\Curl')) {
                             'cookies'  => self::parseCookies($cookieStorage[$key] ?? []),
                             'error'    => '',
                         ];
+                }
+            } while (! empty($active) || ! empty($pending));
+
+            curl_multi_close($mh);
+
+            return $results;
+        }
+
+        /**
+         * Execute a pool of cURL handles concurrently, streaming each response
+         * directly to an open file handle rather than buffering in memory.
+         *
+         * @param  array  $handles        Keyed array of CurlHandle instances.
+         * @param  array  $fileHandles    Keyed array of open file handles (fopen'd by caller).
+         * @param  int    $concurrency    Max simultaneous handles (0 = unlimited).
+         * @return array                  Keyed arrays: ['code' => int, 'error' => string]
+         */
+        private static function executeMultiToFiles(
+            array $handles,
+            array $fileHandles,
+            int $concurrency = 0
+        ): array {
+            $mh      = curl_multi_init();
+            $pending = $handles;
+            $active  = [];
+            $results = [];
+
+            do {
+                while (! empty($pending) && ($concurrency === 0 || count($active) < $concurrency)) {
+                    $key = array_key_first($pending);
+                    $ch  = array_shift($pending);
+                    curl_multi_add_handle($mh, $ch);
+                    $active[$key] = $ch;
+                }
+
+                $running = 0;
+                curl_multi_exec($mh, $running);
+                curl_multi_select($mh, 0.1);
+
+                while ($info = curl_multi_info_read($mh)) {
+                    if ($info['msg'] !== CURLMSG_DONE) {
+                        continue;
+                    }
+
+                    $done = $info['handle'];
+                    $key  = array_search($done, $active, true);
+
+                    if ($key === false) {
+                        continue;
+                    }
+
+                    $errno    = curl_errno($done);
+                    $errStr   = curl_error($done);
+                    $curlInfo = curl_getinfo($done);
+
+                    // Flush and rewind so the caller can read from position 0
+                    if (isset($fileHandles[$key])) {
+                        fflush($fileHandles[$key]);
+                        rewind($fileHandles[$key]);
+                    }
+
+                    curl_multi_remove_handle($mh, $done);
+                    curl_close($done);
+                    unset($active[$key]);
+
+                    $results[$key] = [
+                        'code'  => (int) $curlInfo['http_code'],
+                        'error' => $errno !== 0 ? ($errStr !== '' ? $errStr : 'cURL error ' . $errno) : '',
+                    ];
                 }
             } while (! empty($active) || ! empty($pending));
 
