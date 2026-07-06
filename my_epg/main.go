@@ -7,6 +7,9 @@ package main
  * epg.xml output file. Channels are deduped by ID (first file wins).
  * Programmes are deduped by channel ID + start time.
  *
+ * Build:
+ *   sudo go build -o epg-sync main.go && sudo mv epg-sync /usr/local/bin/epg-sync
+ *
  * Usage:
  *   epg-sync --input /path/to/xmltv --output /path/to/epg.xml
  *
@@ -25,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -121,6 +125,13 @@ func mergeEPGFiles(srcFiles []string, outPath string) error {
 
 	if err := tmp.Close(); err != nil {
 		return err
+	}
+
+	// match the parent directory's owner/group (best-effort; needs privilege if different)
+	if fi, err := os.Stat(dir); err == nil {
+		if st, ok := fi.Sys().(*syscall.Stat_t); ok {
+			os.Chown(tmpPath, int(st.Uid), int(st.Gid))
+		}
 	}
 
 	if err := os.Rename(tmpPath, outPath); err != nil {
@@ -257,7 +268,7 @@ func main() {
 	}
 
 	for _, u := range extraURLs {
-		path, err := downloadToTemp(u)
+		path, err := downloadToTemp(u, filepath.Dir(outputPath))
 		if err != nil {
 			log.Printf("Warning: failed to download %s: %v", u, err)
 			continue
@@ -283,8 +294,9 @@ func main() {
 }
 
 // downloadToTemp fetches a remote XMLTV URL to a temp file and returns the path.
-func downloadToTemp(url string) (string, error) {
-	resp, err := http.Get(url)
+func downloadToTemp(url, dir string) (string, error) {
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Get(url)
 	if err != nil {
 		return "", err
 	}
@@ -294,7 +306,7 @@ func downloadToTemp(url string) (string, error) {
 		return "", fmt.Errorf("HTTP %d for %s", resp.StatusCode, url)
 	}
 
-	tmp, err := os.CreateTemp("", "epg-extra-*.xml")
+	tmp, err := os.CreateTemp(dir, "epg-extra-*.xml")
 	if err != nil {
 		return "", err
 	}
