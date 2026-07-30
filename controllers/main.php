@@ -43,7 +43,7 @@ if (! is_dir($cachePath)) {
 \KPT\Cache::configure([
     'path'             => $cachePath,
     'prefix'           => KPTV::get_cache_prefix(),
-    'allowed_backends' => ['array', 'opcache', 'file', 'redis', 'memcached'],
+    'allowed_backends' => ['array', 'opcache', 'redis'],
 ]);
 
 // hold our full config to avoid repeated lookups

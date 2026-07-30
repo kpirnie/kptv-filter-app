@@ -193,7 +193,7 @@ class FilterManager
         }
 
         $body = str_replace('/', '\/', $pattern);
-        return '/' . $body . '/i';
+        return '/' . $body . '/iu';
     }
 
     /**

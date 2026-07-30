@@ -19,6 +19,8 @@ package main
  */
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/xml"
 	"flag"
 	"fmt"
@@ -70,24 +72,30 @@ func mergeEPGFiles(srcFiles []string, outPath string) error {
 		}
 	}()
 
-	seenChannels := make(map[string]bool)
-	seenProgs := make(map[progKey]bool)
+	seenChannels := make(map[string]struct{})
+	seenProgs := make(map[progKey]struct{})
 
-	tmp.WriteString(`<?xml version="1.0" encoding="utf-8"?>` + "\n")
-	tmp.WriteString(`<tv generator-info-name="KPTV EPG Sync">` + "\n")
+	// buffer output writes; the old per-element writes went straight to syscalls
+	w := bufio.NewWriterSize(tmp, 1<<20)
+
+	w.WriteString(`<?xml version="1.0" encoding="utf-8"?>` + "\n")
+	w.WriteString(`<tv generator-info-name="KPTV EPG Sync">` + "\n")
 
 	// Pass 1 — channels only (priority order: first file wins dedup)
 	log.Printf("Merge pass 1: channels")
 	for _, src := range srcFiles {
 		if err := streamElements(src, "channel", func(raw []byte, attrs map[string]string) error {
 			id := strings.ToLower(strings.TrimSpace(attrs["id"]))
-			if id == "" || seenChannels[id] {
+			if id == "" {
 				return nil
 			}
-			seenChannels[id] = true
-			tmp.WriteString("  ")
-			tmp.Write(raw)
-			tmp.WriteString("\n")
+			if _, ok := seenChannels[id]; ok {
+				return nil
+			}
+			seenChannels[id] = struct{}{}
+			w.WriteString("  ")
+			w.Write(raw)
+			w.WriteString("\n")
 			return nil
 		}); err != nil {
 			log.Printf("Warning: channel pass error in %s: %v", src, err)
@@ -104,24 +112,31 @@ func mergeEPGFiles(srcFiles []string, outPath string) error {
 				return nil
 			}
 			// Only include programmes for channels we kept
-			if !seenChannels[ch] {
+			if _, ok := seenChannels[ch]; !ok {
 				return nil
 			}
 			k := progKey{Channel: ch, Start: start}
-			if seenProgs[k] {
+			if _, ok := seenProgs[k]; ok {
 				return nil
 			}
-			seenProgs[k] = true
-			tmp.WriteString("  ")
-			tmp.Write(raw)
-			tmp.WriteString("\n")
+			seenProgs[k] = struct{}{}
+			w.WriteString("  ")
+			w.Write(raw)
+			w.WriteString("\n")
 			return nil
 		}); err != nil {
 			log.Printf("Warning: programme pass error in %s: %v", src, err)
 		}
 	}
 
-	tmp.WriteString("</tv>\n")
+	w.WriteString("</tv>\n")
+
+	// a buffered write error surfaces here; without this check a full disk
+	// would silently produce a truncated epg.xml
+	if err := w.Flush(); err != nil {
+		tmp.Close()
+		return err
+	}
 
 	if err := tmp.Close(); err != nil {
 		return err
@@ -134,6 +149,11 @@ func mergeEPGFiles(srcFiles []string, outPath string) error {
 		}
 	}
 
+	// ensure the output is world-readable (CreateTemp defaults to 0600)
+	if err := os.Chmod(tmpPath, 0644); err != nil {
+		return err
+	}
+
 	if err := os.Rename(tmpPath, outPath); err != nil {
 		return err
 	}
@@ -141,26 +161,29 @@ func mergeEPGFiles(srcFiles []string, outPath string) error {
 	return nil
 }
 
-// streamElements opens an XMLTV file and calls fn for each element matching tag.
-// raw is the complete raw XML of the element; attrs are its attributes.
+// streamElements reads an XMLTV file and calls fn for each element matching tag.
+// raw is the element's original bytes sliced straight from the file; attrs are
+// its attributes. A decoder error is terminal for the file — the same error
+// repeats forever from Token(), so we stop and let the caller move on.
 func streamElements(path, tag string, fn func(raw []byte, attrs map[string]string) error) error {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	dec := xml.NewDecoder(f)
+	dec := xml.NewDecoder(bytes.NewReader(data))
 	dec.Strict = false
 
 	for {
+		// offset of the next token's first byte, captured before reading it
+		pos := dec.InputOffset()
+
 		tok, err := dec.Token()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			log.Printf("XML token error in %s: %v", path, err)
-			continue
+			return fmt.Errorf("XML syntax error: %w", err)
 		}
 
 		start, ok := tok.(xml.StartElement)
@@ -174,12 +197,12 @@ func streamElements(path, tag string, fn func(raw []byte, attrs map[string]strin
 			attrs[a.Name.Local] = a.Value
 		}
 
-		// Read the complete element as raw bytes
-		raw, err := captureElement(dec, start)
-		if err != nil {
-			log.Printf("Capture error for <%s> in %s: %v", tag, path, err)
-			continue
+		// skip to the matching end tag, then slice the original bytes —
+		// far cheaper than re-encoding tokens, and preserves them verbatim
+		if err := dec.Skip(); err != nil {
+			return fmt.Errorf("XML syntax error inside <%s>: %w", tag, err)
 		}
+		raw := bytes.TrimSpace(data[pos:dec.InputOffset()])
 
 		if err := fn(raw, attrs); err != nil {
 			return err
@@ -187,40 +210,6 @@ func streamElements(path, tag string, fn func(raw []byte, attrs map[string]strin
 	}
 
 	return nil
-}
-
-// captureElement re-serializes the element currently being read by dec
-// (positioned just after the StartElement token) back to raw XML bytes.
-func captureElement(dec *xml.Decoder, start xml.StartElement) ([]byte, error) {
-	var buf strings.Builder
-	enc := xml.NewEncoder(&buf)
-
-	if err := enc.EncodeToken(start); err != nil {
-		return nil, err
-	}
-
-	depth := 1
-	for depth > 0 {
-		tok, err := dec.Token()
-		if err != nil {
-			return nil, err
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			depth++
-			enc.EncodeToken(t)
-		case xml.EndElement:
-			depth--
-			enc.EncodeToken(t)
-		case xml.CharData:
-			enc.EncodeToken(t)
-		case xml.Comment:
-			enc.EncodeToken(t)
-		}
-	}
-
-	enc.Flush()
-	return []byte(buf.String()), nil
 }
 
 // ---------------------------------------------------------------------------
@@ -232,11 +221,13 @@ func main() {
 		inputPath  string
 		outputPath string
 		extraURLs  multiFlag
+		userAgent  string
 	)
 
 	flag.Var(&extraURLs, "extra-url", "Remote XMLTV URL to include (repeatable)")
 	flag.StringVar(&inputPath, "input", "", "Directory containing XMLTV files to merge (required)")
 	flag.StringVar(&outputPath, "output", "", "Output path for merged epg.xml (required)")
+	flag.StringVar(&userAgent, "user-agent", "", "Optional User-Agent header for remote downloads")
 	flag.Parse()
 
 	if inputPath == "" {
@@ -267,8 +258,13 @@ func main() {
 		log.Fatalf("No .xml files found in %s", inputPath)
 	}
 
+	log.Printf("Found %d XML file(s) in %s", len(srcFiles), inputPath)
+	for _, f := range srcFiles {
+		log.Printf("  %s", f)
+	}
+
 	for _, u := range extraURLs {
-		path, err := downloadToTemp(u, filepath.Dir(outputPath))
+		path, err := downloadToTemp(u, filepath.Dir(outputPath), userAgent)
 		if err != nil {
 			log.Printf("Warning: failed to download %s: %v", u, err)
 			continue
@@ -276,11 +272,6 @@ func main() {
 		defer os.Remove(path)
 		srcFiles = append(srcFiles, path)
 		log.Printf("  (remote) %s", u)
-	}
-
-	log.Printf("Found %d XML file(s) in %s", len(srcFiles), inputPath)
-	for _, f := range srcFiles {
-		log.Printf("  %s", f)
 	}
 
 	start := time.Now()
@@ -294,9 +285,16 @@ func main() {
 }
 
 // downloadToTemp fetches a remote XMLTV URL to a temp file and returns the path.
-func downloadToTemp(url, dir string) (string, error) {
+func downloadToTemp(url, dir, userAgent string) (string, error) {
 	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	if userAgent != "" {
+		req.Header.Set("User-Agent", userAgent)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -311,10 +309,19 @@ func downloadToTemp(url, dir string) (string, error) {
 		return "", err
 	}
 
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
+	n, err := io.Copy(tmp, resp.Body)
+	if err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())
 		return "", err
+	}
+
+	// a clean early close from the server passes io.Copy but leaves a
+	// truncated file — that's what triggered the parse-loop incident
+	if resp.ContentLength >= 0 && n != resp.ContentLength {
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return "", fmt.Errorf("truncated download: got %d of %d bytes", n, resp.ContentLength)
 	}
 
 	tmp.Close()
