@@ -120,13 +120,18 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                 $which = [0, 4, 5];
             }
 
+            // if we're getting series or live
+            if (in_array($which, [0, 5])) {
+                $which = [0, 5];
+            }
+
             // setup the query to run
             $sql = 'SELECT
                     a.`s_channel` As TvgChNo, 
                     a.`s_name` As TvgName, 
                     a.`s_stream_uri` As Stream, 
                     COALESCE(nullif(a.`s_tvg_id`,""), a.`s_orig_name`) As TvgID, 
-                    COALESCE(nullif(a.`s_tvg_group`,""), "live") As TvgGroup,
+                    COALESCE(nullif(a.`s_tvg_group`,""), "Live Channels") As TvgGroup,
                     COALESCE(nullif(a.`s_tvg_logo`,""), "https://cdn.kcp.im/tv/kptv-icon.svg") As TvgLogo, 
                     a.`p_id`,
                     b.`sp_priority` As TvgType,
@@ -154,7 +159,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
             $rs = $this->query($sql)->bind($params)->fetch();
 
             // return the records
-            return $rs;
+            return $this->filterRecords($rs, $which);
         }
 
         /**
@@ -175,13 +180,18 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                 $which = [0, 4, 5];
             }
 
+            // if we're getting series or live
+            if (in_array($which, [0, 5])) {
+                $which = [0, 5];
+            }
+
             // setup the query to run
             $sql = 'SELECT
                     a.`s_channel` as TvgChNo, 
                     a.`s_name` as TvgName, 
                     a.`s_stream_uri` as Stream, 
                     COALESCE(nullif(a.`s_tvg_id`,""), a.`s_orig_name`) As TvgID, 
-                    COALESCE(nullif(a.`s_tvg_group`,""), "live") As TvgGroup,
+                    COALESCE(nullif(a.`s_tvg_group`,""), "Live Channels") As TvgGroup,
                     COALESCE(nullif(a.`s_tvg_logo`,""), "https://cdn.kcp.im/tv/kptv-icon.svg") As TvgLogo, 
                     a.`p_id`,
                     b.`sp_priority` AS TvgType,
@@ -209,7 +219,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
             $rs = $this->query($sql)->bind($params)->fetch();
 
             // return the records
-            return $rs;
+            return $this->filterRecords($rs, $which);
         }
 
         /**
@@ -246,13 +256,15 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                     // start creating the EXTINF line
                     $extinf = sprintf('#EXTINF:-1 tvg-name="%s" tvg-chno="%s" tvg-type="%s"', $rec->TvgName, $rec->TvgChNo, $rec->TvgType);
 
-                    // set the group for the m3u based on the stream type (live, series, vod)
+                    // get a group based on the stream type (live, series, vod)
+                    // but only set it if there is nothing in TvgGroup
                     $group = match ($rec->StreamType) {
-                        0 => 'live',
-                        5 => 'series',
-                        4 => 'vod',
+                        0 => 'Live Channels',
+                        5 => '24/7 Channels',
+                        4 => 'VOD;Video on Demand',
                         default => 'other'
                     };
+                    $group = ($rec->TvgGroup) ?? $group;
 
                     // write the group for the m3u
                     $extinf .= sprintf(' tvg-group="%s"', $group);
@@ -302,6 +314,36 @@ if (! class_exists('KPTV_Stream_Playlists')) {
             // Output minimal M3U with error
             echo "#EXTM3U" . PHP_EOL;
             echo "# Error: {$message}" . PHP_EOL;
+        }
+
+
+        /**
+         * Secondary filter for the retrieved recordset
+         * 
+         * @param array|bool $records The records returned from the database
+         * @param int|array $which Which streams were pulled
+         * @return array|bool Returns the filtered records or the original value
+         */
+        private function filterRecords(array|bool $records, int|array $which): array|bool
+        {
+
+            // nothing to filter
+            if (! $records || is_array($which)) return $records;
+
+            // the group we need to check against
+            $needle = '24/7 Channels';
+
+            // series: everything except the 24/7 groups
+            if ($which === 5) {
+                $records = array_filter($records, fn($rec) => stripos($rec->TvgGroup ?? '', $needle) === false);
+
+                // live: the 24/7 groups plus all live streams
+            } elseif ($which === 0) {
+                $records = array_filter($records, fn($rec) => stripos($rec->TvgGroup ?? '', $needle) !== false || (int) $rec->StreamType === 0);
+            }
+
+            // return the re-indexed records
+            return array_values($records);
         }
     }
 }

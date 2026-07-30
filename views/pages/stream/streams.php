@@ -64,6 +64,7 @@ $dt->table('kptv_streams s')
     ])
     ->filter([
         's_orig_name'  => ['operator' => 'LIKE', 'label' => 'Original Name', 'type' => 'text', 'placeholder' => 'Search by original name'],
+        's_tvg_group' => ['operator' => 'LIKE', 'label' => 'Group', 'type' => 'text', 'placeholder' => 'Search by stream group'],
         'p.sp_name'    => ['operator' => '=', 'label' => 'Provider', 'type' => 'select', 'options' => \KPTV::getProvidersNames($userId)],
         's_guide'      => ['operator' => '=', 'label' => 'Guide', 'type' => 'select', 'options' => \KPTV::guide_types()],
 
@@ -76,6 +77,7 @@ $dt->table('kptv_streams s')
         's_channel' => 'Ch',
         's_name' => 'Name',
         's_orig_name' => 'Orig. Name',
+        's_tvg_group' => 'Group',
         's_tvg_id' => 'TVG ID',
         'p.sp_name' => 'Provider',
         's_tvg_logo' => ['label' => 'Logo', 'type' => 'image'],
@@ -86,9 +88,9 @@ $dt->table('kptv_streams s')
         's_tvg_id' => 'txt-truncate',
         'p.sp_name' => 'txt-truncate',
     ])
-    ->sortable(['s_name', 's_channel', 's_tvg_id', 'p.sp_name'])
+    ->sortable(['s_name', 's_channel', 's_tvg_group', 's_tvg_id', 'p.sp_name'])
     ->defaultSort('s_name', 'ASC')
-    ->inlineEditable(['s_active', 's_channel', 's_guide', 's_name', 's_tvg_logo', 's_tvg_id', 's.u_id',])
+    ->inlineEditable(['s_active', 's_channel', 's_guide', 's_name', 's_tvg_logo', 's_tvg_group', 's_tvg_id', 's.u_id',])
     ->perPage(25)
     ->pageSizeOptions([25, 50, 100, 250], true)
     ->bulkActions(true, $bulkActionsConfig[$type_filter])
