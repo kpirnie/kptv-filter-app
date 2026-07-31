@@ -27,13 +27,13 @@ $active_value = $valid_active[$active_filter] ?? null;
 $userId = \KPTV_User::get_current_user()->id;
 
 // setup the form fields
-$formFieldsConfig = \KPTV::view_configs('streams', userId: $userId)->form;
+$formFieldsConfig = \KPTV::view_configs('streams', userId: $userId)->form ?? [];
 
 // setup the row actions - extract from view_configs
-$rowActionsConfig = \KPTV::view_configs('streams')->row;
+$rowActionsConfig = \KPTV::view_configs('streams')->row ?? [];
 
 // setup the bulk actions - extract from view_configs
-$bulkActionsConfig = \KPTV::view_configs('streams')->bulk;
+$bulkActionsConfig = \KPTV::view_configs('streams')->bulk ?? [];
 
 // Configure database via constructor
 $dbconf = (array) \KPTV::get_setting('database');
@@ -66,8 +66,6 @@ $dt->table('kptv_streams s')
         's_orig_name'  => ['operator' => 'LIKE', 'label' => 'Original Name', 'type' => 'text', 'placeholder' => 'Search by original name'],
         's_tvg_group' => ['operator' => 'LIKE', 'label' => 'Group', 'type' => 'text', 'placeholder' => 'Search by stream group'],
         'p.sp_name'    => ['operator' => '=', 'label' => 'Provider', 'type' => 'select', 'options' => \KPTV::getProvidersNames($userId)],
-        's_guide'      => ['operator' => '=', 'label' => 'Guide', 'type' => 'select', 'options' => \KPTV::guide_types()],
-
     ])
     ->tableClass('uk-table uk-table-divider uk-table-small uk-margin-bottom')
     ->columns([

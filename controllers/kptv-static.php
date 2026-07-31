@@ -649,6 +649,114 @@ if (! class_exists('KPTV_Static')) {
                                 'error_message' => 'Failed to move some or all records to other streams'
                             ],
                         ],
+                        '247' => [
+                            'seriesstreamact' => [
+                                'label' => '(De)Activate Streams',
+                                'icon' => 'crosshairs',
+                                'callback' => function ($selectedIds, $database, $tableName) {
+
+                                    // make sure we have records selected
+                                    if (empty($selectedIds)) return false;
+                                    $tableName = KPTV::validateTableName($tableName);
+                                    // setup the placeholders and the query
+                                    $placeholders = implode(',', array_fill(0, count($selectedIds), '?'));
+                                    $sql = "UPDATE {$tableName} SET s_active = NOT s_active WHERE id IN ({$placeholders})";
+
+                                    // return the execution
+                                    return $database->query($sql)
+                                        ->bind($selectedIds)
+                                        ->execute() !== false;
+                                },
+                                'confirm' => 'Are you sure you want to (de)activate these streams?',
+                                'success_message' => 'Records (de)activated',
+                                'error_message' => 'Failed to (de)activate'
+                            ],
+                            'movetolive' => [
+                                'label' => 'Move to Live Streams',
+                                'icon' => 'tv',
+                                'confirm' => 'Move the selected records to live streams?',
+                                'callback' => function ($selectedIds, $database, $tableName) {
+
+                                    // make sure we have selected items
+                                    if (empty($selectedIds)) return false;
+
+                                    $successCount = 0;
+                                    try {
+                                        // Process all selected IDs
+                                        foreach ($selectedIds as $id) {
+                                            $result = KPTV::moveToType($database, $id, 0);
+                                            if ($result) {
+                                                $successCount++;
+                                            }
+                                        }
+
+                                        // return
+                                        return $successCount > 0;
+                                    } catch (\Exception $e) {
+                                        $database->rollback();
+                                        return false;
+                                    }
+                                },
+                                'success_message' => 'Records moved to live streams successfully',
+                                'error_message' => 'Failed to move some or all records to live streams'
+                            ],
+                            'movetovod' => [
+                                'label' => 'Move to VOD Streams',
+                                'icon' => 'video-camera',
+                                'confirm' => 'Move the selected records to vod streams?',
+                                'callback' => function ($selectedIds, $database, $tableName) {
+
+                                    // make sure we have selected items
+                                    if (empty($selectedIds)) return false;
+
+                                    $successCount = 0;
+                                    try {
+                                        // Process all selected IDs
+                                        foreach ($selectedIds as $id) {
+                                            $result = KPTV::moveToType($database, $id, 4);
+                                            if ($result) {
+                                                $successCount++;
+                                            }
+                                        }
+
+                                        // return
+                                        return $successCount > 0;
+                                    } catch (\Exception $e) {
+                                        $database->rollback();
+                                        return false;
+                                    }
+                                },
+                                'success_message' => 'Records moved to vod streams successfully',
+                                'error_message' => 'Failed to move some or all records to vod streams'
+                            ],
+                            'movetoother' => [
+                                'label' => 'Move to Other Streams',
+                                'icon' => 'nut',
+                                'confirm' => 'Move the selected records to other streams?',
+                                'callback' => function ($selectedIds, $database, $tableName) {
+                                    // make sure we have selected items
+                                    if (empty($selectedIds)) return false;
+                                    $successCount = 0;
+                                    try {
+                                        // Process all selected IDs
+                                        foreach ($selectedIds as $id) {
+                                            $result = KPTV::moveToType($database, $id, 99);
+                                            if ($result) {
+                                                $successCount++;
+                                            }
+                                        }
+
+                                        // return
+                                        return $successCount > 0;
+                                    } catch (\Exception $e) {
+                                        $database->rollback();
+                                        return false;
+                                    }
+                                },
+                                'success_message' => 'Records moved to other streams successfully',
+                                'error_message' => 'Failed to move some or all records to other streams'
+                            ],
+                        ],
                         'vod' => [
 
                             'movetolive' => [
@@ -868,6 +976,48 @@ if (! class_exists('KPTV_Static')) {
                             ],
                         ],
                         'series' => [
+                            'html' => [
+                                'location' => 'both',
+                                'content' => '<br class="action-nl" />'
+                            ],
+                            'movelive' => [
+                                'icon' => 'tv',
+                                'title' => 'Move This Stream to Live Streams',
+                                'callback' => function ($rowId, $rowData, $database, $tableName) {
+
+                                    // move the stream
+                                    return KPTV::moveToType($database, $rowId, 0);
+                                },
+                                'confirm' => 'Are you sure you want to move this stream?',
+                                'success_message' => 'The stream has been moved.',
+                                'error_message' => 'Failed to move the stream.'
+                            ],
+                            'movevod' => [
+                                'icon' => 'video-camera',
+                                'title' => 'Move This Stream to VOD Streams',
+                                'callback' => function ($rowId, $rowData, $database, $tableName) {
+
+                                    // move the stream
+                                    return KPTV::moveToType($database, $rowId, 4);
+                                },
+                                'confirm' => 'Are you sure you want to move this stream?',
+                                'success_message' => 'The stream has been moved.',
+                                'error_message' => 'Failed to move the stream.'
+                            ],
+                            'moveother' => [
+                                'icon' => 'nut',
+                                'title' => 'Move This Stream to Other Streams',
+                                'callback' => function ($rowId, $rowData, $database, $tableName) {
+
+                                    // move the stream
+                                    return KPTV::moveToType($database, $rowId, 99);
+                                },
+                                'confirm' => 'Are you sure you want to move this stream?',
+                                'success_message' => 'The stream has been moved.',
+                                'error_message' => 'Failed to move the stream.'
+                            ],
+                        ],
+                        '247' => [
                             'html' => [
                                 'location' => 'both',
                                 'content' => '<br class="action-nl" />'

@@ -51,7 +51,7 @@ if (KPTV_User::is_user_logged_in()):
     </li>
     <li class="uk-parent <?php echo KPTV::open_link('247'); ?>">
         <a href="#">
-            <span uk-icon="calendar"></span>
+            <span uk-icon="history"></span>
             24/7 Streams
         </a>
         <ul class="uk-nav-sub">
