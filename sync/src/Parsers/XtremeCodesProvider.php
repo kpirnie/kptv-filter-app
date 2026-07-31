@@ -9,27 +9,42 @@ class XtremeCodesProvider extends BaseProvider
     private string $apiLive;
     private string $apiSeries;
     private string $apiVod;
+    private string $apiLiveCats;
+    private string $apiSeriesCats;
+    private string $apiVodCats;
+    private string $apiSeriesInfo;
     private string $streamLive;
     private string $streamSeries;
     private string $streamVod;
+    private array $categoryMaps = [];
+    private array $seriesModified = [];
 
     public function __construct(array $provider)
     {
         parent::__construct($provider);
 
-        $this->apiLive = "{$this->domain}/player_api.php?username={$this->username}&password={$this->password}&action=get_live_streams";
-        $this->apiSeries = "{$this->domain}/player_api.php?username={$this->username}&password={$this->password}&action=get_series";
-        $this->apiVod = "{$this->domain}/player_api.php?username={$this->username}&password={$this->password}&action=get_vod_streams";
+        $api = "{$this->domain}/player_api.php?username={$this->username}&password={$this->password}&action=";
+
+        $this->apiLive = "{$api}get_live_streams";
+        $this->apiSeries = "{$api}get_series";
+        $this->apiVod = "{$api}get_vod_streams";
+        $this->apiLiveCats = "{$api}get_live_categories";
+        $this->apiSeriesCats = "{$api}get_series_categories";
+        $this->apiVodCats = "{$api}get_vod_categories";
+        $this->apiSeriesInfo = "{$api}get_series_info&series_id=%s";
 
         $this->streamLive = "{$this->domain}/live/{$this->username}/{$this->password}/%s.{$this->streamTypeExt}";
-        $this->streamSeries = "{$this->domain}/series/{$this->username}/{$this->password}/%s.{$this->streamTypeExt}";
-        $this->streamVod = "{$this->domain}/movie/{$this->username}/{$this->password}/%s.{$this->streamTypeExt}";
+        $this->streamSeries = "{$this->domain}/series/{$this->username}/{$this->password}/%s.%s";
+        $this->streamVod = "{$this->domain}/movie/{$this->username}/{$this->password}/%s.%s";
     }
 
     public function fetchStreams(): array
     {
         echo "Fetching streams from Xtreme Codes API...\n";
         $allStreams = [];
+
+        // load in the categories
+        $this->loadCategories();
 
         // Fetch Live Streams
         try {
@@ -56,7 +71,7 @@ class XtremeCodesProvider extends BaseProvider
         // Fetch Series
         try {
             echo "Fetching series...\n";
-            $seriesStreams = $this->fetchApi($this->apiSeries, 5);
+            $seriesStreams = $this->fetchApi($this->apiSeries, 10);
             echo sprintf("Retrieved %s series\n", number_format(count($seriesStreams)));
             $allStreams = [...$allStreams, ...$seriesStreams];
         } catch (\Exception $e) {
@@ -107,8 +122,12 @@ class XtremeCodesProvider extends BaseProvider
 
             $uri = match ($streamType) {
                 0 => sprintf($this->streamLive, $streamId),
-                4 => sprintf($this->streamVod, $streamId),
-                5 => sprintf($this->streamSeries, $streamId),
+                4 => sprintf(
+                    $this->streamVod,
+                    $streamId,
+                    (string)($item['container_extension'] ?? '') ?: $this->streamTypeExt
+                ),
+                10 => sprintf($this->apiSeriesInfo, $streamId),
                 default => ''
             };
 
@@ -119,18 +138,26 @@ class XtremeCodesProvider extends BaseProvider
 
             $name = $item['name'] ?? '';
             $typeId = $streamType;
-            if (str_contains(strtolower($name), '24/7')) {
+            if ($streamType !== 10 && str_contains(strtolower($name), '24/7')) {
                 $typeId = 5;
+                $item['category_name'] = '24/7 Channels';
+            }
+
+            $catId = (string)($item['category_id'] ?? '');
+            $catName = $this->categoryMaps[$streamType][$catId] ?? ($item['category_name'] ?? null);
+
+            if ($streamType === 10) {
+                $this->seriesModified[(string)$streamId] = (string)($item['last_modified'] ?? '');
             }
 
             $streams[] = [
                 's_type_id' => $typeId,
-                's_orig_name' => $item['name'] ?? '',
-                's_stream_uri' => $uri,
+                's_orig_name' => $name,
                 's_tvg_id' => $item['epg_channel_id'] ?? $item['tmdb_id'] ?? null,
-                's_tvg_group' => $item['category_name'] ?? null,
+                's_stream_uri' => $uri,
+                's_tvg_group' => $catName,
                 's_tvg_logo' => $item['stream_icon'] ?? $item['cover'] ?? null,
-                's_extras' => null
+                's_extras' => $streamType === 10 ? (string)$streamId : null
             ];
         }
 
@@ -139,5 +166,98 @@ class XtremeCodesProvider extends BaseProvider
         }
 
         return $streams;
+    }
+
+    private function loadCategories(): void
+    {
+        $sources = [
+            0 => $this->apiLiveCats,
+            4 => $this->apiVodCats,
+            10 => $this->apiSeriesCats,
+        ];
+
+        foreach ($sources as $typeId => $url) {
+            $this->categoryMaps[$typeId] = [];
+
+            try {
+                $data = json_decode($this->makeRequest($url), true);
+            } catch (\Exception $e) {
+                echo "⚠️  Error fetching categories for type {$typeId}: {$e->getMessage()}\n";
+                continue;
+            }
+
+            if (!is_array($data)) {
+                continue;
+            }
+
+            foreach ($data as $cat) {
+                $catId = (string)($cat['category_id'] ?? '');
+                $catName = trim((string)($cat['category_name'] ?? ''));
+
+                if ($catId === '' || $catName === '') {
+                    continue;
+                }
+
+                $this->categoryMaps[$typeId][$catId] = $catName;
+            }
+        }
+
+        echo sprintf(
+            "Loaded categories: %s live, %s vod, %s series\n",
+            number_format(count($this->categoryMaps[0])),
+            number_format(count($this->categoryMaps[4])),
+            number_format(count($this->categoryMaps[10]))
+        );
+    }
+
+    public function getSeriesModified(): array
+    {
+        return $this->seriesModified;
+    }
+
+    public function fetchSeriesModified(): array
+    {
+        $data = json_decode($this->makeRequest($this->apiSeries), true);
+
+        if (!is_array($data)) {
+            return [];
+        }
+
+        $modified = [];
+
+        foreach ($data as $item) {
+            $seriesId = $item['series_id'] ?? $item['stream_id'] ?? null;
+
+            if ($seriesId === null) {
+                continue;
+            }
+
+            $modified[(string)$seriesId] = (string)($item['last_modified'] ?? '');
+        }
+
+        return $modified;
+    }
+
+    public function fetchSeriesInfo(array $seriesIds): array
+    {
+        $urls = [];
+
+        foreach ($seriesIds as $seriesId) {
+            $urls[(string)$seriesId] = sprintf($this->apiSeriesInfo, $seriesId);
+        }
+
+        $out = [];
+
+        foreach ($this->makeMultiRequest($urls) as $seriesId => $body) {
+            $data = json_decode((string)$body, true);
+            $out[(string)$seriesId] = is_array($data) ? $data : [];
+        }
+
+        return $out;
+    }
+
+    public function buildEpisodeUri(string $episodeId, string $extension): string
+    {
+        return sprintf($this->streamSeries, $episodeId, $extension !== '' ? $extension : 'mkv');
     }
 }

@@ -16,6 +16,14 @@ CREATE PROCEDURE `CleanupStreams` ()   BEGIN
         WHERE kptv_stream_providers.id = kptv_streams.p_id
     );
 
+    -- -- Remove episodes whose parent series or provider no longer exists
+    DELETE FROM kptv_stream_episodes
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM kptv_streams
+        WHERE kptv_streams.id = kptv_stream_episodes.s_id
+    );
+
     -- -- Deduplicate by stream URI, keep newest
     DELETE s1
     FROM kptv_streams s1

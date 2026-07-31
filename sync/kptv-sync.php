@@ -27,6 +27,8 @@ use Kptv\IptvSync\ProviderManager;
 use Kptv\IptvSync\SyncEngine;
 use Kptv\IptvSync\MissingChecker;
 use Kptv\IptvSync\FixupEngine;
+use Kptv\IptvSync\EpisodeSync;
+use Kptv\IptvSync\GroupBackfill;
 
 class IptvSyncApp
 {
@@ -35,8 +37,10 @@ class IptvSyncApp
     private SyncEngine $syncEngine;
     private MissingChecker $missingChecker;
     private FixupEngine $fixupEngine;
+    private EpisodeSync $episodeSync;
+    private GroupBackfill $groupBackfill;
 
-    public function __construct(array $ignoreFields = [], bool $debug = false, bool $checkAll = false)
+    public function __construct(array $ignoreFields = [], bool $debug = false, bool $checkAll = false, bool $force = false, bool $skipVod = false)
     {
         // Get database configuration from main app config file directly
         // to avoid any caching issues
@@ -72,9 +76,11 @@ class IptvSyncApp
         );
 
         $this->providerManager = new ProviderManager($this->db);
-        $this->syncEngine = new SyncEngine($this->db);
+        $this->syncEngine = new SyncEngine($this->db, [], $skipVod);
         $this->missingChecker = new MissingChecker($this->db, $checkAll);
         $this->fixupEngine = new FixupEngine($this->db, $ignoreFields);
+        $this->episodeSync = new EpisodeSync($this->db, $force);
+        $this->groupBackfill = new GroupBackfill($this->db);
     }
 
     public function runSync(?int $userId = null, ?int $providerId = null): void
@@ -112,6 +118,72 @@ class IptvSyncApp
         echo str_repeat('=', 60) . "\n";
         echo "Providers processed: " . count($providers) . "\n";
         echo "Streams synced: {$totalSynced}\n";
+        echo "Errors: {$totalErrors}\n";
+        echo str_repeat('=', 60) . "\n\n";
+    }
+
+    public function runEpisodes(?int $userId = null, ?int $providerId = null): void
+    {
+        $providers = $this->providerManager->getProviders($userId, $providerId);
+
+        if (empty($providers)) {
+            echo "No providers found\n";
+            return;
+        }
+
+        $totalEpisodes = 0;
+        $totalErrors = 0;
+
+        foreach ($providers as $provider) {
+            try {
+                echo "Syncing episodes for provider {$provider['id']} - {$provider['sp_name']}\n";
+                $totalEpisodes += $this->episodeSync->syncProvider($provider);
+            } catch (\Exception $e) {
+                $totalErrors++;
+                echo "Error syncing episodes for provider {$provider['id']}: {$e->getMessage()}\n";
+            }
+
+            gc_collect_cycles();
+        }
+
+        echo str_repeat('=', 60) . "\n";
+        echo "EPISODE SYNC COMPLETE\n";
+        echo str_repeat('=', 60) . "\n";
+        echo "Providers processed: " . count($providers) . "\n";
+        echo "Episodes synced: {$totalEpisodes}\n";
+        echo "Errors: {$totalErrors}\n";
+        echo str_repeat('=', 60) . "\n\n";
+    }
+
+    public function runRegroup(?int $userId = null, ?int $providerId = null): void
+    {
+        $providers = $this->providerManager->getProviders($userId, $providerId);
+
+        if (empty($providers)) {
+            echo "No providers found\n";
+            return;
+        }
+
+        $totalUpdated = 0;
+        $totalErrors = 0;
+
+        foreach ($providers as $provider) {
+            try {
+                echo "Backfilling groups for provider {$provider['id']} - {$provider['sp_name']}\n";
+                $totalUpdated += $this->groupBackfill->backfillProvider($provider);
+            } catch (\Exception $e) {
+                $totalErrors++;
+                echo "Error backfilling provider {$provider['id']}: {$e->getMessage()}\n";
+            }
+
+            gc_collect_cycles();
+        }
+
+        echo str_repeat('=', 60) . "\n";
+        echo "GROUP BACKFILL COMPLETE\n";
+        echo str_repeat('=', 60) . "\n";
+        echo "Providers processed: " . count($providers) . "\n";
+        echo "Groups updated: {$totalUpdated}\n";
         echo "Errors: {$totalErrors}\n";
         echo str_repeat('=', 60) . "\n\n";
     }
@@ -190,6 +262,7 @@ class IptvSyncApp
         echo "  - Removing orphaned streams (provider no longer exists)\n";
         echo "  - Removing duplicate streams (keeping highest ID per URI)\n";
         echo "  - Clearing temporary table\n";
+        echo "  - Removing orphaned episodes (series no longer exists)\n";
 
         try {
             $this->db->call_proc('CleanupStreams', fetch: false);
@@ -215,6 +288,8 @@ Actions:
   testmissing   Check for missing streams
   fixup         Run metadata fixup (propagates metadata across matching streams)
   cleanup       Remove orphaned streams, duplicates, and clear temp table
+  episodes      Fetch season/episode data for active series (Xtreme Codes only)
+  regroup       Backfill s_tvg_group on existing streams from the provider
 
 Options:
   --user-id <id>        Filter by user ID
@@ -223,6 +298,8 @@ Options:
   --check-all           Check all streams including inactive (testmissing only)
   --ignore <fields>     Fields to ignore during fixup (comma-separated)
                         Available: tvg_id, logo, tvg_group, name, channel
+  --force               Refresh all episode data, ignoring last_modified (episodes only)
+  --skip-vod            Skip VOD (type 4) streams during sync
   --help                Show this help
 
 Examples:
@@ -234,6 +311,10 @@ Examples:
   php kptv-sync.php fixup
   php kptv-sync.php fixup --ignore logo,channel
   php kptv-sync.php cleanup
+  php kptv-sync.php episodes
+  php kptv-sync.php episodes --provider-id 32 --force
+  php kptv-sync.php regroup
+  php kptv-sync.php regroup --provider-id 32
 
 HELP;
 }
@@ -255,6 +336,10 @@ try {
             $options['check-all'] = true;
         } elseif ($arg === '--user-id' && isset($argv[$i + 1])) {
             $options['user-id'] = $argv[++$i];
+        } elseif ($arg === '--force') {
+            $options['force'] = true;
+        } elseif ($arg === '--skip-vod') {
+            $options['skip-vod'] = true;
         } elseif ($arg === '--provider-id' && isset($argv[$i + 1])) {
             $options['provider-id'] = $argv[++$i];
         } elseif ($arg === '--ignore' && isset($argv[$i + 1])) {
@@ -269,7 +354,7 @@ try {
         exit(0);
     }
 
-    $validActions = ['sync', 'testmissing', 'fixup', 'cleanup'];
+    $validActions = ['sync', 'testmissing', 'fixup', 'cleanup', 'episodes', 'regroup'];
     if (!in_array($action, $validActions, true)) {
         echo "Error: Invalid action '{$action}'\n\n";
         printHelp();
@@ -280,6 +365,8 @@ try {
     $checkAll = isset($options['check-all']);
     $userId = isset($options['user-id']) ? (int) $options['user-id'] : null;
     $providerId = isset($options['provider-id']) ? (int) $options['provider-id'] : null;
+    $force = isset($options['force']);
+    $skipVod = isset($options['skip-vod']);
 
     // Process ignore fields (only applies to fixup)
     $ignoreFields = [];
@@ -309,13 +396,27 @@ try {
         echo "Checking all streams (including inactive)\n";
     }
 
-    $app = new IptvSyncApp($ignoreFields, $debug, $checkAll);
+    if ($force && $action !== 'episodes') {
+        echo "Note: --force only applies to episodes action\n";
+    }
+
+    if ($force && $action !== 'episodes') {
+        echo "Note: --force only applies to episodes action\n";
+    }
+
+    if ($skipVod && $action !== 'sync') {
+        echo "Note: --skip-vod only applies to sync action\n";
+    }
+
+    $app = new IptvSyncApp($ignoreFields, $debug, $checkAll, $force, $skipVod);
 
     match ($action) {
         'sync' => $app->runSync($userId, $providerId),
         'testmissing' => $app->runTestMissing($userId, $providerId),
         'fixup' => $app->runFixup($userId, $providerId),
         'cleanup' => $app->runCleanup(),
+        'episodes' => $app->runEpisodes($userId, $providerId),
+        'regroup' => $app->runRegroup($userId, $providerId),
     };
 } catch (\Exception $e) {
     echo "Fatal error: {$e->getMessage()}\n";

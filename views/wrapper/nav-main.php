@@ -63,11 +63,19 @@ $user_for_export = $currentUser ? KPTV::getExportToken($currentUser->id) : '';
                                         </ul>
                                     </li>
                                     <li class="uk-parent">
+                                        <a href="/streams/247/all">24/7 Streams</a>
+                                        <ul class="uk-nav-sub">
+                                            <li><a href="/streams/247/active">Active Streams</a></li>
+                                            <li><a href="/streams/247/inactive">In-Active Streams</a></li>
+                                            <li><a uk-tooltip="Click to Copy the M3U URL" href="<?php echo KPTV_URI; ?>playlist/<?php echo $user_for_export; ?>/series" class="copy-link">Export the Playlist</a></li>
+                                        </ul>
+                                    </li>
+                                    <li class="uk-parent">
                                         <a href="/streams/series/all">Series Streams</a>
                                         <ul class="uk-nav-sub">
                                             <li><a href="/streams/series/active">Active Streams</a></li>
                                             <li><a href="/streams/series/inactive">In-Active Streams</a></li>
-                                            <li><a uk-tooltip="Click to Copy the M3U URL" href="<?php echo KPTV_URI; ?>playlist/<?php echo $user_for_export; ?>/series" class="copy-link">Export the Playlist</a></li>
+                                            <li><a uk-tooltip="Click to Copy the M3U URL" href="<?php echo KPTV_URI; ?>playlist/<?php echo $user_for_export; ?>/episodes" class="copy-link">Export the Playlist</a></li>
                                         </ul>
                                     </li>
                                     <li class="uk-parent">

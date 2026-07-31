@@ -12,7 +12,7 @@
  */
 
 // force off regardless of debug setting -- never expose to browser
-@ini_set('display_errors', 0);
+// @ini_set('display_errors', 0);
 
 // hold the app path
 $appPath = dirname(__FILE__, 2) . '/';
@@ -79,7 +79,7 @@ defined('APP_NAME') || define('APP_NAME', $_config->appname ?? 'KPTV');
 \KPT\Session::start();
 
 // setup our environment
-$_debug = (bool)($_config->debug_app ?? false);
+$_debug = true; //(bool)($_config->debug_app ?? false);
 defined('KPTV_DEBUG') || define('KPTV_DEBUG', $_debug);
 
 // if we are debugging

@@ -46,10 +46,12 @@ if (! class_exists('KPTV_Stream_Playlists')) {
 
             try {
                 // setup the type of stream to pull...
-                $stream_type = ['live' => 0, 'series' => 5, 'vod' => 4, 'all' => 50];
+                $stream_type = ['live' => 0, 'series' => 5, 'vod' => 4, 'episodes' => 10, 'all' => 50];
 
                 // Get playlist data
-                $records = $this->getUserPlaylist($user, $stream_type[$which]);
+                $records = ($which === 'episodes')
+                    ? $this->getUserEpisodePlaylist($user)
+                    : $this->getUserPlaylist($user, $stream_type[$which]);
 
                 // Generate and output M3U
                 $this->outputM3UPlaylist($records, $which, $user);
@@ -77,10 +79,12 @@ if (! class_exists('KPTV_Stream_Playlists')) {
 
             try {
                 // setup the type of stream to pull...
-                $stream_type = ['live' => 0, 'series' => 5, 'vod' => 4, 'all' => 50];
+                $stream_type = ['live' => 0, 'series' => 5, 'vod' => 4, 'episodes' => 10, 'all' => 50];
 
                 // Get playlist data
-                $records = $this->getGetProviderPlaylist($user, $provider, $stream_type[$which]);
+                $records = ($which === 'episodes')
+                    ? $this->getProviderEpisodePlaylist($user, $provider)
+                    : $this->getGetProviderPlaylist($user, $provider, $stream_type[$which]);
 
                 // Generate and output M3U
                 $this->outputM3UPlaylist($records, $which, $user);
@@ -223,6 +227,82 @@ if (! class_exists('KPTV_Stream_Playlists')) {
         }
 
         /**
+         * Pull series episodes for a user (all providers)
+         * 
+         * @param string $user The encrypted user ID we need to pull a playlist for
+         * @return array|bool Returns matching episodes or false if none found
+         */
+        private function getUserEpisodePlaylist(string $user): array|bool
+        {
+
+            // setup the user
+            $user = KPTV::decryptFromUrl($user);
+
+            // setup the query to run
+            $sql = 'SELECT
+                    "0" As TvgChNo, 
+                    CONCAT(b.`s_name`, " - S", LPAD(a.`se_season`, 2, "0"), "E", LPAD(a.`se_episode_num`, 2, "0"),
+                        CASE WHEN a.`se_title` <> "" THEN CONCAT(" - ", a.`se_title`) ELSE "" END) As TvgName, 
+                    a.`se_stream_uri` As Stream, 
+                    b.`s_name` As TvgID, 
+                    CONCAT(b.`s_name`, " - Season ", LPAD(a.`se_season`, 2, "0")) As TvgGroup,
+                    COALESCE(nullif(a.`se_cover`,""), nullif(b.`s_tvg_logo`,""), "https://cdn.kcp.im/tv/kptv-icon.svg") As TvgLogo, 
+                    a.`p_id`,
+                    c.`sp_priority` As TvgType,
+                    b.`s_type_id` AS StreamType
+                    FROM `kptv_stream_episodes` a
+                    INNER JOIN `kptv_streams` b ON b.`id` = a.`s_id`
+                    LEFT OUTER JOIN `kptv_stream_providers` c ON c.`id` = a.`p_id`
+                    WHERE a.`u_id` = ? AND ( b.`s_active` = 1 AND b.`s_type_id` = 10 )
+                    GROUP BY a.`se_stream_uri`
+                    ORDER BY TvgType, b.`s_name`, a.`se_season`, a.`se_episode_num` ASC;';
+
+            // return the recordset
+            return $this->query($sql)->bind([$user])->fetch();
+        }
+
+        /**
+         * Pull series episodes for a specific provider
+         * 
+         * @param string $user The encrypted user ID we need to pull a playlist for
+         * @param int $provider The provider ID we need to pull a playlist for
+         * @return array|bool Returns matching episodes or false if none found
+         */
+        private function getProviderEpisodePlaylist(string $user, int $provider): array|bool
+        {
+
+            // setup the provider and user
+            $result = $this->query('SELECT id FROM kptv_users WHERE export_token = ? AND u_active = 1')
+                ->bind([$user])
+                ->single()
+                ->fetch();
+            if (!$result) return false;
+            $user = $result->id;
+
+            // setup the query to run
+            $sql = 'SELECT
+                    "0" As TvgChNo, 
+                    CONCAT(b.`s_name`, " - S", LPAD(a.`se_season`, 2, "0"), "E", LPAD(a.`se_episode_num`, 2, "0"),
+                        CASE WHEN a.`se_title` <> "" THEN CONCAT(" - ", a.`se_title`) ELSE "" END) As TvgName, 
+                    a.`se_stream_uri` As Stream, 
+                    b.`s_name` As TvgID, 
+                    CONCAT(b.`s_name`, " - Season ", LPAD(a.`se_season`, 2, "0")) As TvgGroup,
+                    COALESCE(nullif(a.`se_cover`,""), nullif(b.`s_tvg_logo`,""), "https://cdn.kcp.im/tv/kptv-icon.svg") As TvgLogo, 
+                    a.`p_id`,
+                    c.`sp_priority` As TvgType,
+                    b.`s_type_id` AS StreamType
+                    FROM `kptv_stream_episodes` a
+                    INNER JOIN `kptv_streams` b ON b.`id` = a.`s_id`
+                    LEFT OUTER JOIN `kptv_stream_providers` c ON c.`id` = a.`p_id`
+                    WHERE ( a.`p_id` = ? AND a.`u_id` = ? ) AND ( b.`s_active` = 1 AND b.`s_type_id` = 10 )
+                    GROUP BY a.`se_stream_uri`
+                    ORDER BY TvgType, b.`s_name`, a.`se_season`, a.`se_episode_num` ASC;';
+
+            // return the recordset
+            return $this->query($sql)->bind([$provider, $user])->fetch();
+        }
+
+        /**
          * Generate and output M3U playlist (using original working logic)
          * 
          * @param array|bool $records Stream data from database
@@ -262,6 +342,7 @@ if (! class_exists('KPTV_Stream_Playlists')) {
                         0 => 'Live Channels',
                         5 => '24/7 Channels',
                         4 => 'VOD;Video on Demand',
+                        10 => 'Series',
                         default => 'other'
                     };
                     $group = ($rec->TvgGroup) ?? $group;

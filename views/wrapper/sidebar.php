@@ -49,6 +49,17 @@ if (KPTV_User::is_user_logged_in()):
             <li><a uk-tooltip="Click to Copy the M3U URL" href="<?php echo KPTV_URI; ?>playlist/<?php echo $user_for_export; ?>/live" class="copy-link">Export Streams</a></li>
         </ul>
     </li>
+    <li class="uk-parent <?php echo KPTV::open_link('247'); ?>">
+        <a href="#">
+            <span uk-icon="calendar"></span>
+            24/7 Streams
+        </a>
+        <ul class="uk-nav-sub">
+            <li><a href="/streams/247/active">Active Streams</a></li>
+            <li><a href="/streams/247/inactive">Inactive Streams</a></li>
+            <li><a uk-tooltip="Click to Copy the M3U URL" href="<?php echo KPTV_URI; ?>playlist/<?php echo $user_for_export; ?>/series" class="copy-link">Export Streams</a></li>
+        </ul>
+    </li>
     <li class="uk-parent <?php echo KPTV::open_link('series'); ?>">
         <a href="#">
             <span uk-icon="album"></span>
@@ -57,7 +68,7 @@ if (KPTV_User::is_user_logged_in()):
         <ul class="uk-nav-sub">
             <li><a href="/streams/series/active">Active Streams</a></li>
             <li><a href="/streams/series/inactive">Inactive Streams</a></li>
-            <li><a uk-tooltip="Click to Copy the M3U URL" href="<?php echo KPTV_URI; ?>playlist/<?php echo $user_for_export; ?>/series" class="copy-link">Export Streams</a></li>
+            <li><a uk-tooltip="Click to Copy the M3U URL" href="<?php echo KPTV_URI; ?>playlist/<?php echo $user_for_export; ?>/episodes" class="copy-link">Export Streams</a></li>
         </ul>
     </li>
     <li class="uk-parent <?php echo KPTV::open_link('vod'); ?>">

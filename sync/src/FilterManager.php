@@ -12,6 +12,8 @@ class FilterManager
 {
     private array $regexCache = [];
     private int $regexErrorCount = 0;
+    private array $dropStats = [];
+    private array $keptStats = [];
 
     public function __construct(
         private readonly KpDb $db
@@ -38,6 +40,8 @@ class FilterManager
 
         // Reset error count for this batch
         $this->regexErrorCount = 0;
+        $this->dropStats = [];
+        $this->keptStats = [];
 
         $filtered = [];
         $chunkSize = 1000;
@@ -46,12 +50,15 @@ class FilterManager
         foreach ($chunks as $chunk) {
             foreach ($chunk as $stream) {
                 if ($this->shouldIncludeStream($stream, $filters)) {
+                    $typeId = (int)($stream['s_type_id'] ?? 0);
+                    $this->keptStats[$typeId] = ($this->keptStats[$typeId] ?? 0) + 1;
                     $filtered[] = $stream;
                 }
             }
 
             // Clear regex cache every chunk to free memory
             $this->regexCache = [];
+
             gc_collect_cycles();
         }
 
@@ -93,27 +100,27 @@ class FilterManager
 
             // Type 1: Exclude (string name) - case-insensitive substring match
             if ($filterType === 1 && stripos($name, $filterValue) !== false) {
-                return false;
+                return $this->recordDrop($stream, (int)$f['id']);
             }
 
             // Type 2: Exclude (regex name)
             if ($filterType === 2) {
                 if ($this->matchesRegex($filterValue, $name, $f['id'])) {
-                    return false;
+                    return $this->recordDrop($stream, (int)$f['id']);
                 }
             }
 
             // Type 3: Exclude (regex stream URI)
             if ($filterType === 3) {
                 if ($this->matchesRegex($filterValue, $uri, $f['id'])) {
-                    return false;
+                    return $this->recordDrop($stream, (int)$f['id']);
                 }
             }
 
             // Type 4: Exclude (regex group)
             if ($filterType === 4) {
                 if ($this->matchesRegex($filterValue, $group, $f['id'])) {
-                    return false;
+                    return $this->recordDrop($stream, (int)$f['id']);
                 }
             }
         }
@@ -124,6 +131,14 @@ class FilterManager
         }
 
         return true;
+    }
+
+    private function recordDrop(array $stream, int $filterId): bool
+    {
+        $typeId = (int)($stream['s_type_id'] ?? 0);
+        $this->dropStats[$typeId][$filterId] = ($this->dropStats[$typeId][$filterId] ?? 0) + 1;
+
+        return false;
     }
 
     /**
@@ -194,6 +209,11 @@ class FilterManager
 
         $body = str_replace('/', '\/', $pattern);
         return '/' . $body . '/iu';
+    }
+
+    public function getFilterStats(): array
+    {
+        return ['kept' => $this->keptStats, 'dropped' => $this->dropStats];
     }
 
     /**

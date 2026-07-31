@@ -19,7 +19,9 @@ if (! class_exists('KPTV_Xtream_API')) {
 
         private const TYPE_LIVE = 0;
         private const TYPE_VOD = 4;
-        private const TYPE_SERIES = 5;
+        private const TYPE_247 = 5;
+        private const TYPE_SERIES = 10;
+        private const TYPE_LIVE_ALL = [self::TYPE_LIVE, self::TYPE_247];
 
         private ?int $userId = null;
         private ?int $providerId = null;
@@ -206,7 +208,7 @@ if (! class_exists('KPTV_Xtream_API')) {
          */
         private function getLiveCategories(): void
         {
-            $categories = $this->getCategories(self::TYPE_LIVE);
+            $categories = $this->getCategories(self::TYPE_LIVE_ALL);
             $this->sendSuccess($categories);
         }
 
@@ -231,22 +233,18 @@ if (! class_exists('KPTV_Xtream_API')) {
         /**
          * Get categories for a stream type
          */
-        private function getCategories(int $streamType): array
+        private function getCategories(int|array $streamType): array
         {
+
+            $types = is_array($streamType) ? $streamType : [$streamType];
+            $in = implode(',', array_fill(0, count($types), '?'));
 
             $sql = 'SELECT DISTINCT 
                     s_tvg_group as category_name
                     FROM kptv_streams 
-                    WHERE u_id = ? AND s_active = 1 AND s_type_id = ?';
+                    WHERE u_id = ? AND s_active = 1 AND s_type_id IN (' . $in . ')';
 
-            $params = [$this->userId, $streamType];
-
-            if ($this->providerId !== null) {
-                $sql .= ' AND p_id = ?';
-                $params[] = $this->providerId;
-            }
-
-            $sql .= ' ORDER BY s_tvg_group ASC';
+            $params = array_merge([$this->userId], $types);
 
             $results = $this->query($sql)->bind($params)->fetch();
 
@@ -291,9 +289,9 @@ if (! class_exists('KPTV_Xtream_API')) {
                     a.s_extras as custom_sid
                     FROM kptv_streams a
                     LEFT OUTER JOIN kptv_stream_providers b ON b.id = a.p_id
-                    WHERE a.u_id = ? AND a.s_active = 1 AND a.s_type_id = ?';
+                    WHERE a.u_id = ? AND a.s_active = 1 AND a.s_type_id IN (?, ?)';
 
-            $params = [$this->userId, self::TYPE_LIVE];
+            $params = [$this->userId, self::TYPE_LIVE, self::TYPE_247];
 
             if ($this->providerId !== null) {
                 $sql .= ' AND a.p_id = ?';
@@ -301,7 +299,7 @@ if (! class_exists('KPTV_Xtream_API')) {
             }
 
             if ($categoryId !== null) {
-                $categories = $this->getCategories(self::TYPE_LIVE);
+                $categories = $this->getCategories(self::TYPE_LIVE_ALL);
                 if (isset($categories[$categoryId - 1])) {
                     $sql .= ' AND a.s_tvg_group = ?';
                     $params[] = $categories[$categoryId - 1]['category_name'];
@@ -318,7 +316,7 @@ if (! class_exists('KPTV_Xtream_API')) {
             }
 
             $streams = [];
-            $catMap = $this->buildCategoryMap(self::TYPE_LIVE);
+            $catMap = $this->buildCategoryMap(self::TYPE_LIVE_ALL);
 
             foreach ($results as $row) {
                 // setup the stream logo
@@ -496,6 +494,7 @@ if (! class_exists('KPTV_Xtream_API')) {
                     a.s_name as name,
                     a.s_stream_uri as direct_source,
                     COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kcp.im/tv/kptv-icon.svg") as cover,
+                    a.s_series_modified as last_modified,
                     a.s_tvg_group as category_name,
                     b.sp_priority as stream_type
                     FROM kptv_streams a
@@ -542,7 +541,7 @@ if (! class_exists('KPTV_Xtream_API')) {
                     'director' => '',
                     'genre' => $catName,
                     'release_date' => '',
-                    'last_modified' => date('Y-m-d H:i:s'),
+                    'last_modified' => $row->last_modified ?: date('Y-m-d H:i:s'),
                     'rating' => '',
                     'rating_5based' => 0,
                     'backdrop_path' => [],
@@ -561,6 +560,9 @@ if (! class_exists('KPTV_Xtream_API')) {
         /**
          * Get series info (episodes)
          */
+        /**
+         * Get series info (episodes)
+         */
         private function getSeriesInfo(): void
         {
 
@@ -574,68 +576,122 @@ if (! class_exists('KPTV_Xtream_API')) {
             $sql = 'SELECT
                     a.id as stream_id,
                     a.s_name as name,
-                    a.s_stream_uri as stream_url,
                     COALESCE(NULLIF(a.s_tvg_logo, ""), "https://cdn.kcp.im/tv/kptv-icon.svg") as cover,
-                    a.s_tvg_group as category_name,
-                    a.s_extras as container_extension
+                    a.s_tvg_group as category_name
                     FROM kptv_streams a
                     WHERE a.id = ? AND a.u_id = ? AND a.s_active = 1 AND a.s_type_id = ?';
 
-            $result = $this->query($sql)
-                ->bind([$seriesId, $this->userId, self::TYPE_SERIES])
-                ->single()
-                ->fetch();
+            $params = [$seriesId, $this->userId, self::TYPE_SERIES];
+
+            if ($this->providerId !== null) {
+                $sql .= ' AND a.p_id = ?';
+                $params[] = $this->providerId;
+            }
+
+            $result = $this->query($sql)->bind($params)->single()->fetch();
 
             if (!$result) {
-                $this->sendSuccess(['info' => [], 'episodes' => []]);
+                $this->sendSuccess(['seasons' => [], 'info' => [], 'episodes' => (object)[]]);
                 return;
             }
 
-            $extension = $result->container_extension;
-            if (empty($extension)) {
-                $extension = pathinfo(parse_url($result->stream_url, PHP_URL_PATH), PATHINFO_EXTENSION);
-                if (empty($extension)) {
-                    $extension = 'mkv';
+            $epSql = 'SELECT
+                    id,
+                    se_season,
+                    se_episode_num,
+                    se_title,
+                    se_container_ext,
+                    se_plot,
+                    se_duration,
+                    se_duration_secs,
+                    se_bitrate,
+                    se_rating,
+                    se_release_date,
+                    se_tmdb_id,
+                    se_cover,
+                    se_cover_big,
+                    se_video,
+                    se_audio,
+                    se_custom_sid,
+                    se_added
+                    FROM kptv_stream_episodes
+                    WHERE s_id = ?
+                    ORDER BY se_season ASC, se_episode_num ASC';
+
+            $eps = $this->query($epSql)->bind([$result->stream_id])->fetch();
+
+            $episodes = [];
+            $seasons = [];
+
+            foreach ($eps ?: [] as $ep) {
+                $season = (int)$ep->se_season;
+
+                $episodes[(string)$season][] = [
+                    'id' => (string)$ep->id,
+                    'episode_num' => (int)$ep->se_episode_num,
+                    'title' => $ep->se_title,
+                    'container_extension' => $ep->se_container_ext ?: 'mkv',
+                    'info' => [
+                        'tmdb_id' => $ep->se_tmdb_id ?? '',
+                        'releasedate' => $ep->se_release_date ?? '',
+                        'plot' => $ep->se_plot ?? '',
+                        'duration_secs' => (int)$ep->se_duration_secs,
+                        'duration' => $ep->se_duration ?? '',
+                        'movie_image' => $ep->se_cover ?: $result->cover,
+                        'cover_big' => $ep->se_cover_big ?: $result->cover,
+                        'bitrate' => (int)$ep->se_bitrate,
+                        'rating' => (float)$ep->se_rating,
+                        'season' => $season,
+                        'video' => json_decode((string)$ep->se_video, true) ?: [],
+                        'audio' => json_decode((string)$ep->se_audio, true) ?: [],
+                    ],
+                    'custom_sid' => $ep->se_custom_sid ?? '',
+                    'added' => (string)((int)$ep->se_added ?: time()),
+                    'season' => $season,
+                    'direct_source' => '',
+                ];
+
+                if (!isset($seasons[$season])) {
+                    $seasons[$season] = [
+                        'id' => $season,
+                        'name' => 'Season ' . $season,
+                        'season_number' => $season,
+                        'episode_count' => 0,
+                        'cover' => $result->cover,
+                        'cover_big' => $result->cover,
+                        'air_date' => '',
+                        'overview' => '',
+                    ];
                 }
+
+                $seasons[$season]['episode_count']++;
             }
 
-            $info = [
-                'seasons' => [],
+            ksort($seasons);
+
+            $catName = !empty($result->category_name) ? $result->category_name : 'Uncategorized';
+            $catMap = $this->buildCategoryMap(self::TYPE_SERIES);
+
+            $this->sendSuccess([
+                'seasons' => array_values($seasons),
                 'info' => [
                     'name' => $result->name,
                     'cover' => $result->cover,
                     'plot' => '',
                     'cast' => '',
                     'director' => '',
-                    'genre' => $result->category_name ?? '',
+                    'genre' => $catName,
                     'release_date' => '',
                     'backdrop_path' => [],
                     'youtube_trailer' => '',
-                    'category_id' => '1',
-                    'category_name' => $result->category_name ?? 'Uncategorized',
+                    'episode_run_time' => '',
+                    'category_id' => (string)($catMap[$catName] ?? 1),
+                    'category_name' => $catName,
                 ],
-                'episodes' => [
-                    '1' => [
-                        [
-                            'id' => (string)$result->stream_id,
-                            'episode_num' => 1,
-                            'title' => $result->name,
-                            'container_extension' => $extension,
-                            'info' => [
-                                'movie_image' => $result->cover,
-                                'name' => $result->name,
-                            ],
-                            'custom_sid' => '',
-                            'added' => time(),
-                            'season' => 1,
-                            'direct_source' => '0',
-                        ],
-                    ],
-                ],
-            ];
-
-            $this->sendSuccess($info);
+                'episodes' => (object)$episodes,
+            ]);
         }
+
 
         /**
          * Get short EPG (empty placeholder)
@@ -651,7 +707,7 @@ if (! class_exists('KPTV_Xtream_API')) {
         /**
          * Build category name to ID map
          */
-        private function buildCategoryMap(int $streamType): array
+        private function buildCategoryMap(int|array $streamType): array
         {
             $categories = $this->getCategories($streamType);
             $map = [];
@@ -741,6 +797,54 @@ if (! class_exists('KPTV_Xtream_API')) {
 
             // Redirect to actual stream URL
             header('Location: ' . $result->s_stream_uri, true, 302);
+            exit;
+        }
+
+        /**
+         * Handle series episode playback redirect
+         * Redirects to the actual episode URL
+         */
+        public function handleSeriesRedirect(string $username, string $password, string $streamId): void
+        {
+
+            // Strip extension from streamId (e.g., "2000597.mkv" -> "2000597")
+            $episodeId = preg_replace('/\.[a-zA-Z0-9]+$/', '', $streamId);
+
+            // Authenticate - username is provider ID, password is encrypted user
+            $_GET['username'] = $username;
+            $_GET['password'] = $password;
+            $_POST['username'] = $username;
+            $_POST['password'] = $password;
+
+            if (!$this->authenticateUser()) {
+                http_response_code(401);
+                die('Unauthorized');
+            }
+
+            // Look up the episode
+            $sql = 'SELECT a.se_stream_uri
+                    FROM kptv_stream_episodes a
+                    INNER JOIN kptv_streams b ON b.id = a.s_id
+                    WHERE a.id = ? AND a.u_id = ? AND b.s_active = 1';
+            $params = [$episodeId, $this->userId];
+
+            if ($this->providerId !== null) {
+                $sql .= ' AND a.p_id = ?';
+                $params[] = $this->providerId;
+            }
+
+            $result = $this->query($sql)
+                ->bind($params)
+                ->single()
+                ->fetch();
+
+            if (!$result || empty($result->se_stream_uri)) {
+                http_response_code(404);
+                die('Episode not found');
+            }
+
+            // Redirect to actual episode URL
+            header('Location: ' . $result->se_stream_uri, true, 302);
             exit;
         }
 

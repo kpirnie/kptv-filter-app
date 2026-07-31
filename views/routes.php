@@ -58,7 +58,7 @@ $middlewareDefinitions = [
 
         // exempt non-browser API endpoints
         $uri = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
-        $exempt = ['/api/xtream', '/xc', '/player_api.php', '/live/', '/movie/', '/series/'];
+        $exempt = ['/api/xtream', '/xc', '/player_api.php', '/live/', '/movie/', '/series/', '/episodes/'];
         foreach ($exempt as $path) {
             if (str_starts_with($uri, $path)) return true;
         }
@@ -336,7 +336,14 @@ $get_stream_routes = [
     [
         'method' => 'GET',
         'path' => '/series/{username}/{password}/{streamId}',
-        'handler' => 'KPTV_Xtream_API@handleStreamRedirect',
+        'handler' => 'KPTV_Xtream_API@handleSeriesRedirect',
+        'should_cache' => false,
+    ],
+
+    [
+        'method' => 'GET',
+        'path' => '/episodes/{username}/{password}/{streamId}',
+        'handler' => 'KPTV_Xtream_API@handleSeriesRedirect',
         'should_cache' => false,
     ],
 

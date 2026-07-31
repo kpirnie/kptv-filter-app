@@ -15,7 +15,8 @@ class SyncEngine
 
     public function __construct(
         private readonly KpDb $db,
-        array $ignoreFields = []
+        array $ignoreFields = [],
+        private readonly bool $skipVod = false
     ) {
         $this->filterManager = new FilterManager($db);
     }
@@ -36,6 +37,16 @@ class SyncEngine
         $rawStreams = $parser->fetchStreams();
         echo sprintf("Retrieved %s streams from provider\n", number_format(count($rawStreams)));
 
+        // Drop VOD before filtering if requested
+        if ($this->skipVod) {
+            $beforeVod = count($rawStreams);
+            $rawStreams = array_values(array_filter(
+                $rawStreams,
+                fn($s) => (int)($s['s_type_id'] ?? 0) !== 4
+            ));
+            echo sprintf("Skipping VOD: %s streams dropped\n", number_format($beforeVod - count($rawStreams)));
+        }
+
         // Apply filters if needed
         if ($shouldFilter) {
             echo "Applying filters...\n";
@@ -54,6 +65,27 @@ class SyncEngine
                     number_format($filtered),
                     ($beforeCount > 0 ? ($filtered / $beforeCount * 100) : 0)
                 );
+
+                $stats = $this->filterManager->getFilterStats();
+
+                foreach ([0, 4, 5, 10] as $typeId) {
+                    $kept = $stats['kept'][$typeId] ?? 0;
+                    $drops = $stats['dropped'][$typeId] ?? [];
+                    arsort($drops);
+
+                    $top = [];
+                    foreach (array_slice($drops, 0, 5, true) as $filterId => $count) {
+                        $top[] = sprintf('#%d=%s', $filterId, number_format($count));
+                    }
+
+                    echo sprintf(
+                        "  type %d: %s kept, %s dropped%s\n",
+                        $typeId,
+                        number_format($kept),
+                        number_format(array_sum($drops)),
+                        empty($top) ? '' : ' (top: ' . implode(', ', $top) . ')'
+                    );
+                }
             } else {
                 echo "No filters configured - all streams will be processed\n";
             }
@@ -135,19 +167,20 @@ class SyncEngine
     {
         $existingStreams = $this->db->get_all(
             table: 'streams',
-            columns: ['id', 's_orig_name', 's_stream_uri'],
+            columns: ['id', 's_type_id', 's_orig_name', 's_stream_uri'],
             where: [
                 new WhereClause('u_id', $userId, ComparisonOperator::EQ),
                 new WhereClause('p_id', $providerId, ComparisonOperator::EQ)
             ]
         );
 
-        // Build lookups by name and by uri separately
+        // Build lookups by name (scoped per type) and by uri separately
         $existingByName = [];
         $existingByUri = [];
         foreach ($existingStreams ?? [] as $s) {
+            $typeKey = (int)$s['s_type_id'];
             $nameKey = strtolower($s['s_orig_name']);
-            $existingByName[$nameKey] ??= $s;
+            $existingByName[$typeKey][$nameKey] ??= $s;
             $existingByUri[$s['s_stream_uri']] ??= $s;
         }
 
@@ -173,12 +206,13 @@ class SyncEngine
         $processed = []; // Track processed stream IDs to avoid double-processing
 
         foreach ($tempStreams as $temp) {
+            $typeKey = (int)$temp['s_type_id'];
             $nameKey = strtolower($temp['s_orig_name']);
             $tempUri = $temp['s_stream_uri'];
 
-            // Check 1: Does s_orig_name exist?
-            if (isset($existingByName[$nameKey])) {
-                $existing = $existingByName[$nameKey];
+            // Check 1: Does s_orig_name exist for this type?
+            if (isset($existingByName[$typeKey][$nameKey])) {
+                $existing = $existingByName[$typeKey][$nameKey];
 
                 // Skip if already processed
                 if (isset($processed[$existing['id']])) {
