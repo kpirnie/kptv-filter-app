@@ -90,7 +90,8 @@ class CurlClient
         $addNext = function () use (&$pending, &$active, $multi, $headers): void {
             while (count($active) < $this->cnxLimit && !empty($pending)) {
                 $key = array_key_first($pending);
-                $url = array_shift($pending);
+                $url = $pending[$key];
+                unset($pending[$key]);
                 $ch  = $this->buildHandle($url, $headers);
                 curl_multi_add_handle($multi, $ch);
                 $active[$key] = $ch;
