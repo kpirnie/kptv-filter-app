@@ -15,8 +15,9 @@ use \KPT\DataTables;
 
 // Handle stream type filter (passed from router)
 $type_filter = $which ?? 'live';
-$valid_types = ['live' => 0, 'vod' => 4, '247' => 5, 'series' => 10, 'other' => 99];
+$valid_types = ['live' => 0, 'vod' => 4, '247' => 5, 'series' => 10,];
 $type_value = $valid_types[$type_filter] ?? null;
+$other_type = ($type_filter == 'other') ? 1 : 0;
 
 // Handle the stream active filter (passed from router)
 $active_filter = $type ?? 'active';
@@ -45,13 +46,13 @@ $dt = new DataTables($dbconf);
 $dt->table('kptv_streams s')
     ->primaryKey('s.id')  // Use qualified primary key
     ->join('LEFT', 'kptv_stream_providers p', 's.p_id = p.id')
-    ->where([
+    ->where(array_filter([
         [ // unless specified as OR, it should always be AND
             'field' => 's.u_id',
             'comparison' => '=', // =, !=, >, <, <>, <=, >=, LIKE, NOT LIKE, IN, NOT IN, REGEXP
             'value' => $userId
         ],
-        [ // unless specified as OR, it should always be AND
+        ($other_type === 1) ? null : [
             'field' => 's_type_id',
             'comparison' => '=', // =, !=, >, <, <>, <=, >=, LIKE, NOT LIKE, IN, NOT IN, REGEXP
             'value' => $type_value
@@ -59,9 +60,14 @@ $dt->table('kptv_streams s')
         [ // unless specified as OR, it should always be AND
             'field' => 's_active',
             'comparison' => '=', // =, !=, >, <, <>, <=, >=, LIKE, NOT LIKE, IN, NOT IN, REGEXP
-            'value' => ($type_value == 99) ? 0 : $active_value,
+            'value' => ($other_type === 1) ? 0 : $active_value,
         ],
-    ])
+        [ // unless specified as OR, it should always be AND
+            'field' => 's_other',
+            'comparison' => '=', // =, !=, >, <, <>, <=, >=, LIKE, NOT LIKE, IN, NOT IN, REGEXP
+            'value' => $other_type,
+        ],
+    ]))
     ->filter([
         's_orig_name'  => ['operator' => 'LIKE', 'label' => 'Original Name', 'type' => 'text', 'placeholder' => 'Search by original name'],
         's_tvg_group' => ['operator' => 'LIKE', 'label' => 'Group', 'type' => 'text', 'placeholder' => 'Search by stream group'],

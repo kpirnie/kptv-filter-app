@@ -759,7 +759,8 @@ if (! class_exists('KPTV_Static')) {
             $stream_ct_qry = "SELECT 
                 COUNT(id) as total_streams,
                 SUM(CASE WHEN s_active = 1 AND s_type_id = 0 THEN 1 ELSE 0 END) as active_live,
-                SUM(CASE WHEN s_active = 1 AND s_type_id = 5 THEN 1 ELSE 0 END) as active_series,
+                SUM(CASE WHEN s_active = 1 AND s_type_id = 5 THEN 1 ELSE 0 END) as active_247,
+                SUM(CASE WHEN s_active = 1 AND s_type_id = 10 THEN 1 ELSE 0 END) as active_series,
                 SUM(CASE WHEN s_active = 1 AND s_type_id = 4 THEN 1 ELSE 0 END) as active_vod
             FROM kptv_streams
             WHERE u_id = ?";
@@ -769,7 +770,8 @@ if (! class_exists('KPTV_Static')) {
                 sp.sp_name as provider_name,
                 COUNT(s.id) as total_streams,
                 SUM(CASE WHEN s.s_active = 1 AND s.s_type_id = 0 THEN 1 ELSE 0 END) as active_live,
-                SUM(CASE WHEN s.s_active = 1 AND s.s_type_id = 5 THEN 1 ELSE 0 END) as active_series,
+                SUM(CASE WHEN s.s_active = 1 AND s.s_type_id = 5 THEN 1 ELSE 0 END) as active_247,
+                SUM(CASE WHEN s.s_active = 1 AND s.s_type_id = 10 THEN 1 ELSE 0 END) as active_series,
                 SUM(CASE WHEN s.s_active = 1 AND s.s_type_id = 4 THEN 1 ELSE 0 END) as active_vod
             FROM kptv_stream_providers sp
             LEFT JOIN kptv_streams s ON sp.id = s.p_id AND s.u_id = ?
@@ -793,6 +795,7 @@ if (! class_exists('KPTV_Static')) {
             $ret = [
                 'total' => $strm_ct->total_streams,
                 'live' => $strm_ct->active_live,
+                '247' => $strm_ct->active_247,
                 'series' => $strm_ct->active_series,
                 'vod' => $strm_ct->active_vod,
                 'per_provider' => $prov_ct,
@@ -1411,32 +1414,28 @@ if (! class_exists('KPTV_Static')) {
             $db->transaction();
             try {
 
-                // figure out what we're moving
-                $result = match ($type) {
-                    // live
-                    0 => $db
-                        ->query('UPDATE `kptv_streams` SET `s_type_id` = 0 WHERE `id` = ?')
-                        ->bind([$id])  // Fixed: was using $which instead of $type
-                        ->execute(),
-                    // series
-                    5 => $db
-                        ->query('UPDATE `kptv_streams` SET `s_type_id` = 5 WHERE `id` = ?')
-                        ->bind([$id])  // Fixed: was using $which instead of $type
-                        ->execute(),
-                    // vod
-                    4 => $db
-                        ->query('UPDATE `kptv_streams` SET `s_type_id` = 4 WHERE `id` = ?')
-                        ->bind([$id])  // Fixed: was using $which instead of $type
-                        ->execute(),
-                    // other
-                    default => $db
-                        ->query('UPDATE `kptv_streams` SET `s_type_id` = 99 WHERE `id` = ?')
+                // make sure we're moving to a real type
+                if (! in_array($type, [0, 4, 5, 10, 99], true)) {
+                    $type = 99;
+                }
+
+                // if we're moving to other, we need to keep the same s_type_id, but set s_other to 1
+                // if we're moving OUT of other only set set s_other to 0
+                if ($type === 99) {
+                    $result = $db
+                        ->query('UPDATE `kptv_streams` SET `s_other` = 1 WHERE `id` = ?')
                         ->bind([$id])
-                        ->execute(),
-                };
+                        ->execute();
+                } else {
+                    // move it
+                    $result = $db
+                        ->query('UPDATE `kptv_streams` SET `s_type_id` = ?, `s_other` = 0 WHERE `id` = ?')
+                        ->bind([$type, $id])
+                        ->execute();
+                }
 
                 // Check if operation failed
-                if ($result === false) {
+                if ($result === false || $result === 0) {
                     $db->rollback();
                     return false;
                 }

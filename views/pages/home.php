@@ -32,12 +32,6 @@ if (KPTV_User::is_user_logged_in()):
     <!-- Stats Grid -->
     <div uk-grid class="uk-grid-small uk-child-width-1-2 uk-child-width-1-4@m uk-margin-bottom">
         <div>
-            <div class="kptv-card kptv-stat-card">
-                <div class="kptv-stat-value"><?php echo $counts['total']; ?></div>
-                <div class="kptv-stat-label">Total Streams</div>
-            </div>
-        </div>
-        <div>
             <div class="kptv-card kptv-stat-card success">
                 <div class="kptv-stat-value"><?php echo $counts['live']; ?></div>
                 <div class="kptv-stat-label">Active Live</div>
@@ -45,6 +39,12 @@ if (KPTV_User::is_user_logged_in()):
         </div>
         <div>
             <div class="kptv-card kptv-stat-card danger">
+                <div class="kptv-stat-value"><?php echo $counts['247']; ?></div>
+                <div class="kptv-stat-label">Active 24/7</div>
+            </div>
+        </div>
+        <div>
+            <div class="kptv-card kptv-stat-card info">
                 <div class="kptv-stat-value"><?php echo $counts['series']; ?></div>
                 <div class="kptv-stat-label">Active Series</div>
             </div>
@@ -66,7 +66,7 @@ if (KPTV_User::is_user_logged_in()):
 
                 <div class="kptv-card-title">
                     <span uk-icon="server"></span>
-                    Your Provider's Active Streams
+                    Provider Active Streams
                 </div>
 
                 <ul class="uk-list uk-list-divider kptv-list-divided">
@@ -79,7 +79,8 @@ if (KPTV_User::is_user_logged_in()):
                                 <div class="uk-flex uk-flex-middle" style="gap: 8px;">
                                     <span class="kptv-badge kptv-badge-primary"><?php echo $prov->total_streams; ?></span>
                                     <span class="kptv-badge kptv-badge-success"><?php echo $prov->active_live; ?></span>
-                                    <span class="kptv-badge kptv-badge-danger"><?php echo $prov->active_series; ?></span>
+                                    <span class="kptv-badge kptv-badge-danger"><?php echo $prov->active_247; ?></span>
+                                    <span class="kptv-badge kptv-badge-info"><?php echo $prov->active_series; ?></span>
                                     <span class="kptv-badge kptv-badge-warning"><?php echo $prov->active_vod; ?></span>
                                 </div>
                             </div>
