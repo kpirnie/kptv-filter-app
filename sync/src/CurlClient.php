@@ -22,7 +22,7 @@ class CurlClient
         int $maxRetries    = 3,
         int $retryDelay    = 2,
         int $connectTimeout = 10,
-        int $timeout       = 60
+        int $timeout       = 180
     ) {
         $this->cnxLimit       = max(1, $cnxLimit);
         $this->maxRetries     = $maxRetries;
