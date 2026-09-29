@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Kptv\IptvSync\Parsers;
@@ -27,14 +28,26 @@ class M3UProvider extends BaseProvider
 
                 $i++;
                 $url = '';
-                
+
                 while ($i < count($lines)) {
                     $nextLine = trim($lines[$i]);
-                    if ($nextLine !== '' && !str_starts_with($nextLine, '#')) {
-                        $url = $nextLine;
-                        break;
+
+                    // next entry started before we got a url, so this one is invalid
+                    if (str_starts_with($nextLine, '#EXTINF:')) {
+                        continue 2;
                     }
-                    $i++;
+
+                    // skip blanks and other directives
+                    if ($nextLine === '' || str_starts_with($nextLine, '#')) {
+                        $i++;
+                        continue;
+                    }
+
+                    // only accept valid stream urls
+                    if (preg_match('#^(?:https?|rtmp|rmmps|rtsp|srt)://.+#i', $nextLine)) {
+                        $url = $nextLine;
+                    }
+                    break;
                 }
 
                 if ($url !== '' && $info['name'] !== '') {
@@ -91,7 +104,7 @@ class M3UProvider extends BaseProvider
     {
         $groupLower = strtolower($info['group'] ?? '');
         $urlLower = strtolower($url);
-        
+
         // Check URL patterns for VOD/movie
         if (str_contains($urlLower, '/movie/') || str_contains($urlLower, '/vod/')) {
             return 4; // Will be skipped
@@ -100,11 +113,11 @@ class M3UProvider extends BaseProvider
         if (str_contains($groupLower, 'vod') || str_contains($groupLower, 'movie')) {
             return 4; // Will be skipped
         }
-        
+
         if (str_contains($groupLower, 'series') || str_contains(strtolower($info['name']), '24/7')) {
             return 5;
         }
-        
+
         return 0; // Live
     }
 }
