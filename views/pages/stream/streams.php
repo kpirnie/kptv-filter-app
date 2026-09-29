@@ -68,15 +68,23 @@ $dt->table('kptv_streams s')
             'value' => $other_type,
         ],
     ]))
-    ->filter([
+    ->filter(array_filter([
         's_orig_name'  => ['operator' => 'LIKE', 'label' => 'Original Name', 'type' => 'text', 'placeholder' => 'Search by original name'],
-        's_tvg_group' => ['operator' => 'LIKE', 'label' => 'Group', 'type' => 'text', 'placeholder' => 'Search by stream group'],
         'p.sp_name'    => ['operator' => '=', 'label' => 'Provider', 'type' => 'select', 'options' => \KPTV::getProvidersNames($userId)],
-    ])
+        's_type_id'    => ($other_type === 1) ? ['operator' => '=', 'label' => 'Type', 'type' => 'select', 'options' => array_map(fn(array $st): string => $st['label'], \KPTV::stream_types())] : null,
+    ]))
     ->tableClass('uk-table uk-table-divider uk-table-small uk-margin-bottom')
-    ->columns([
+    ->columns(array_filter([
         's.id' => 'ID',
         's_active' => ['label' => 'Act', 'type' => 'boolean'],
+        's_type_id' => ($other_type === 1) ? [
+            'label' => 'Type',
+            'type' => 'select',
+            'options' => array_map(
+                fn(array $st): string => sprintf('<span uk-icon="%s" uk-tooltip="%s"></span>', $st['icon'], $st['label']),
+                \KPTV::stream_types()
+            ),
+        ] : null,
         's_guide' => ['label' => 'Guide', 'type' => 'select', 'options' => \KPTV::guide_types()],
         's_channel' => 'Ch',
         's_name' => 'Name',
@@ -85,7 +93,7 @@ $dt->table('kptv_streams s')
         's_tvg_id' => 'TVG ID',
         'p.sp_name' => 'Provider',
         's_tvg_logo' => ['label' => 'Logo', 'type' => 'image'],
-    ])
+    ]))
     ->columnClasses([
         's.id' => 'hide-col',
         's_tvg_logo' => 'uk-min-width',

@@ -1607,15 +1607,21 @@ if (! class_exists('KPTV_Static')) {
          * 
          * @return array The stream types keyed by their s_type_id
          */
-        private static function stream_types(): array
+        public static function stream_types($idx = null): array
         {
-            return [
+            $st = [
                 0 => ['slug' => 'live', 'label' => 'Live', 'icon' => 'tv'],
                 5 => ['slug' => '247', 'label' => '24/7', 'icon' => 'history'],
                 10 => ['slug' => 'series', 'label' => 'Series', 'icon' => 'album'],
                 4 => ['slug' => 'vod', 'label' => 'VOD', 'icon' => 'video-camera'],
                 99 => ['slug' => 'other', 'label' => 'Other', 'icon' => 'nut'],
             ];
+
+            if($idx) {
+                return $st[$idx];
+            }
+
+            return $st;
         }
 
         /**

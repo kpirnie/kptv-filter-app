@@ -21,6 +21,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"encoding/xml"
 	"flag"
 	"fmt"
@@ -309,7 +310,26 @@ func downloadToTemp(url, dir, userAgent string) (string, error) {
 		return "", err
 	}
 
-	n, err := io.Copy(tmp, resp.Body)
+	// some sources serve a gzipped body without Content-Encoding, so the
+	// transport hands it back raw — sniff the magic bytes and decompress
+	var src io.Reader
+	br := bufio.NewReader(resp.Body)
+	gzipped := false
+	if magic, err := br.Peek(2); err == nil && magic[0] == 0x1f && magic[1] == 0x8b {
+		gz, err := gzip.NewReader(br)
+		if err != nil {
+			tmp.Close()
+			os.Remove(tmp.Name())
+			return "", err
+		}
+		defer gz.Close()
+		src = gz
+		gzipped = true
+	} else {
+		src = br
+	}
+
+	n, err := io.Copy(tmp, src)
 	if err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())
@@ -318,7 +338,7 @@ func downloadToTemp(url, dir, userAgent string) (string, error) {
 
 	// a clean early close from the server passes io.Copy but leaves a
 	// truncated file — that's what triggered the parse-loop incident
-	if resp.ContentLength >= 0 && n != resp.ContentLength {
+	if !gzipped && resp.ContentLength >= 0 && n != resp.ContentLength {
 		tmp.Close()
 		os.Remove(tmp.Name())
 		return "", fmt.Errorf("truncated download: got %d of %d bytes", n, resp.ContentLength)

@@ -180,7 +180,7 @@ class SyncEngine
         foreach ($existingStreams ?? [] as $s) {
             $typeKey = (int)$s['s_type_id'];
             $nameKey = strtolower($s['s_orig_name']);
-            $existingByName[$typeKey][$nameKey] ??= $s;
+            $existingByName[$typeKey][$nameKey][] = $s;
             $existingByUri[$s['s_stream_uri']] ??= $s;
         }
 
@@ -205,39 +205,22 @@ class SyncEngine
         $unchanged = 0;
         $processed = []; // Track processed stream IDs to avoid double-processing
 
+        $leftover = [];
+        $seenUris = [];
+
+        // Pass 1: match on stream uri
         foreach ($tempStreams as $temp) {
-            $typeKey = (int)$temp['s_type_id'];
             $nameKey = strtolower($temp['s_orig_name']);
             $tempUri = $temp['s_stream_uri'];
 
-            // Check 1: Does s_orig_name exist for this type?
-            if (isset($existingByName[$typeKey][$nameKey])) {
-                $existing = $existingByName[$typeKey][$nameKey];
-
-                // Skip if already processed
-                if (isset($processed[$existing['id']])) {
-                    continue;
-                }
-
-                // Update s_stream_uri ONLY if different
-                if ($existing['s_stream_uri'] !== $tempUri) {
-                    $uriUpdates[] = [$existing['id'], $tempUri];
-                } else {
-                    $unchanged++;
-                }
-
-                $processed[$existing['id']] = true;
+            // Same uri already seen from the provider - it's a duplicate
+            if (isset($seenUris[$tempUri])) {
                 continue;
             }
+            $seenUris[$tempUri] = true;
 
-            // Check 2: Does s_stream_uri exist?
             if (isset($existingByUri[$tempUri])) {
                 $existing = $existingByUri[$tempUri];
-
-                // Skip if already processed
-                if (isset($processed[$existing['id']])) {
-                    continue;
-                }
 
                 // Update s_orig_name ONLY if different
                 if (strtolower($existing['s_orig_name']) !== $nameKey) {
@@ -250,7 +233,26 @@ class SyncEngine
                 continue;
             }
 
-            // Neither exist - insert as new
+            $leftover[] = $temp;
+        }
+
+        // Pass 2: pair leftover streams 1:1 with unmatched existing streams of the same name for uri updates
+        foreach ($leftover as $temp) {
+            $typeKey = (int)$temp['s_type_id'];
+            $nameKey = strtolower($temp['s_orig_name']);
+
+            foreach ($existingByName[$typeKey][$nameKey] ?? [] as $existing) {
+                // Skip if already processed
+                if (isset($processed[$existing['id']])) {
+                    continue;
+                }
+
+                $uriUpdates[] = [$existing['id'], $temp['s_stream_uri']];
+                $processed[$existing['id']] = true;
+                continue 2;
+            }
+
+            // No match - insert as new
             $inserts[] = $temp;
         }
 
