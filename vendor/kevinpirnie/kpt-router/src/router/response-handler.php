@@ -12,7 +12,7 @@
 namespace KPT;
 
 // make sure it doesn't already exist
-if (! trait_exists('RouterResponseHandler')) {
+if (! trait_exists('\KPT\RouterResponseHandler')) {
 
     /**
      * KPT Router Response Handler Trait
@@ -195,11 +195,16 @@ if (! trait_exists('RouterResponseHandler')) {
             // return the results of creating the view
             return function (...$params) use ($viewPath, $data) {
 
+                // pull the cache callbacks so they aren't passed to the view
+                $cacheDelete = $data['cache_delete'] ?? null;
+                $cacheVary = $data['cache_vary'] ?? null;
+                unset($data['cache_delete'], $data['cache_vary']);
+
                 // setup view data array
                 $viewData = [];
 
                 // get current route and extract parameters
-                $currentRoute = self::getCurrentRoute();
+                $currentRoute = Router::getCurrentRoute();
 
                 // loop the route parameters
                 foreach ($currentRoute->params as $key => $value) {
@@ -215,15 +220,24 @@ if (! trait_exists('RouterResponseHandler')) {
                 $viewData = array_merge($viewData, $data);
 
                 // Create a cache key based on view path and data
-                $cache_key = 'view_cache_' . md5($viewPath . serialize($viewData));
+                $cache_key = 'view_cache_' . md5(
+                    $viewPath . serialize($viewData) . $this->getCacheVariance($cacheVary)
+                );
 
-                // check if we have a cachedel querystring or post
-                if (isset($_GET['cachedel']) || isset($_POST)) {
+                // purge on post, or on a cachedel request the route's gate allows
+                if (
+                    ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' ||
+                    (isset($_GET['cachedel']) && is_callable($cacheDelete) && $cacheDelete() === true)
+                ) {
                     Cache::delete($cache_key);
                 }
 
                 // should the view be cached?
-                $should_cache = (isset($viewData['should_cache']) && $viewData['should_cache']) ?? false;
+                $should_cache = (
+                    isset($viewData['should_cache']) &&
+                    $viewData['should_cache'] &&
+                    $this->isCacheableRequest($cacheVary)
+                );
 
                 // if caching is enabled, try to get from cache first
                 if ($should_cache) {
@@ -274,16 +288,27 @@ if (! trait_exists('RouterResponseHandler')) {
             return function (...$params) use ($controller, $data) {
 
                 // Create a cache key based on controller, method, and params
-                $cache_key = 'cont_cache_' . md5($controller . serialize($params));
+                $cacheVary = $data['cache_vary'] ?? null;
+                $cache_key = 'cont_cache_' . md5(
+                    $controller . serialize($params) . $this->getCacheVariance($cacheVary)
+                );
 
-                // check if we have a cachedel querystring or post
-                if (isset($_GET['cachedel']) || isset($_POST)) {
+                // purge on post, or on a cachedel request the route's gate allows
+                $cacheDelete = $data['cache_delete'] ?? null;
+                if (
+                    ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' ||
+                    (isset($_GET['cachedel']) && is_callable($cacheDelete) && $cacheDelete() === true)
+                ) {
                     // delete the cached item first
                     Cache::delete($cache_key);
                 }
 
                 // should the controller be cached?
-                $should_cache = (isset($data['should_cache']) && $data['should_cache']) ?? false;
+                $should_cache = (
+                    isset($data['should_cache']) &&
+                    $data['should_cache'] &&
+                    $this->isCacheableRequest($cacheVary)
+                );
 
                 // If caching is enabled, try to get from cache first
                 if ($should_cache) {
@@ -354,6 +379,54 @@ if (! trait_exists('RouterResponseHandler')) {
                 // return the result
                 return $result;
             };
+        }
+
+        /**
+         * Check if the current request can be cached
+         *
+         * Only GET and HEAD requests are cacheable, and requests carrying a session
+         * cookie only when the route supplies a cache_vary callback to key them by.
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @param mixed $cacheVary The route's cache_vary callback
+         * @return bool Returns true if the request can be cached
+         */
+        private function isCacheableRequest(mixed $cacheVary): bool
+        {
+
+            // only cache safe requests
+            if (! in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)) {
+                return false;
+            }
+
+            // without a vary callback, never cache a request carrying a session
+            return is_callable($cacheVary) || ! isset($_COOKIE[session_name()]);
+        }
+
+        /**
+         * Get the cache key variance for the current request
+         *
+         * Varies the cache key by the query string (minus cachedel)
+         * and the route's cache_vary callback result.
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @param mixed $cacheVary The route's cache_vary callback
+         * @return string Returns the variance to append to the cache key
+         */
+        private function getCacheVariance(mixed $cacheVary): string
+        {
+
+            // vary by the query string, minus the cache delete flag
+            $query = $_GET;
+            unset($query['cachedel']);
+            ksort($query);
+
+            // add in the route's vary value if it has one
+            return serialize([$query, is_callable($cacheVary) ? $cacheVary() : null]);
         }
     }
 }

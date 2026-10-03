@@ -13,7 +13,7 @@
 namespace KPT;
 
 // make sure the trait doesn't already exist
-if (! trait_exists('CacheSHMOP')) {
+if (! trait_exists('\KPT\CacheSHMOP', false)) {
 
     /**
      * KPT Cache SHMOP Trait
@@ -86,16 +86,47 @@ if (! trait_exists('CacheSHMOP')) {
                 }
 
                 // Verify data integrity
-                $unserialized = @unserialize(trim($read_data, "\0"));
+                $unserialized = @unserialize(trim($read_data, "\0"), ['allowed_classes' => CacheConfig::getAllowedClasses()]);
                 return is_array($unserialized)
                     && isset($unserialized['data'])
                     && $unserialized['data'] === $test_data;
 
-            // whoopsie... setup the error and return false
+                // whoopsie... setup the error and return false
             } catch (\Exception $e) {
-                self::$_last_error = "SHMOP test failed: " . $e -> getMessage();
+                self::$_last_error = "SHMOP test failed: " . $e->getMessage();
                 return false;
             }
+        }
+
+        /**
+         * Read the length-prefixed payload from a SHMOP segment
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @param \Shmop $segment The open segment
+         * @return string|null Returns the payload or null if empty/invalid
+         */
+        private static function readShmopPayload(\Shmop $segment): ?string
+        {
+
+            // need at least the 4 byte length header
+            $size = shmop_size($segment);
+            if ($size < 4) {
+                return null;
+            }
+
+            // read the payload length
+            $header = unpack('Nlen', shmop_read($segment, 0, 4));
+            $length = $header['len'] ?? 0;
+
+            // the length has to fit in the segment
+            if ($length < 1 || $length > $size - 4) {
+                return null;
+            }
+
+            // read only the payload
+            return shmop_read($segment, 4, $length);
         }
 
         /**
@@ -131,29 +162,20 @@ if (! trait_exists('CacheSHMOP')) {
                     return false;
                 }
 
-                // Get the size of the segment
-                $size = shmop_size($segment);
-
-                // check if segment is empty
-                if ($size === 0) {
-                    @shmop_close($segment);
-                    return false;
-                }
-
-                // Read the data
-                $data = shmop_read($segment, 0, $size);
+                // Read the payload
+                $data = self::readShmopPayload($segment);
                 @shmop_close($segment);
 
                 // check if read failed
-                if ($data === false) {
+                if ($data === null) {
                     return false;
                 }
 
                 // Unserialize and check expiration
-                $unserialized = @unserialize(trim($data, "\0"));
+                $unserialized = @unserialize($data, ['allowed_classes' => CacheConfig::getAllowedClasses()]);
 
                 // check if we have valid cached data
-                if (is_array($unserialized) && isset($unserialized['expires'], $unserialized['data'])) {
+                if (is_array($unserialized) && isset($unserialized['expires'], $unserialized['data']) && ($unserialized['key'] ?? null) === $key) {
                     // Check if expired
                     if ($unserialized['expires'] > time()) {
                         return $unserialized['data'];
@@ -163,9 +185,9 @@ if (! trait_exists('CacheSHMOP')) {
                     }
                 }
 
-            // whoopsie... setup the error
+                // whoopsie... setup the error
             } catch (\Exception $e) {
-                self::$_last_error = "SHMOP get error: " . $e -> getMessage();
+                self::$_last_error = "SHMOP get error: " . $e->getMessage();
             }
 
             // return false if not found or error
@@ -204,6 +226,7 @@ if (! trait_exists('CacheSHMOP')) {
 
                 // Prepare data with expiration
                 $cache_data = [
+                    'key' => $key,
                     'expires' => time() + $ttl,
                     'data' => $data
                 ];
@@ -212,15 +235,23 @@ if (! trait_exists('CacheSHMOP')) {
                 $serialized_data = serialize($cache_data);
                 $data_size = strlen($serialized_data);
 
-                // Use configured segment size or data size, whichever is larger
-                $segment_size = max($data_size + 100, $config['segment_size'] ?? 1048576);
+                // length header plus the payload, sized to fit
+                $payload = pack('N', $data_size) . $serialized_data;
+                $segment_size = strlen($payload);
 
                 // Try to open existing segment first
                 $segment = @shmop_open($shmop_key, 'w', 0, 0);
 
+                // too small for the new payload, so recreate it
+                if ($segment !== false && shmop_size($segment) < $segment_size) {
+                    @shmop_delete($segment);
+                    @shmop_close($segment);
+                    $segment = false;
+                }
+
                 // If doesn't exist, create new segment
                 if ($segment === false) {
-                    $segment = @shmop_open($shmop_key, 'c', 0644, $segment_size);
+                    $segment = @shmop_open($shmop_key, 'c', 0600, $segment_size);
                 }
 
                 // check if segment creation/opening failed
@@ -228,11 +259,8 @@ if (! trait_exists('CacheSHMOP')) {
                     return false;
                 }
 
-                // Pad data to prevent issues with reading
-                $padded_data = str_pad($serialized_data, $segment_size, "\0");
-
                 // Write data
-                $written = @shmop_write($segment, $padded_data, 0);
+                $written = @shmop_write($segment, $payload, 0);
                 @shmop_close($segment);
 
                 // check if write was successful
@@ -242,9 +270,9 @@ if (! trait_exists('CacheSHMOP')) {
                     return true;
                 }
 
-            // whoopsie... setup the error
+                // whoopsie... setup the error
             } catch (\Exception $e) {
-                self::$_last_error = "SHMOP set error: " . $e -> getMessage();
+                self::$_last_error = "SHMOP set error: " . $e->getMessage();
             }
 
             // return false on failure
@@ -276,26 +304,6 @@ if (! trait_exists('CacheSHMOP')) {
                         'cache_key' => $cache_key,
                         'shmop_key' => $shmop_key
                     ]);
-                }
-            }
-
-            // Method 2: Try to clear segments based on prefix pattern
-            // This attempts to clear any segments that might exist but aren't tracked
-            $config = CacheConfig::get('shmop');
-            $base_key = $config['base_key'] ?? 0x12345000;
-
-            // Try to clear a reasonable range of possible keys
-            for ($i = 0; $i < 1000; $i++) {
-                $test_key = $base_key + $i;
-
-                // Skip keys we already processed in the tracking loop
-                if (! in_array($test_key, self::$_shmop_segments)) {
-                    $segment = @shmop_open($test_key, 'w', 0, 0);
-                    if ($segment !== false) {
-                        @shmop_delete($segment);
-                        @shmop_close($segment);
-                        Logger::debug("Cleaned up untracked SHMOP segment", ['shmop_key' => $test_key]);
-                    }
                 }
             }
 
@@ -358,10 +366,9 @@ if (! trait_exists('CacheSHMOP')) {
                 try {
                     $segment = @shmop_open($shmop_key, 'a', 0, 0);
                     if ($segment !== false) {
-                        $size = shmop_size($segment);
-                        if ($size > 0) {
-                            $data = shmop_read($segment, 0, $size);
-                            $unserialized = @unserialize(trim($data, "\0"));
+                        $data = self::readShmopPayload($segment);
+                        if ($data !== null) {
+                            $unserialized = @unserialize($data, ['allowed_classes' => CacheConfig::getAllowedClasses()]);
 
                             if (is_array($unserialized) && isset($unserialized['expires'])) {
                                 if ($unserialized['expires'] <= time()) {
@@ -413,7 +420,7 @@ if (! trait_exists('CacheSHMOP')) {
                     return $result;
                 }
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
                 // log the error
                 Logger::error("SHMOP delete error", ['error' => $e->getMessage()]);

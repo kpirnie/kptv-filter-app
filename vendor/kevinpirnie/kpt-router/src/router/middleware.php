@@ -12,7 +12,7 @@
 namespace KPT;
 
 // make sure it doesn't already exist
-if (! trait_exists('RouterMiddlewareHandler')) {
+if (! trait_exists('\KPT\RouterMiddlewareHandler')) {
 
     /**
      * KPT Router - Middleware Handling Trait
@@ -83,30 +83,30 @@ if (! trait_exists('RouterMiddlewareHandler')) {
         private function resolveMiddleware($middleware): ?callable
         {
 
+            // if it's a string, registered definitions take priority
+            if (is_string($middleware) && isset($this->middlewareDefinitions[$middleware])) {
+                // hold the definition
+                $definition = $this->middlewareDefinitions[$middleware];
+
+                // if it's a string, return the resolved string
+                if (is_string($definition)) {
+                    return $this->resolveStringMiddleware($definition);
+                }
+
+                // debug logging
+                Logger::debug("Resolve Middleware Definition", ['definition' => $definition]);
+
+                // return the definition
+                return $definition;
+            }
+
             // if the middleware is indeed callable, just return it
             if (is_callable($middleware)) {
                 return $middleware;
             }
 
-            // if the middleware is a tring
+            // if the middleware is a string
             if (is_string($middleware)) {
-                // make sure it's actually set as a middleware definition first
-                if (isset($this->middlewareDefinitions[$middleware])) {
-                    // hold the definition
-                    $definition = $this->middlewareDefinitions[$middleware];
-
-                    // if it's a string, return the resolved string
-                    if (is_string($definition)) {
-                        return $this->resolveStringMiddleware($definition);
-                    }
-
-                    // debug logging
-                    Logger::debug("Resolve Middleware Definition", ['definition' => $definition]);
-
-                    // return the definition
-                    return $definition;
-                }
-
                 // debug logging
                 Logger::debug("Resolve Middlewared", ['middleware' => $middleware]);
 

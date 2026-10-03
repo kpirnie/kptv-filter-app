@@ -13,7 +13,7 @@
 namespace KPT;
 
 // if the class is not already in userspace
-if (! class_exists('Database')) {
+if (! class_exists('\KPT\Database', false)) {
 
     /**
      * Class Database
@@ -54,6 +54,11 @@ if (! class_exists('Database')) {
         // Query profiling
         protected bool $profiling_enabled = false;
         protected array $query_log = [];
+        protected int $query_log_max = 1000;
+
+        // prepared statement cache (LRU, keyed by SQL)
+        protected array $stmt_cache = [];
+        protected int $stmt_cache_max = 64;
 
         /**
          * __construct
@@ -68,7 +73,7 @@ if (! class_exists('Database')) {
          * @return void
          * @throws \InvalidArgumentException When $db_settings is null or invalid
          */
-        public function __construct(object $db_settings)
+        public function __construct(#[\SensitiveParameter] object $db_settings)
         {
             // validate settings first
             self::validateSettings($db_settings);
@@ -81,6 +86,35 @@ if (! class_exists('Database')) {
 
             // Lazy connection - only connect when needed for performance
             Logger::debug("Database Constructor Completed Successfully");
+        }
+
+        /**
+         * __debugInfo
+         *
+         * Control what var_dump/print_r expose, redacting the password
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         * @package KP Library
+         *
+         * @return array Returns the debug-safe properties
+         */
+        public function __debugInfo(): array
+        {
+            // copy the settings and redact the password
+            $settings = clone $this->db_settings;
+            if (isset($settings->password)) {
+                $settings->password = '********';
+            }
+
+            return [
+                'driver' => $this->driver,
+                'connection_name' => $this->connection_name,
+                'is_connected' => $this->is_connected,
+                'db_settings' => $settings,
+                'current_query' => $this->current_query,
+                'profiling_enabled' => $this->profiling_enabled,
+            ];
         }
 
         /**
@@ -102,6 +136,24 @@ if (! class_exists('Database')) {
             foreach ($defaults as $key => $value) {
                 if (!isset($this->db_settings->$key)) {
                     $this->db_settings->$key = $value;
+                }
+            }
+
+            // validate charset and collation since they are interpolated into connection commands
+            foreach (['charset', 'collation'] as $key) {
+                if (
+                    isset($this->db_settings->$key) && !preg_match(
+                        '/^[A-Za-z0-9_-]+$/',
+                        (string) $this->db_settings->$key
+                    )
+                ) {
+                    throw new \InvalidArgumentException(
+                        sprintf(
+                            'Invalid database %s: %s',
+                            $key,
+                            $this->db_settings->$key
+                        )
+                    );
                 }
             }
         }
@@ -211,15 +263,20 @@ if (! class_exists('Database')) {
 
             $driver_attrs = match ($this->driver) {
                 'mysql' => [
-                    \PDO\Mysql::ATTR_USE_BUFFERED_QUERY => true,
-                    \PDO\Mysql::ATTR_INIT_COMMAND => "SET NAMES {$this->db_settings->charset}",
+                    \Pdo\Mysql::ATTR_USE_BUFFERED_QUERY => true,
+                    \Pdo\Mysql::ATTR_INIT_COMMAND => sprintf(
+                        'SET NAMES %s COLLATE %s',
+                        $this->db_settings->charset,
+                        $this->db_settings->collation
+                    ),
                 ],
                 'sqlsrv' => [\PDO::SQLSRV_ATTR_ENCODING => \PDO::SQLSRV_ENCODING_UTF8],
                 'sqlite' => [\PDO::ATTR_TIMEOUT => 5],
                 default => []
             };
 
-            return array_merge($base, $driver_attrs);
+            // union, not array_merge: attribute keys are integers and array_merge would renumber them
+            return $base + $driver_attrs;
         }
 
         /**
@@ -232,18 +289,7 @@ if (! class_exists('Database')) {
             if (!$this->db_handle) {
                 return;
             }
-
             switch ($this->driver) {
-                case 'mysql':
-                    $charset = $this->db_settings->charset ?? 'utf8mb4';
-                    $collation = $this->db_settings->collation ?? 'utf8mb4_unicode_ci';
-                    $this->db_handle->exec(
-                        "SET NAMES $charset COLLATE $collation, 
-                        CHARACTER SET $charset, 
-                        collation_connection = $collation"
-                    );
-                    break;
-
                 case 'pgsql':
                     $charset = $this->db_settings->charset ?? 'UTF8';
                     $this->db_handle->exec("SET NAMES '$charset'");
@@ -339,11 +385,13 @@ if (! class_exists('Database')) {
          *
          * Enable query profiling/logging
          *
+         * @param int $max_entries Maximum number of profiled queries to keep (oldest dropped first)
          * @return self
          */
-        public function enableProfiling(): self
+        public function enableProfiling(int $max_entries = 1000): self
         {
             $this->profiling_enabled = true;
+            $this->query_log_max = max(1, $max_entries);
             Logger::debug("Database Profiling Enabled");
             return $this;
         }
@@ -412,9 +460,52 @@ if (! class_exists('Database')) {
                 'timestamp' => date('Y-m-d H:i:s'),
             ];
 
+            // keep the log capped so long-running workers don't leak memory
+            if (count($this->query_log) > $this->query_log_max) {
+                $this->query_log = array_slice($this->query_log, -$this->query_log_max);
+            }
+
             Logger::debug("Database Query Profiled", [
                 'duration_ms' => round($duration * 1000, 2),
             ]);
+        }
+
+        /**
+         * getStatement
+         *
+         * Get a prepared statement for the query, reusing a cached one when available
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         * @package KP Library
+         *
+         * @param string $query The SQL query to prepare
+         * @return \PDOStatement Returns the prepared statement
+         */
+        protected function getStatement(string $query): \PDOStatement
+        {
+            // reuse a cached statement, moving it to the most recently used spot
+            if (isset($this->stmt_cache[$query])) {
+                $stmt = $this->stmt_cache[$query];
+                unset($this->stmt_cache[$query]);
+                $this->stmt_cache[$query] = $stmt;
+
+                // make sure any previous result set is released
+                $stmt->closeCursor();
+                return $stmt;
+            }
+
+            // prepare it fresh
+            $stmt = $this->db_handle->prepare($query);
+
+            // drop the least recently used statement when the cache is full
+            if (count($this->stmt_cache) >= $this->stmt_cache_max) {
+                unset($this->stmt_cache[array_key_first($this->stmt_cache)]);
+            }
+
+            // cache and return it
+            $this->stmt_cache[$query] = $stmt;
+            return $stmt;
         }
 
         /**
@@ -432,11 +523,6 @@ if (! class_exists('Database')) {
          */
         private static function validateSettings(object $db_settings): void
         {
-            // validate that db_settings is provided
-            if ($db_settings === null) {
-                Logger::error("Database Validation Failed - No database settings provided");
-                throw new \InvalidArgumentException('Database settings are required.');
-            }
 
             // Get driver
             $driver = $db_settings->driver ?? 'mysql';
@@ -479,7 +565,8 @@ if (! class_exists('Database')) {
                 // reset
                 $this->reset();
 
-                // close the connection
+                // release cached statements and close the connection
+                $this->stmt_cache = [];
                 $this->db_handle = null;
 
                 // clear em our
@@ -548,11 +635,13 @@ if (! class_exists('Database')) {
             // store the parameters
             $this->query_params = $params;
 
-            // debug logging
-            Logger::debug("Database Parameters Bound Successfully", [
-                'param_count' => count($this->query_params),
-                'param_types' => array_map('gettype', $this->query_params)
-            ]);
+            // debug logging, only build the context when logging is on
+            if (Logger::isEnabled()) {
+                Logger::debug("Database Parameters Bound Successfully", [
+                    'param_count' => count($this->query_params),
+                    'param_types' => array_map('gettype', $this->query_params)
+                ]);
+            }
 
             // return self for chaining
             return $this;
@@ -695,20 +784,11 @@ if (! class_exists('Database')) {
                 $start_time = microtime(true);
 
                 // prepare the statement
-                $stmt = $this->db_handle->prepare($this->current_query);
-
-                // check if prepare failed
-                if ($stmt === false) {
-                    $errInfo = $this->db_handle->errorInfo();
-                    Logger::error("Database Prepare Failed", [
-                        'query' => $this->current_query,
-                        'error' => $errInfo,
-                    ]);
-                    throw new \RuntimeException("Failed to prepare query: " . ($errInfo[2] ?? 'Unknown error'));
-                }
+                $stmt = $this->getStatement($this->current_query);
 
                 // bind parameters if we have any
                 $this->bindParams($stmt, $this->query_params);
+
                 // execute the query
                 if (! $stmt->execute()) {
                     // error logging
@@ -766,6 +846,15 @@ if (! class_exists('Database')) {
          */
         public function count(string $table, string $column = '*', ?string $where = null, array $params = []): int|false
         {
+            // validate the identifiers
+            $table = $this->quoteIdentifier($table);
+            $distinct = '';
+            if (preg_match('/^DISTINCT\s+(.+)$/i', trim($column), $matches)) {
+                $distinct = 'DISTINCT ';
+                $column = $matches[1];
+            }
+            $column = $column === '*' ? '*' : $distinct . $this->quoteIdentifier($column);
+
             // build the query
             $query = "SELECT COUNT({$column}) as cnt FROM {$table}";
 
@@ -801,8 +890,11 @@ if (! class_exists('Database')) {
          */
         public function exists(string $table, string $where, array $params = []): bool
         {
+            // validate the table identifier
+            $table = $this->quoteIdentifier($table);
+
             // build an efficient EXISTS query
-            $query = "SELECT EXISTS(SELECT 1 FROM {$table} WHERE {$where} LIMIT 1) as record_exists";
+            $query = "SELECT EXISTS(SELECT 1 FROM {$table} WHERE {$where}) as record_exists";
 
             // execute and get result
             $result = $this->query($query)->bind($params)->single()->fetch();
@@ -859,8 +951,9 @@ if (! class_exists('Database')) {
             }
 
             try {
-                // build column list
-                $column_list = implode(', ', $columns);
+                // validate the identifiers and build the column list
+                $table = $this->quoteIdentifier($table);
+                $column_list = implode(', ', array_map(fn($col) => $this->quoteIdentifier((string) $col), $columns));
                 $column_count = count($columns);
 
                 // build placeholders for a single row
@@ -913,9 +1006,10 @@ if (! class_exists('Database')) {
          * @param string $table The table name
          * @param array $data Associative array of column => value pairs to insert
          * @param array $update Associative array of column => value pairs to update on duplicate
+         * @param array $conflict Conflict target column names (required for sqlite/pgsql, ignored for mysql)
          * @return int|false Returns last insert ID, affected rows, or false on failure
          */
-        public function upsert(string $table, array $data, array $update): int|false
+        public function upsert(string $table, array $data, array $update, array $conflict = []): int|false
         {
             // validate inputs
             if (empty($data) || empty($update)) {
@@ -929,24 +1023,40 @@ if (! class_exists('Database')) {
             }
 
             try {
-                // build column and placeholder lists for INSERT
+                // validate the identifiers and build column and placeholder lists for INSERT
+                $table = $this->quoteIdentifier($table);
                 $columns = array_keys($data);
-                $column_list = implode(', ', $columns);
+                $column_list = implode(', ', array_map(fn($col) => $this->quoteIdentifier((string) $col), $columns));
                 $placeholders = implode(', ', array_fill(0, count($columns), '?'));
 
                 // build UPDATE clause
                 $update_parts = [];
                 foreach (array_keys($update) as $col) {
-                    $update_parts[] = "{$col} = ?";
+                    $update_parts[] = sprintf('%s = ?', $this->quoteIdentifier((string) $col));
                 }
                 $update_clause = implode(', ', $update_parts);
+
+                // build the conflict target for sqlite/pgsql
+                $conflict_clause = '';
+                if (in_array($this->driver, ['sqlite', 'pgsql'], true)) {
+                    if (empty($conflict)) {
+                        throw new \InvalidArgumentException('Upsert requires conflict columns for sqlite/pgsql');
+                    }
+                    $conflict_clause = implode(
+                        ', ',
+                        array_map(
+                            fn($col) => $this->quoteIdentifier((string) $col),
+                            $conflict
+                        )
+                    );
+                }
 
                 // build driver-specific query
                 $query = match ($this->driver) {
                     'mysql' => "INSERT INTO {$table} ({$column_list}) VALUES ({$placeholders}) " .
                         "ON DUPLICATE KEY UPDATE {$update_clause}",
                     'sqlite', 'pgsql' => "INSERT INTO {$table} ({$column_list}) VALUES ({$placeholders}) " .
-                        "ON CONFLICT DO UPDATE SET {$update_clause}",
+                        "ON CONFLICT ({$conflict_clause}) DO UPDATE SET {$update_clause}",
                     default => throw new \RuntimeException("Upsert not supported for driver: {$this->driver}")
                 };
 
@@ -996,9 +1106,10 @@ if (! class_exists('Database')) {
             }
 
             try {
-                // build column and placeholder lists
+                // validate the identifiers and build column and placeholder lists
+                $table = $this->quoteIdentifier($table);
                 $columns = array_keys($data);
-                $column_list = implode(', ', $columns);
+                $column_list = implode(', ', array_map(fn($col) => $this->quoteIdentifier((string) $col), $columns));
                 $placeholders = implode(', ', array_fill(0, count($columns), '?'));
 
                 // build driver-specific query
@@ -1054,6 +1165,40 @@ if (! class_exists('Database')) {
             }
         }
 
+
+        /**
+         * quoteIdentifier
+         *
+         * Validate a table or column identifier and quote it for the current driver
+         * pgsql and oci are validated only, since quoting changes their case folding
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         * @package KP Library
+         *
+         * @param string $identifier The identifier, optionally dot-qualified (schema.table / table.column)
+         * @return string Returns the validated, driver-quoted identifier
+         * @throws \InvalidArgumentException When the identifier is invalid
+         */
+        public function quoteIdentifier(string $identifier): string
+        {
+            // validate the identifier
+            if (! preg_match('/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/', $identifier)) {
+                throw new \InvalidArgumentException(sprintf('Invalid SQL identifier: %s', $identifier));
+            }
+
+            // get the driver specific quote format
+            $format = match ($this->driver) {
+                'mysql' => '`%s`',
+                'sqlite' => '"%s"',
+                'sqlsrv' => '[%s]',
+                default => '%s',
+            };
+
+            // quote each part of the identifier
+            return implode('.', array_map(fn($part) => sprintf($format, $part), explode('.', $identifier)));
+        }
+
         /**
          * execute
          *
@@ -1088,17 +1233,10 @@ if (! class_exists('Database')) {
                 $start_time = microtime(true);
 
                 // prepare the statement
-                $stmt = $this->db_handle->prepare($this->current_query);
+                $stmt = $this->getStatement($this->current_query);
 
-                // check if prepare failed
-                if ($stmt === false) {
-                    $errInfo = $this->db_handle->errorInfo();
-                    Logger::error("Database Prepare Failed", [
-                        'query' => $this->current_query,
-                        'error' => $errInfo,
-                    ]);
-                    throw new \RuntimeException("Failed to prepare query: " . ($errInfo[2] ?? 'Unknown error'));
-                }
+                // debug logging
+                Logger::debug("Database Statement Prepared for Execute");
 
                 // bind parameters if we have any
                 $this->bindParams($stmt, $this->query_params);
@@ -1116,14 +1254,25 @@ if (! class_exists('Database')) {
                 // debug logging
                 Logger::debug("Database Query Executed Successfully");
 
-                // determine return value based on query type
-                $query_type = strtoupper(substr(trim($this->current_query), 0, 6));
+                // determine return value based on query type, skipping leading whitespace and comments
+                $query_type = preg_match(
+                    '/^(?:\s+|--[^\n]*(?:\n|$)|\/\*.*?\*\/)*(\w+)/s',
+                    $this->current_query,
+                    $matches
+                )
+                    ? strtoupper($matches[1])
+                    : '';
 
                 // figure out what kind of query are we running for the return value
                 switch ($query_type) {
                     case 'INSERT':
-                        // return last insert ID for inserts
-                        $id = $this->db_handle->lastInsertId();
+                    case 'REPLACE':
+                        // return last insert ID for inserts, pgsql throws when there is no sequence
+                        try {
+                            $id = $this->db_handle->lastInsertId();
+                        } catch (\PDOException) {
+                            $id = false;
+                        }
                         $result = $id ?: true;
 
                         // debug logging
@@ -1205,18 +1354,6 @@ if (! class_exists('Database')) {
         }
 
         /**
-         * getDriver
-         *
-         * Get the current database driver name
-         *
-         * @return string The driver name (mysql, sqlite, pgsql, etc.)
-         */
-        public function getDriver(): string
-        {
-            return $this->driver;
-        }
-
-        /**
          * transaction
          *
          * Begin a database transaction
@@ -1265,6 +1402,11 @@ if (! class_exists('Database')) {
         public function commit(): bool
         {
 
+            // nothing to commit without a connection
+            if (!$this->is_connected || !$this->db_handle) {
+                return false;
+            }
+
             // try to commit transaction
             try {
                 // commit the transaction
@@ -1294,6 +1436,11 @@ if (! class_exists('Database')) {
          */
         public function rollback(): bool
         {
+
+            // nothing to roll back without a connection
+            if (!$this->is_connected || !$this->db_handle) {
+                return false;
+            }
 
             // try to rollback transaction
             try {
@@ -1385,7 +1532,7 @@ if (! class_exists('Database')) {
             // try to bind parameters
             try {
                 // check if using named parameters (associative array) or positional (numeric array)
-                $is_named = array_keys($params) !== range(0, count($params) - 1);
+                $is_named = !array_is_list($params);
 
                 // loop over the parameters
                 foreach ($params as $key => $param) {
@@ -1408,13 +1555,6 @@ if (! class_exists('Database')) {
 
                     // bind the parameter and value
                     $stmt->bindValue($bind_key, $param, $paramType);
-
-                    // debug logging
-                    Logger::debug("Database Parameter Bound", [
-                        'key' => $bind_key,
-                        'param_type' => gettype($param),
-                        'pdo_type' => $paramType,
-                    ]);
                 }
 
                 // debug logging

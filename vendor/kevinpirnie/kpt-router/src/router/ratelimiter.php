@@ -12,7 +12,7 @@
 namespace KPT;
 
 // make sure the trait doesn't exist first
-if (! trait_exists('RouterRateLimiter')) {
+if (! trait_exists('\KPT\RouterRateLimiter')) {
 
     /**
      * KPT Router Rate Limiter Trait
@@ -104,14 +104,14 @@ if (! trait_exists('RouterRateLimiter')) {
                     throw new \RuntimeException('Failed to connect to Redis');
                 }
 
-                // configure redis settings
-                $this->redis->select(1);
-                $this->redis->setOption(\Redis::OPT_PREFIX, (KPT_URI ?? 'kpt_router') . '_RL:');
-
                 // authenticate if password provided
                 if (! empty($config['password'])) {
                     $this->redis->auth($config['password']);
                 }
+
+                // configure redis settings
+                $this->redis->select((int) ($config['database'] ?? 1));
+                $this->redis->setOption(\Redis::OPT_PREFIX, ($config['prefix'] ?? 'kpt_router') . '_RL:');
 
                 // test connection with ping
                 $this->redis->ping();
@@ -192,7 +192,7 @@ if (! trait_exists('RouterRateLimiter')) {
             }
 
             // get client ip and create cache key
-            $clientIp = self::getUserIp();
+            $clientIp = Router::getUserIp();
             $cacheKey = 'rate_limit_' . md5($clientIp);
 
             // get rate limit configuration
@@ -210,7 +210,7 @@ if (! trait_exists('RouterRateLimiter')) {
                 }
 
                 // check if rate limit exceeded
-                if ($current >= $limit) {
+                if ($current > $limit) {
                     header('Retry-After: ' . $window);
                     Logger::error('Rate limit exceeded', ['hits' => $current]);
                     throw new \RuntimeException('Rate limit exceeded', 429);
@@ -218,11 +218,15 @@ if (! trait_exists('RouterRateLimiter')) {
 
                 // set rate limit headers
                 header('X-RateLimit-Limit: ' . $limit);
-                header('X-RateLimit-Remaining: ' . max(0, $limit - $current - 1));
+                header('X-RateLimit-Remaining: ' . max(0, $limit - $current));
                 header('X-RateLimit-Reset: ' . (time() + $window));
 
                 // whoopsie... handle rate limiting errors
             } catch (\Exception $e) {
+                // let the rate limit exceeded exception through
+                if ($e->getCode() === 429) {
+                    throw $e;
+                }
                 Logger::error('Rate limiting error', ['error' => $e->getMessage()]);
 
                 // check if strict mode is enabled
@@ -250,24 +254,16 @@ if (! trait_exists('RouterRateLimiter')) {
         private function handleRedisRateLimit(string $key, int $limit, int $window): int
         {
 
-            // get current count from redis
-            $current = $this->redis->get($key);
+            // atomically increment the counter
+            $current = (int) $this->redis->incr($key);
 
-            // check if key exists
-            if ($current !== false) {
-                // check if already at limit
-                if ((int) $current >= $limit) {
-                    return (int) $current;
-                }
-
-                // increment the counter
-                $this->redis->incr($key);
-                return (int) $current + 1;
+            // first request in the window - set the expiration
+            if ($current === 1) {
+                $this->redis->expire($key, $window);
             }
 
-            // first request - set initial count with expiration
-            $this->redis->setex($key, $window, 1);
-            return 1;
+            // return the current count
+            return $current;
         }
 
         /**
@@ -291,33 +287,76 @@ if (! trait_exists('RouterRateLimiter')) {
             $file = $this->rateLimitPath . '/' . $key;
             $now = time();
 
-            // check if file exists
-            if (file_exists($file)) {
-                // read existing data
-                $data = json_decode(file_get_contents($file), true);
-
-                // check if window hasn't expired
-                if ($data['expires'] > $now) {
-                    // increment count and update file
-                    $current = $data['count'] + 1;
-                    file_put_contents($file, json_encode([
-                        'count' => $current,
-                        'expires' => $data['expires']
-                    ]), LOCK_EX);
-
-                    // return updated count
-                    return $current;
-                }
+            // open the file for read/write, creating it if needed
+            $handle = fopen($file, 'c+');
+            if ($handle === false) {
+                throw new \RuntimeException('Unable to open rate limit file');
             }
 
-            // first request or expired window - create new entry
-            file_put_contents($file, json_encode([
-                'count' => 1,
-                'expires' => $now + $window
-            ]), LOCK_EX);
+            // process the hit under an exclusive lock
+            try {
+                // lock the file so concurrent requests wait their turn
+                if (! flock($handle, LOCK_EX)) {
+                    throw new \RuntimeException('Unable to lock rate limit file');
+                }
 
-            // return initial count
-            return 1;
+                // read the existing data
+                $data = json_decode(stream_get_contents($handle), true);
+
+                // continue the window if the data is valid and not expired, otherwise start a new one
+                if (is_array($data) && isset($data['count'], $data['expires']) && $data['expires'] > $now) {
+                    $current = (int) $data['count'] + 1;
+                    $expires = (int) $data['expires'];
+                } else {
+                    $current = 1;
+                    $expires = $now + $window;
+                }
+
+                // write the updated data back
+                ftruncate($handle, 0);
+                rewind($handle);
+                fwrite($handle, json_encode(['count' => $current, 'expires' => $expires]));
+                fflush($handle);
+
+                // always release the lock and close the file
+            } finally {
+                flock($handle, LOCK_UN);
+                fclose($handle);
+            }
+
+            // occasionally clean up expired files
+            if (random_int(1, 100) === 1) {
+                $this->cleanupRateLimitFiles($window);
+            }
+
+            // return the current count
+            return $current;
+        }
+
+        /**
+         * Clean up expired rate limit files
+         *
+         * Removes rate limit files that have not been written to
+         * within the window, so they cannot pile up on disk.
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @param int $window Time window in seconds
+         * @return void Returns nothing
+         */
+        private function cleanupRateLimitFiles(int $window): void
+        {
+
+            // anything not written to within a window has expired
+            $cutoff = time() - $window;
+
+            // loop over the rate limit files and remove the stale ones
+            foreach (glob($this->rateLimitPath . '/rate_limit_*') ?: [] as $file) {
+                if (is_file($file) && filemtime($file) < $cutoff) {
+                    unlink($file);
+                }
+            }
         }
     }
 }

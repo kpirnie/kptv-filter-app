@@ -12,7 +12,7 @@
 namespace KPT;
 
 // make sure the trait doesn't already exist
-if (! trait_exists('CacheRedisAsync')) {
+if (! trait_exists('\KPT\CacheRedisAsync', false)) {
 
     /**
      * KPT Cache Redis Async Trait
@@ -49,23 +49,23 @@ if (! trait_exists('CacheRedisAsync')) {
                     // get a connection from the pool
                     $connection = CacheConnectionPool::getConnection('redis');
                     if (! $connection) {
-                        $reject(new Exception('No Redis connection available'));
+                        $reject(new \RuntimeException('No Redis connection available'));
                         return;
                     }
 
                     // setup the config and prefixed key
                     $config = CacheConfig::get('redis');
-                    $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $key;
-                    $value = $connection -> get($prefixed_key);
+                    $prefixed_key = ($config['prefix'] ?? CacheConfig::getGlobalPrefix()) . $key;
+                    $value = $connection->get($prefixed_key);
 
                     // return the connection to the pool
                     CacheConnectionPool::returnConnection('redis', $connection);
 
                     // unserialize the result and resolve
-                    $result = $value !== false ? unserialize($value) : false;
+                    $result = $value !== false ? unserialize($value, ['allowed_classes' => CacheConfig::getAllowedClasses()]) : false;
                     $resolve($result);
 
-                // whoopsie... reject the promise with the error
+                    // whoopsie... reject the promise with the error
                 } catch (RedisException $e) {
                     $reject($e);
                 }
@@ -97,14 +97,14 @@ if (! trait_exists('CacheRedisAsync')) {
                     // get a connection from the pool
                     $connection = CacheConnectionPool::getConnection('redis');
                     if (! $connection) {
-                        $reject(new Exception('No Redis connection available'));
+                        $reject(new \RuntimeException('No Redis connection available'));
                         return;
                     }
 
                     // setup the config and prefixed key
                     $config = CacheConfig::get('redis');
-                    $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $key;
-                    $success = $connection -> setex($prefixed_key, $ttl, serialize($data));
+                    $prefixed_key = ($config['prefix'] ?? CacheConfig::getGlobalPrefix()) . $key;
+                    $success = $connection->setex($prefixed_key, $ttl, serialize($data));
 
                     // return the connection to the pool
                     CacheConnectionPool::returnConnection('redis', $connection);
@@ -112,7 +112,7 @@ if (! trait_exists('CacheRedisAsync')) {
                     // resolve with success status
                     $resolve($success);
 
-                // whoopsie... reject the promise with the error
+                    // whoopsie... reject the promise with the error
                 } catch (RedisException $e) {
                     $reject($e);
                 }
@@ -142,14 +142,14 @@ if (! trait_exists('CacheRedisAsync')) {
                     // get a connection from the pool
                     $connection = CacheConnectionPool::getConnection('redis');
                     if (! $connection) {
-                        $reject(new Exception('No Redis connection available'));
+                        $reject(new \RuntimeException('No Redis connection available'));
                         return;
                     }
 
                     // setup the config and prefixed key
                     $config = CacheConfig::get('redis');
-                    $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $key;
-                    $result = $connection -> del($prefixed_key);
+                    $prefixed_key = ($config['prefix'] ?? CacheConfig::getGlobalPrefix()) . $key;
+                    $result = $connection->del($prefixed_key);
 
                     // return the connection to the pool
                     CacheConnectionPool::returnConnection('redis', $connection);
@@ -157,7 +157,7 @@ if (! trait_exists('CacheRedisAsync')) {
                     // resolve with deletion status
                     $resolve($result > 0);
 
-                // whoopsie... reject the promise with the error
+                    // whoopsie... reject the promise with the error
                 } catch (RedisException $e) {
                     $reject($e);
                 }
@@ -187,28 +187,28 @@ if (! trait_exists('CacheRedisAsync')) {
                     // get a connection from the pool
                     $connection = CacheConnectionPool::getConnection('redis');
                     if (! $connection) {
-                        $reject(new Exception('No Redis connection available'));
+                        $reject(new \RuntimeException('No Redis connection available'));
                         return;
                     }
 
                     // create the pipeline
-                    $pipeline = $connection -> pipeline();
+                    $pipeline = $connection->pipeline();
 
                     // add each command to the pipeline
                     foreach ($commands as $command) {
-                        $method = $command['method'];
-                        $args = $command['args'] ?? [ ];
-                        $pipeline -> $method(...$args);
+                        $method = self::allowedRedisCommand($command['method'] ?? null);
+                        $args = $command['args'] ?? [];
+                        $pipeline->$method(...$args);
                     }
 
                     // execute the pipeline and return connection
-                    $results = $pipeline -> exec();
+                    $results = $pipeline->exec();
                     CacheConnectionPool::returnConnection('redis', $connection);
 
                     // resolve with results
-                    $resolve($results ?: [ ]);
+                    $resolve($results ?: []);
 
-                // whoopsie... reject the promise with the error
+                    // whoopsie... reject the promise with the error
                 } catch (RedisException $e) {
                     $reject($e);
                 }
@@ -238,28 +238,28 @@ if (! trait_exists('CacheRedisAsync')) {
                     // get a connection from the pool
                     $connection = CacheConnectionPool::getConnection('redis');
                     if (! $connection) {
-                        $reject(new Exception('No Redis connection available'));
+                        $reject(new \RuntimeException('No Redis connection available'));
                         return;
                     }
 
                     // start the multi transaction
-                    $multi = $connection -> multi();
+                    $multi = $connection->multi();
 
                     // add each command to the transaction
                     foreach ($commands as $command) {
-                        $method = $command['method'];
-                        $args = $command['args'] ?? [ ];
-                        $multi -> $method(...$args);
+                        $method = self::allowedRedisCommand($command['method'] ?? null);
+                        $args = $command['args'] ?? [];
+                        $multi->$method(...$args);
                     }
 
                     // execute the transaction and return connection
-                    $results = $multi -> exec();
+                    $results = $multi->exec();
                     CacheConnectionPool::returnConnection('redis', $connection);
 
                     // resolve with results
-                    $resolve($results ?: [ ]);
+                    $resolve($results ?: []);
 
-                // whoopsie... reject the promise with the error
+                    // whoopsie... reject the promise with the error
                 } catch (RedisException $e) {
                     $reject($e);
                 }
@@ -289,7 +289,7 @@ if (! trait_exists('CacheRedisAsync')) {
                     // get a connection from the pool
                     $connection = CacheConnectionPool::getConnection('redis');
                     if (! $connection) {
-                        $reject(new Exception('No Redis connection available'));
+                        $reject(new \RuntimeException('No Redis connection available'));
                         return;
                     }
 
@@ -303,26 +303,26 @@ if (! trait_exists('CacheRedisAsync')) {
                     }, $keys);
 
                     // get all values and return connection
-                    $values = $connection -> mget($prefixed_keys);
+                    $values = $connection->mget($prefixed_keys);
                     CacheConnectionPool::returnConnection('redis', $connection);
 
                     // check if we got values
                     if (! $values) {
-                        $resolve([ ]);
+                        $resolve([]);
                         return;
                     }
 
                     // Unserialize values and combine with original keys
-                    $results = [ ];
+                    $results = [];
                     foreach ($keys as $i => $key) {
                         $value = $values[$i] ?? false;
-                        $results[$key] = $value !== false ? unserialize($value) : false;
+                        $results[$key] = $value !== false ? unserialize($value, ['allowed_classes' => CacheConfig::getAllowedClasses()]) : false;
                     }
 
                     // resolve with results
                     $resolve($results);
 
-                // whoopsie... reject the promise with the error
+                    // whoopsie... reject the promise with the error
                 } catch (RedisException $e) {
                     $reject($e);
                 }
@@ -353,7 +353,7 @@ if (! trait_exists('CacheRedisAsync')) {
                     // get a connection from the pool
                     $connection = CacheConnectionPool::getConnection('redis');
                     if (! $connection) {
-                        $reject(new Exception('No Redis connection available'));
+                        $reject(new \RuntimeException('No Redis connection available'));
                         return;
                     }
 
@@ -362,23 +362,23 @@ if (! trait_exists('CacheRedisAsync')) {
                     $prefix = $config['prefix'] ?? CacheConfig::getGlobalPrefix();
 
                     // Use pipeline for batch operations
-                    $pipeline = $connection -> pipeline();
+                    $pipeline = $connection->pipeline();
 
                     // add each item to the pipeline
                     foreach ($items as $key => $value) {
                         $prefixed_key = $prefix . $key;
-                        $pipeline -> setex($prefixed_key, $ttl, serialize($value));
+                        $pipeline->setex($prefixed_key, $ttl, serialize($value));
                     }
 
                     // execute the pipeline and return connection
-                    $results = $pipeline -> exec();
+                    $results = $pipeline->exec();
                     CacheConnectionPool::returnConnection('redis', $connection);
 
                     // Check if all operations succeeded
-                    $success = ! in_array(false, $results ?: [ ]);
+                    $success = ! in_array(false, $results ?: []);
                     $resolve($success);
 
-                // whoopsie... reject the promise with the error
+                    // whoopsie... reject the promise with the error
                 } catch (RedisException $e) {
                     $reject($e);
                 }
@@ -408,7 +408,7 @@ if (! trait_exists('CacheRedisAsync')) {
                     // get a connection from the pool
                     $connection = CacheConnectionPool::getConnection('redis');
                     if (! $connection) {
-                        $reject(new Exception('No Redis connection available'));
+                        $reject(new \RuntimeException('No Redis connection available'));
                         return;
                     }
 
@@ -422,13 +422,13 @@ if (! trait_exists('CacheRedisAsync')) {
                     }, $keys);
 
                     // check existence and return connection
-                    $count = $connection -> exists(...$prefixed_keys);
+                    $count = $connection->exists(...$prefixed_keys);
                     CacheConnectionPool::returnConnection('redis', $connection);
 
                     // resolve with count
                     $resolve($count);
 
-                // whoopsie... reject the promise with the error
+                    // whoopsie... reject the promise with the error
                 } catch (RedisException $e) {
                     $reject($e);
                 }
@@ -458,14 +458,14 @@ if (! trait_exists('CacheRedisAsync')) {
                     // get a connection from the pool
                     $connection = CacheConnectionPool::getConnection('redis');
                     if (! $connection) {
-                        $reject(new Exception('No Redis connection available'));
+                        $reject(new \RuntimeException('No Redis connection available'));
                         return;
                     }
 
                     // setup the config and prefixed key
                     $config = CacheConfig::get('redis');
-                    $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $key;
-                    $ttl = $connection -> ttl($prefixed_key);
+                    $prefixed_key = ($config['prefix'] ?? CacheConfig::getGlobalPrefix()) . $key;
+                    $ttl = $connection->ttl($prefixed_key);
 
                     // return the connection to the pool
                     CacheConnectionPool::returnConnection('redis', $connection);
@@ -473,7 +473,7 @@ if (! trait_exists('CacheRedisAsync')) {
                     // resolve with TTL
                     $resolve($ttl);
 
-                // whoopsie... reject the promise with the error
+                    // whoopsie... reject the promise with the error
                 } catch (RedisException $e) {
                     $reject($e);
                 }

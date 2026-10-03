@@ -13,7 +13,7 @@
 namespace KPT;
 
 // make sure the trait doesn't already exist
-if (! trait_exists('CacheMemcached')) {
+if (! trait_exists('\KPT\CacheMemcached', false)) {
 
     /**
      * KPT Cache Memcached Trait
@@ -28,7 +28,7 @@ if (! trait_exists('CacheMemcached')) {
     trait CacheMemcached
     {
         // Keep direct connection for non-pooled usage
-        private static ?Memcached $_memcached = null;
+        private static ?\Memcached $_memcached = null;
 
         /**
          * Test Memcached connection
@@ -51,37 +51,38 @@ if (! trait_exists('CacheMemcached')) {
 
                 // create new memcached instance
                 $memcached = new \Memcached();
-                $memcached -> addServer($config['host'], $config['port']);
+                $memcached->addServer($config['host'], $config['port']);
+                CacheConnectionPool::applyMemcachedAuth($memcached, $config);
 
                 // Set basic options for testing
-                $memcached -> setOption(\Memcached::OPT_CONNECT_TIMEOUT, 1000);
-                $memcached -> setOption(\Memcached::OPT_POLL_TIMEOUT, 1000);
+                $memcached->setOption(\Memcached::OPT_CONNECT_TIMEOUT, 1000);
+                $memcached->setOption(\Memcached::OPT_POLL_TIMEOUT, 1000);
 
                 // Test with a simple operation
                 $test_key = 'kpt_memcached_test_' . uniqid();
                 $test_value = 'test_value_' . time();
 
                 // try to set test value
-                $success = $memcached -> set($test_key, $test_value, 60);
+                $success = $memcached->set($test_key, $test_value, 60);
                 if ($success) {
                     // retrieve the test value
-                    $retrieved = $memcached -> get($test_key);
+                    $retrieved = $memcached->get($test_key);
 
                     // clean up the test key
-                    $memcached -> delete($test_key);
-                    $memcached -> quit();
+                    $memcached->delete($test_key);
+                    $memcached->quit();
 
                     // return comparison result
                     return $retrieved === $test_value;
                 }
 
                 // close connection and return false
-                $memcached -> quit();
+                $memcached->quit();
                 return false;
 
-            // whoopsie... setup the error and return false
+                // whoopsie... setup the error and return false
             } catch (\Exception $e) {
-                self::$_last_error = "Memcached test failed: " . $e -> getMessage();
+                self::$_last_error = "Memcached test failed: " . $e->getMessage();
                 return false;
             }
         }
@@ -97,7 +98,7 @@ if (! trait_exists('CacheMemcached')) {
          *
          * @return Memcached|null Returns Memcached connection or null on failure
          */
-        private static function getMemcached(): ?Memcached
+        private static function getMemcached(): ?\Memcached
         {
 
             // Try connection pool first
@@ -129,7 +130,7 @@ if (! trait_exists('CacheMemcached')) {
          *
          * @return Memcached|null Returns Memcached connection or null on failure
          */
-        private static function createDirectMemcachedConnection(): ?Memcached
+        private static function createDirectMemcachedConnection(): ?\Memcached
         {
 
             // get configuration and setup retry logic
@@ -145,32 +146,33 @@ if (! trait_exists('CacheMemcached')) {
                     $memcached = new \Memcached($config['persistent'] ? 'kpt_pool' : null);
 
                     // Only add servers if not using persistent connections or if no servers exist
-                    if (! $config['persistent'] || count($memcached -> getServerList()) === 0) {
-                        $memcached -> addServer($config['host'], $config['port']);
+                    if (! $config['persistent'] || count($memcached->getServerList()) === 0) {
+                        $memcached->addServer($config['host'], $config['port']);
                     }
 
                     // Set options
-                    $memcached -> setOption(\Memcached::OPT_LIBKETAMA_COMPATIBLE, true);
-                    $memcached -> setOption(\Memcached::OPT_BINARY_PROTOCOL, true);
-                    $memcached -> setOption(\Memcached::OPT_CONNECT_TIMEOUT, ( $config['connection_timeout'] ?? 5 ) * 1000);
-                    $memcached -> setOption(\Memcached::OPT_POLL_TIMEOUT, 1000);
+                    $memcached->setOption(\Memcached::OPT_LIBKETAMA_COMPATIBLE, true);
+                    $memcached->setOption(\Memcached::OPT_BINARY_PROTOCOL, true);
+                    $memcached->setOption(\Memcached::OPT_CONNECT_TIMEOUT, ($config['connection_timeout'] ?? 5) * 1000);
+                    $memcached->setOption(\Memcached::OPT_POLL_TIMEOUT, 1000);
+                    CacheConnectionPool::applyMemcachedAuth($memcached, $config);
 
                     // Test connection
-                    $stats = $memcached -> getStats();
+                    $stats = $memcached->getStats();
                     if (empty($stats)) {
-                        throw new Exception("Memcached connection test failed");
+                        throw new \RuntimeException("Memcached connection test failed");
                     }
 
                     // return successful connection
                     return $memcached;
 
-                // whoopsie... setup error and retry
+                    // whoopsie... setup error and retry
                 } catch (\Exception $e) {
-                    self::$_last_error = $e -> getMessage();
+                    self::$_last_error = $e->getMessage();
 
                     // add delay between retries
                     if ($attempts < $max_attempts) {
-                        usleep(( $config['retry_delay'] ?? 100 ) * 1000);
+                        usleep(($config['retry_delay'] ?? 100) * 1000);
                     }
                     $attempts++;
                 }
@@ -178,6 +180,38 @@ if (! trait_exists('CacheMemcached')) {
 
             // failed after all attempts
             return null;
+        }
+
+
+        /**
+         * Get the versioned key prefix for Memcached
+         *
+         * Memcached can't list keys, so clearing bumps a namespace version
+         * that is built into every key, orphaning the old entries.
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @param \Memcached $connection The connection to read the version through
+         * @return string Returns the prefix including the namespace version
+         */
+        private static function getMemcachedPrefix(\Memcached $connection): string
+        {
+
+            // get our base prefix and namespace key
+            $config = CacheConfig::get('memcached');
+            $prefix = $config['prefix'] ?? CacheConfig::getGlobalPrefix();
+            $ns_key = $prefix . '__ns';
+
+            // get the current version, creating it if it isn't there
+            $version = $connection->get($ns_key);
+            if ($version === false) {
+                $connection->add($ns_key, 1, 0);
+                $version = $connection->get($ns_key) ?: 1;
+            }
+
+            // return the versioned prefix
+            return $prefix . 'v' . (int) $version . ':';
         }
 
         /**
@@ -202,10 +236,10 @@ if (! trait_exists('CacheMemcached')) {
             // try to test connection with stats
             try {
                 // get server stats to test connection
-                $stats = self::$_memcached -> getStats();
+                $stats = self::$_memcached->getStats();
                 return ! empty($stats);
 
-            // whoopsie... connection failed
+                // whoopsie... connection failed
             } catch (\Exception $e) {
                 return false;
             }
@@ -246,28 +280,28 @@ if (! trait_exists('CacheMemcached')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('memcached');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
+                $prefixed_key = self::getMemcachedPrefix($connection) . $_key;
 
                 // get the result from memcached
-                $result = $connection -> get($prefixed_key);
+                $result = $connection->get($prefixed_key);
 
                 // check if the operation was successful
-                if ($connection -> getResultCode() === \Memcached::RES_SUCCESS) {
+                if ($connection->getResultCode() === \Memcached::RES_SUCCESS) {
                     return $result;
                 }
 
                 // operation failed
                 return false;
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 if (! $use_pool) {
                     self::$_memcached = null; // Reset direct connection on error
                 }
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -312,20 +346,20 @@ if (! trait_exists('CacheMemcached')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('memcached');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
+                $prefixed_key = self::getMemcachedPrefix($connection) . $_key;
 
                 // set the item with expiration
-                return $connection -> set($prefixed_key, $_data, time() + $_length);
+                return $connection->set($prefixed_key, $_data, time() + $_length);
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 if (! $use_pool) {
                     self::$_memcached = null;
                 }
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -368,26 +402,26 @@ if (! trait_exists('CacheMemcached')) {
 
                 // delete the item
                 $config = CacheConfig::get('memcached');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
-                $result = $connection -> delete($prefixed_key);
+                $prefixed_key = self::getMemcachedPrefix($connection) . $_key;
+                $result = $connection->delete($prefixed_key);
 
                 // Consider it successful if key was deleted OR if key didn't exist
-                if ($result || $connection -> getResultCode() === \Memcached::RES_NOTFOUND) {
+                if ($result || $connection->getResultCode() === \Memcached::RES_NOTFOUND) {
                     return true;
                 }
 
                 // return false
                 return false;
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 if (! $use_pool) {
                     self::$_memcached = null;
                 }
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -425,12 +459,12 @@ if (! trait_exists('CacheMemcached')) {
 
                 // check if we got a connection
                 if (! $connection) {
-                    return [ ];
+                    return [];
                 }
 
                 // setup config and prefix
                 $config = CacheConfig::get('memcached');
-                $prefix = $config['prefix'] ?? CacheConfig::getGlobalPrefix();
+                $prefix = self::getMemcachedPrefix($connection);
 
                 // Prefix all keys
                 $prefixed_keys = array_map(function ($key) use ($prefix) {
@@ -438,12 +472,12 @@ if (! trait_exists('CacheMemcached')) {
                 }, $keys);
 
                 // get multiple items at once
-                $results = $connection -> getMulti($prefixed_keys);
+                $results = $connection->getMulti($prefixed_keys);
 
                 // Remove prefix from results
                 if ($prefix && $results) {
                     // setup unprefixed results array
-                    $unprefixed_results = [ ];
+                    $unprefixed_results = [];
                     foreach ($results as $prefixed_key => $value) {
                         $original_key = substr($prefixed_key, strlen($prefix));
                         $unprefixed_results[$original_key] = $value;
@@ -452,14 +486,14 @@ if (! trait_exists('CacheMemcached')) {
                 }
 
                 // return results or empty array
-                return $results ?: [ ];
+                return $results ?: [];
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
-                return [ ];
+                self::$_last_error = $e->getMessage();
+                return [];
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -503,23 +537,23 @@ if (! trait_exists('CacheMemcached')) {
 
                 // setup config and prefix
                 $config = CacheConfig::get('memcached');
-                $prefix = $config['prefix'] ?? CacheConfig::getGlobalPrefix();
+                $prefix = self::getMemcachedPrefix($connection);
 
                 // Prefix all keys
-                $prefixed_items = [ ];
+                $prefixed_items = [];
                 foreach ($items as $key => $value) {
                     $prefixed_items[$prefix . $key] = $value;
                 }
 
                 // set multiple items at once
-                return $connection -> setMulti($prefixed_items, time() + $ttl);
+                return $connection->setMulti($prefixed_items, time() + $ttl);
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -557,12 +591,12 @@ if (! trait_exists('CacheMemcached')) {
 
                 // check if we got a connection
                 if (! $connection) {
-                    return [ ];
+                    return [];
                 }
 
                 // setup config and prefix
                 $config = CacheConfig::get('memcached');
-                $prefix = $config['prefix'] ?? CacheConfig::getGlobalPrefix();
+                $prefix = self::getMemcachedPrefix($connection);
 
                 // Prefix all keys
                 $prefixed_keys = array_map(function ($key) use ($prefix) {
@@ -570,17 +604,17 @@ if (! trait_exists('CacheMemcached')) {
                 }, $keys);
 
                 // delete multiple items at once
-                $results = $connection -> deleteMulti($prefixed_keys);
+                $results = $connection->deleteMulti($prefixed_keys);
 
                 // Process results - deleteMulti returns array of result codes
-                $failed_keys = [ ];
+                $failed_keys = [];
                 if (is_array($results)) {
                     // check each result
                     foreach ($results as $prefixed_key => $result) {
                         // add failed keys to array
                         if ($result !== true) {
                             $original_key = substr($prefixed_key, strlen($prefix));
-                            $failed_keys[ ] = $original_key;
+                            $failed_keys[] = $original_key;
                         }
                     }
                 }
@@ -593,18 +627,18 @@ if (! trait_exists('CacheMemcached')) {
                     'failed_keys' => $failed_keys
                 ];
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 return [
                     'total' => count($keys),
                     'successful' => 0,
                     'failed' => count($keys),
                     'failed_keys' => $keys,
-                    'error' => $e -> getMessage()
+                    'error' => $e->getMessage()
                 ];
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -650,17 +684,17 @@ if (! trait_exists('CacheMemcached')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('memcached');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
+                $prefixed_key = self::getMemcachedPrefix($connection) . $_key;
 
                 // increment the value atomically
-                return $connection -> increment($prefixed_key, $offset, $initial_value, $expiry);
+                return $connection->increment($prefixed_key, $offset, $initial_value, $expiry);
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -706,17 +740,17 @@ if (! trait_exists('CacheMemcached')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('memcached');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
+                $prefixed_key = self::getMemcachedPrefix($connection) . $_key;
 
                 // decrement the value atomically
-                return $connection -> decrement($prefixed_key, $offset, $initial_value, $expiry);
+                return $connection->decrement($prefixed_key, $offset, $initial_value, $expiry);
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -761,17 +795,17 @@ if (! trait_exists('CacheMemcached')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('memcached');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
+                $prefixed_key = self::getMemcachedPrefix($connection) . $_key;
 
                 // add the item only if it doesn't exist
-                return $connection -> add($prefixed_key, $_data, time() + $_length);
+                return $connection->add($prefixed_key, $_data, time() + $_length);
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -816,17 +850,17 @@ if (! trait_exists('CacheMemcached')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('memcached');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
+                $prefixed_key = self::getMemcachedPrefix($connection) . $_key;
 
                 // replace the item only if it exists
-                return $connection -> replace($prefixed_key, $_data, time() + $_length);
+                return $connection->replace($prefixed_key, $_data, time() + $_length);
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -870,17 +904,17 @@ if (! trait_exists('CacheMemcached')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('memcached');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
+                $prefixed_key = self::getMemcachedPrefix($connection) . $_key;
 
                 // append the data to existing item
-                return $connection -> append($prefixed_key, $_data);
+                return $connection->append($prefixed_key, $_data);
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -924,17 +958,17 @@ if (! trait_exists('CacheMemcached')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('memcached');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
+                $prefixed_key = self::getMemcachedPrefix($connection) . $_key;
 
                 // prepend the data to existing item
-                return $connection -> prepend($prefixed_key, $_data);
+                return $connection->prepend($prefixed_key, $_data);
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -978,17 +1012,17 @@ if (! trait_exists('CacheMemcached')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('memcached');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
+                $prefixed_key = self::getMemcachedPrefix($connection) . $_key;
 
                 // touch the item to update expiration
-                return $connection -> touch($prefixed_key, time() + $_length);
+                return $connection->touch($prefixed_key, time() + $_length);
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -1025,23 +1059,23 @@ if (! trait_exists('CacheMemcached')) {
 
                 // check if we got a connection
                 if (! $connection) {
-                    return [ 'error' => 'No connection' ];
+                    return ['error' => 'No connection'];
                 }
 
                 // get server statistics
-                $stats = $connection -> getStats();
+                $stats = $connection->getStats();
 
                 // Add connection pool stats if using pooled connections
                 if ($use_pool) {
                     $pool_stats = CacheConnectionPool::getPoolStats();
-                    $stats['pool_stats'] = $pool_stats['memcached'] ?? [ ];
+                    $stats['pool_stats'] = $pool_stats['memcached'] ?? [];
                 }
 
                 // Add server list
-                $stats['servers'] = $connection -> getServerList();
+                $stats['servers'] = $connection->getServerList();
 
                 // Add version information
-                $versions = $connection -> getVersion();
+                $versions = $connection->getVersion();
                 if ($versions) {
                     $stats['versions'] = $versions;
                 }
@@ -1049,11 +1083,11 @@ if (! trait_exists('CacheMemcached')) {
                 // return the statistics
                 return $stats;
 
-            // whoopsie... return error
+                // whoopsie... return error
             } catch (\Exception $e) {
-                return [ 'error' => $e -> getMessage() ];
+                return ['error' => $e->getMessage()];
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -1062,15 +1096,15 @@ if (! trait_exists('CacheMemcached')) {
         }
 
         /**
-         * Clear Memcached cache (flush all)
+         * Clear this application's keys from Memcached
          *
-         * Flushes all items from the Memcached server,
-         * effectively clearing the entire cache.
+         * Bumps the namespace version so every existing key becomes
+         * unreachable, leaving other applications' data alone.
          *
          * @since 8.4
          * @author Kevin Pirnie <me@kpirnie.com>
          *
-         * @return bool Returns true if successful, false otherwise
+         * @return bool Returns true if cleared successfully
          */
         public static function clearMemcached(): bool
         {
@@ -1093,15 +1127,22 @@ if (! trait_exists('CacheMemcached')) {
                     return false;
                 }
 
-                // flush all items from memcached
-                return $connection -> flush();
+                // bump the namespace version
+                $config = CacheConfig::get('memcached');
+                $ns_key = ($config['prefix'] ?? CacheConfig::getGlobalPrefix()) . '__ns';
+                if ($connection->increment($ns_key) === false) {
+                    return $connection->set($ns_key, 2, 0);
+                }
 
-            // whoopsie... handle errors
-            } catch (\Exception $e) {
-                self::$_last_error = $e -> getMessage();
+                // cleared
+                return true;
+
+                // whoopsie... handle errors
+            } catch (\Throwable $e) {
+                self::$_last_error = $e->getMessage();
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);
@@ -1130,7 +1171,7 @@ if (! trait_exists('CacheMemcached')) {
             }
 
             // return the result code
-            return $connection -> getResultCode();
+            return $connection->getResultCode();
         }
 
         /**
@@ -1154,7 +1195,7 @@ if (! trait_exists('CacheMemcached')) {
             }
 
             // return the result message
-            return $connection -> getResultMessage();
+            return $connection->getResultMessage();
         }
 
         /**
@@ -1192,19 +1233,19 @@ if (! trait_exists('CacheMemcached')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('memcached');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
+                $prefixed_key = self::getMemcachedPrefix($connection) . $_key;
 
                 // Try to get the key
-                $connection -> get($prefixed_key);
+                $connection->get($prefixed_key);
 
                 // Check if the result code indicates success
-                return $connection -> getResultCode() === \Memcached::RES_SUCCESS;
+                return $connection->getResultCode() === \Memcached::RES_SUCCESS;
 
-            // whoopsie... return false
+                // whoopsie... return false
             } catch (\Exception $e) {
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('memcached', $connection);

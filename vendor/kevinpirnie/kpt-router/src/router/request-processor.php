@@ -12,7 +12,7 @@
 namespace KPT;
 
 // make sure the trait doesn't exist first
-if (! trait_exists('RouterRequestProcessor')) {
+if (! trait_exists('\KPT\RouterRequestProcessor')) {
 
     /**
      * KPT Router Request Processor Trait
@@ -78,14 +78,14 @@ if (! trait_exists('RouterRequestProcessor')) {
                 self::$currentMethod = $this->getRequestMethod();
                 self::$currentPath = $this->getRequestUri();
 
-                // execute middlewares first
-                if ($this->executeMiddlewares($this->middlewares) === false) {
-                    return;
-                }
-
-                // apply rate limiting if enabled
+                // apply rate limiting first if enabled
                 if ($this->rateLimitingEnabled) {
                     $this->applyRateLimiting();
+                }
+
+                // execute middlewares
+                if ($this->executeMiddlewares($this->middlewares) === false) {
+                    return;
                 }
 
                 // find matching route handler
@@ -129,8 +129,13 @@ if (! trait_exists('RouterRequestProcessor')) {
         {
 
             // parse and sanitize the URI
-            $uri = parse_url((self::getUserUri()), PHP_URL_PATH);
-            return self::sanitizePath($uri);
+            $uri = $_SERVER['REQUEST_URI'] ?? '/';
+
+            // absolute-form request targets carry the scheme and host, so pull just the path
+            if (! str_starts_with($uri, '/')) {
+                $uri = parse_url($uri, PHP_URL_PATH);
+            }
+            return Router::sanitizePath(is_string($uri) ? $uri : '/');
         }
 
         /**
@@ -151,9 +156,9 @@ if (! trait_exists('RouterRequestProcessor')) {
             $method = $_SERVER['REQUEST_METHOD'];
 
             // validate method and return
-            return in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD', 'TRACE', 'CONNECT'])
+            return in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'])
                 ? $method
-                : 'GET';
+                : '';
         }
 
         /**
@@ -208,17 +213,10 @@ if (! trait_exists('RouterRequestProcessor')) {
                 ];
             }
 
-            // try pattern matching for dynamic routes
-            foreach ($this->routes[$method] ?? [] as $routePath => $callback) {
-                // convert route to regex pattern
-                $pattern = $this->convertRouteToPattern($routePath);
-
-                // log pattern testing
-                Logger::debug("Testing route pattern", [
-                    'pattern' => $pattern,
-                    'route_path' => $routePath,
-                    'testing_against' => $uri
-                ]);
+            // try the precompiled patterns for dynamic routes
+            foreach ($this->compiledRoutes[$method] ?? [] as $routePath => $pattern) {
+                // hold the route's callback
+                $callback = $this->routes[$method][$routePath];
 
                 // test pattern against URI (with and without trailing slash)
                 if (
@@ -276,8 +274,19 @@ if (! trait_exists('RouterRequestProcessor')) {
         private function convertRouteToPattern(string $routePath): string
         {
 
-            // convert parameter placeholders to named capture groups
-            return '#^' . preg_replace('/\{([a-z][a-z0-9_]*)\}/i', '(?P<$1>[^/]+)', $routePath) . '$#i';
+            // split out the parameter placeholders, keeping them
+            $parts = preg_split('/(\{[a-z][a-z0-9_]*\})/i', $routePath, -1, PREG_SPLIT_DELIM_CAPTURE);
+
+            // quote the literal parts and turn the placeholders into named capture groups
+            $pattern = '';
+            foreach ($parts as $part) {
+                $pattern .= preg_match('/^\{([a-z][a-z0-9_]*)\}$/i', $part, $m)
+                    ? '(?P<' . $m[1] . '>[^/]+)'
+                    : preg_quote($part, '#');
+            }
+
+            // return the case-sensitive pattern
+            return '#^' . $pattern . '$#';
         }
 
         /**
@@ -358,12 +367,13 @@ if (! trait_exists('RouterRequestProcessor')) {
             Logger::error('Router error', ['error' => $e->getMessage()]);
 
             // determine appropriate HTTP status code
-            $code = $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 500;
+            $code = $e->getCode();
+            $code = is_int($code) && $code >= 400 && $code < 600 ? $code : 500;
             http_response_code($code);
 
             // send error message based on display_errors setting
-            if (ini_get('display_errors')) {
-                echo "Error {$code}: " . $e->getMessage();
+            if (filter_var(ini_get('display_errors'), FILTER_VALIDATE_BOOLEAN)) {
+                echo "Error {$code}: " . htmlspecialchars($e->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
             } else {
                 echo "An error occurred. Please try again later.";
             }

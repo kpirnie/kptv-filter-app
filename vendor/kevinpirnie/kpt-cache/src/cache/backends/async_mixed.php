@@ -12,7 +12,7 @@
 namespace KPT;
 
 // make sure the trait doesn't already exist
-if (! trait_exists('CacheMixedAsync')) {
+if (! trait_exists('\KPT\CacheMixedAsync', false)) {
 
     /**
      * KPT Cache Mixed Async Trait
@@ -47,7 +47,7 @@ if (! trait_exists('CacheMixedAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // setup promises array
-                    $promises = [ ];
+                    $promises = [];
 
                     // loop through each operation
                     foreach ($operations as $op) {
@@ -62,42 +62,40 @@ if (! trait_exists('CacheMixedAsync')) {
                             [self::TIER_MEMCACHED, 'set'] => self::setToMemcachedAsync($key, $op['data'], $op['ttl'] ?? 3600),
                             [self::TIER_FILE, 'get'] => self::getFromFileAsync($key),
                             [self::TIER_FILE, 'set'] => self::setToFileAsync($key, $op['data'], $op['ttl'] ?? 3600),
-                            [self::TIER_MMAP, 'get'] => self::getFromMmapAsync($key),
-                            [self::TIER_MMAP, 'set'] => self::setToMmapAsync($key, $op['data'], $op['ttl'] ?? 3600),
                             [self::TIER_OPCACHE, 'get'] => self::getFromOPcacheAsync($key),
                             [self::TIER_OPCACHE, 'set'] => self::setToOPcacheAsync($key, $op['data'], $op['ttl'] ?? 3600),
-                            default => CachePromise::reject(new Exception("Unsupported async operation: {$tier}:{$method}"))
+                            default => CachePromise::reject(new \RuntimeException("Unsupported async operation: {$tier}:{$method}"))
                         };
 
                         // add to promises array
-                        $promises[ ] = $promise;
+                        $promises[] = $promise;
                     }
 
                     // wait for all promises to complete
                     CachePromise::all($promises)
-                        -> then(function ($results) use ($resolve) {
+                        ->then(function ($results) use ($resolve) {
                             $resolve($results);
                         })
-                        -> catch(function ($error) use ($reject) {
+                        ->catch(function ($error) use ($reject) {
                             $reject($error);
                         });
 
-                // fallback to synchronous operations
+                    // fallback to synchronous operations
                 } else {
                     // try to process operations synchronously
                     try {
                         // setup results array
-                        $results = [ ];
+                        $results = [];
 
                         // loop through each operation
                         foreach ($operations as $op) {
-                            $results[ ] = self::executeNonAsyncOperation($op);
+                            $results[] = self::executeNonAsyncOperation($op);
                         }
 
                         // resolve with results
                         $resolve($results);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }
@@ -131,8 +129,6 @@ if (! trait_exists('CacheMixedAsync')) {
                 [self::TIER_MEMCACHED, 'set'] => self::setToMemcached($key, $op['data'], $op['ttl'] ?? 3600),
                 [self::TIER_FILE, 'get'] => self::getFromFile($key),
                 [self::TIER_FILE, 'set'] => self::setToFile($key, $op['data'], $op['ttl'] ?? 3600),
-                [self::TIER_MMAP, 'get'] => self::getFromMmap($key),
-                [self::TIER_MMAP, 'set'] => self::setToMmap($key, $op['data'], $op['ttl'] ?? 3600),
                 [self::TIER_OPCACHE, 'get'] => self::getFromOPcache($key),
                 [self::TIER_OPCACHE, 'set'] => self::setToOPcache($key, $op['data'], $op['ttl'] ?? 3600),
                 default => false
@@ -160,7 +156,7 @@ if (! trait_exists('CacheMixedAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // setup promises array
-                    $promises = [ ];
+                    $promises = [];
 
                     // loop through each warm data item
                     foreach ($warm_data as $item) {
@@ -176,26 +172,25 @@ if (! trait_exists('CacheMixedAsync')) {
                             $promise = match ($tier) {
                                 self::TIER_MEMCACHED => self::setToMemcachedAsync($key, $data, $ttl),
                                 self::TIER_FILE => self::setToFileAsync($key, $data, $ttl),
-                                self::TIER_MMAP => self::setToMmapAsync($key, $data, $ttl),
                                 self::TIER_OPCACHE => self::setToOPcacheAsync($key, $data, $ttl),
                                 default => CachePromise::resolve(false)
                             };
 
                             // add to promises array
-                            $promises[ ] = $promise;
+                            $promises[] = $promise;
                         }
                     }
 
                     // wait for all promises to complete
                     CachePromise::all($promises)
-                        -> then(function ($results) use ($resolve) {
+                        ->then(function ($results) use ($resolve) {
                             $resolve(['warmed' => count($results), 'results' => $results]);
                         })
-                        -> catch(function ($error) use ($reject) {
+                        ->catch(function ($error) use ($reject) {
                             $reject($error);
                         });
 
-                // fallback to synchronous warming
+                    // fallback to synchronous warming
                 } else {
                     // try to warm cache synchronously
                     try {
@@ -223,7 +218,7 @@ if (! trait_exists('CacheMixedAsync')) {
                         // resolve with warmed count
                         $resolve(['warmed' => $warmed]);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }

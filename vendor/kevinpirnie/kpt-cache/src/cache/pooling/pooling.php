@@ -17,7 +17,7 @@
 namespace KPT;
 
 // make sure the class doesn't exist
-if (! class_exists('CacheConnectionPool')) {
+if (! class_exists('\KPT\CacheConnectionPool', false)) {
 
     /**
      * KPT Cache Connection Pool Manager
@@ -54,39 +54,6 @@ if (! class_exists('CacheConnectionPool')) {
         ];
 
         /**
-         * Enable/disable connection pooling
-         *
-         * Toggles connection pooling on or off, automatically closing all
-         * connections when disabled and initializing pools when enabled.
-         *
-         * @since 8.4
-         * @author Kevin Pirnie <me@kpirnie.com>
-         *
-         * @param bool $enabled Whether to enable connection pooling, default false
-         * @return void Returns nothing
-         */
-        public static function setConnectionPooling(bool $enabled = false): void
-        {
-
-            // set the connection pooling status
-            self::$_connection_pooling_enabled = $enabled;
-
-            // if not enabled
-            if (! $enabled) {
-                // close all connection pools
-                CacheConnectionPool::closeAll();
-
-            // otherwise if we're initialized
-            } elseif (self::$_initialized) {
-                // initialize the connection pools
-                self::initializeConnectionPools();
-            }
-
-            // debug logging
-            Logger::debug('Cache Connection Pool Initialized');
-        }
-
-        /**
          * Configure pool settings for a specific backend
          *
          * Updates the pool configuration for a backend, merging new settings
@@ -107,6 +74,69 @@ if (! class_exists('CacheConnectionPool')) {
                 self::$pool_configs[$backend] ?? [],
                 $config
             );
+        }
+
+        /**
+         * Connect, authenticate, and select the database for a Redis client
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @param \Redis $redis The client to connect
+         * @param array $config The redis backend configuration
+         * @param float $timeout The connect timeout in seconds
+         * @return bool Returns true if connected and authenticated
+         */
+        public static function connectRedis(\Redis $redis, array $config, float $timeout = 2.0): bool
+        {
+
+            // setup host, port and optional tls context
+            $host = $config['host'] ?? '127.0.0.1';
+            $port = (int) ($config['port'] ?? 6379);
+            $context = null;
+            if (! empty($config['tls'])) {
+                $host = 'tls://' . preg_replace('#^\w+://#', '', $host);
+                $context = ['stream' => is_array($config['tls']) ? $config['tls'] : []];
+            }
+
+            // connect
+            $connected = $context === null
+                ? $redis->pconnect($host, $port, $timeout)
+                : $redis->pconnect($host, $port, $timeout, null, 0, 0, $context);
+            if (! $connected) {
+                return false;
+            }
+
+            // authenticate before anything else
+            if (! empty($config['password'])) {
+                $credentials = ! empty($config['username']) ? [$config['username'], $config['password']] : $config['password'];
+                if (! $redis->auth($credentials)) {
+                    return false;
+                }
+            }
+
+            // select the database
+            return $redis->select((int) ($config['database'] ?? 0));
+        }
+
+        /**
+         * Apply SASL credentials to a Memcached client
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @param \Memcached $memcached The client to configure
+         * @param array $config The memcached backend configuration
+         * @return void Returns nothing
+         */
+        public static function applyMemcachedAuth(\Memcached $memcached, array $config): void
+        {
+
+            // sasl needs both credentials and the binary protocol
+            if (! empty($config['username']) && ! empty($config['password'])) {
+                $memcached->setOption(\Memcached::OPT_BINARY_PROTOCOL, true);
+                $memcached->setSaslAuthData($config['username'], $config['password']);
+            }
         }
 
         /**
@@ -135,10 +165,15 @@ if (! class_exists('CacheConnectionPool')) {
 
             // Try to get an active connection first
             foreach ($pool['active'] as $id => $conn_data) {
-                // if the connection is healthy
-                if (self::isConnectionHealthy($backend, $conn_data['connection'])) {
+                // if the connection is recent or still healthy
+                if (
+                    ! self::needsHealthCheck($conn_data) || self::isConnectionHealthy(
+                        $backend,
+                        $conn_data['connection']
+                    )
+                ) {
                     // update the last used time
-                    $conn_data['last_used'] = time();
+                    $pool['active'][$id]['last_used'] = time();
 
                     // debug logging
                     Logger::debug('Cache Connection Pool', [$conn_data['connection']]);
@@ -146,7 +181,7 @@ if (! class_exists('CacheConnectionPool')) {
                     // return the connection
                     return $conn_data['connection'];
 
-                // otherwise
+                    // otherwise
                 } else {
                     // debug logging
                     Logger::debug('Removed Dead Cache Connection Pool', [$conn_data['connection']]);
@@ -162,8 +197,13 @@ if (! class_exists('CacheConnectionPool')) {
                 // get a connection from the idle pool
                 $conn_data = array_pop($pool['idle']);
 
-                // if the connection is healthy
-                if (self::isConnectionHealthy($backend, $conn_data['connection'])) {
+                // if the connection is recent or still healthy
+                if (
+                    ! self::needsHealthCheck($conn_data) || self::isConnectionHealthy(
+                        $backend,
+                        $conn_data['connection']
+                    )
+                ) {
                     // generate a unique id
                     $id = uniqid();
 
@@ -180,7 +220,7 @@ if (! class_exists('CacheConnectionPool')) {
                     // return the connection
                     return $conn_data['connection'];
 
-                // otherwise
+                    // otherwise
                 } else {
                     // debug logging
                     Logger::debug('Removed Dead Cache Connection Pool', [$conn_data['connection']]);
@@ -220,6 +260,22 @@ if (! class_exists('CacheConnectionPool')) {
         }
 
         /**
+         * Check if a pooled connection has sat idle long enough to need a health check
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @param array $conn_data The pooled connection data
+         * @return bool Returns true if the connection should be checked
+         */
+        private static function needsHealthCheck(array $conn_data): bool
+        {
+
+            // only check connections that have been idle for a while
+            return (time() - ($conn_data['last_used'] ?? 0)) > 30;
+        }
+
+        /**
          * Return connection to pool
          *
          * Returns a connection to the idle pool or closes it if the idle pool
@@ -251,14 +307,14 @@ if (! class_exists('CacheConnectionPool')) {
                     unset($pool['active'][$id]);
 
                     // Only return to idle pool if under max idle connections
-                    if (count($pool['idle']) < floor($pool['config']['max_connections'] / 2)) {
+                    if (count($pool['idle']) < max(1, floor($pool['config']['max_connections'] / 2))) {
                         // add to idle pool
                         $pool['idle'][] = $conn_data;
 
                         // debug logging
                         Logger::debug('Cache Return Connection to Pool', [$pool]);
 
-                    // otherwise
+                        // otherwise
                     } else {
                         // debug logging
                         Logger::debug('Cache Connection Closed', [$pool]);
@@ -297,7 +353,7 @@ if (! class_exists('CacheConnectionPool')) {
                 $pool['idle'] = array_filter($pool['idle'], function ($conn_data) use ($now, $timeout, $backend) {
 
                     // if the connection has timed out
-                    if (( $now - $conn_data['created'] ) > $timeout) {
+                    if (($now - $conn_data['last_used']) > $timeout) {
                         // close the connection
                         self::closeConnection($backend, $conn_data['connection']);
 
@@ -411,25 +467,6 @@ if (! class_exists('CacheConnectionPool')) {
                 'config' => self::$pool_configs[$backend] ?? [],
                 'stats' => ['total_created' => 0, 'total_reused' => 0]
             ];
-
-            // Pre-create minimum connections
-            $min_connections = self::$pools[$backend]['config']['min_connections'] ?? 1;
-
-            // create the minimum connections
-            for ($i = 0; $i < $min_connections; $i++) {
-                // try to create a connection
-                $connection = self::createConnection($backend);
-
-                // if we got a connection
-                if ($connection) {
-                    // add to idle pool
-                    self::$pools[$backend]['idle'][] = [
-                        'connection' => $connection,
-                        'created' => time(),
-                        'last_used' => time()
-                    ];
-                }
-            }
         }
 
         /**
@@ -459,25 +496,9 @@ if (! class_exists('CacheConnectionPool')) {
                         // create a new redis connection
                         $redis = new \Redis();
 
-                        // try to connect
-                        $connected = $redis -> pconnect(
-                            $config['host'],
-                            $config['port'],
-                            $config['connect_timeout']
-                        );
-
-                        // if not connected, return null
-                        if (! $connected) {
+                        // try to connect, authenticate and select the database
+                        if (! self::connectRedis($redis, $config, (float) ($config['connect_timeout'] ?? 2))) {
                             return null;
-                        }
-
-                        // select the database
-                        $redis -> select($config['database']);
-
-                        // if we have a prefix
-                        if (! empty($config['prefix'])) {
-                            // set the prefix option
-                            $redis -> setOption(\Redis::OPT_PREFIX, $config['prefix']);
                         }
 
                         // increment stats
@@ -486,23 +507,24 @@ if (! class_exists('CacheConnectionPool')) {
                         // return the redis connection
                         return $redis;
 
-                    // memcached
+                        // memcached
                     case 'memcached':
                         // create a new memcached connection
                         $memcached = new \Memcached($config['persistent'] ? 'kpt_pool' : null);
 
                         // Only add servers if not using persistent connections or if no servers exist
-                        if (! $config['persistent'] || count($memcached -> getServerList()) === 0) {
+                        if (! $config['persistent'] || count($memcached->getServerList()) === 0) {
                             // add the server
-                            $memcached -> addServer($config['host'], $config['port']);
+                            $memcached->addServer($config['host'], $config['port']);
                         }
 
                         // set options
-                        $memcached -> setOption(\Memcached::OPT_LIBKETAMA_COMPATIBLE, true);
-                        $memcached -> setOption(\Memcached::OPT_BINARY_PROTOCOL, true);
+                        $memcached->setOption(\Memcached::OPT_LIBKETAMA_COMPATIBLE, true);
+                        $memcached->setOption(\Memcached::OPT_BINARY_PROTOCOL, true);
+                        self::applyMemcachedAuth($memcached, $config);
 
                         // Test connection
-                        $stats = $memcached -> getStats();
+                        $stats = $memcached->getStats();
 
                         // if no stats, return null
                         if (empty($stats)) {
@@ -516,7 +538,7 @@ if (! class_exists('CacheConnectionPool')) {
                         return $memcached;
                 }
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
                 // return null on error
                 return null;
@@ -554,12 +576,12 @@ if (! class_exists('CacheConnectionPool')) {
                         }
 
                         // ping the redis server
-                        $result = $connection -> ping();
+                        $result = $connection->ping();
 
                         // return if ping was successful
                         return $result === true || $result === '+PONG';
 
-                    // memcached
+                        // memcached
                     case 'memcached':
                         // if it's not a memcached instance, return false
                         if (! $connection instanceof \Memcached) {
@@ -567,13 +589,13 @@ if (! class_exists('CacheConnectionPool')) {
                         }
 
                         // get stats from memcached
-                        $stats = $connection -> getStats();
+                        $stats = $connection->getStats();
 
                         // return if we got stats
                         return ! empty($stats);
                 }
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
                 // return false on error
                 return false;
@@ -608,21 +630,22 @@ if (! class_exists('CacheConnectionPool')) {
                         // if it's a redis instance
                         if ($connection instanceof \Redis) {
                             // close the connection
-                            $connection -> close();
+                            $connection->close();
                         }
                         break;
 
                     // memcached
                     case 'memcached':
                         // if it's a memcached instance
-                        if ($connection instanceof \Memcached) {
+                        // persistent instances share one connection, quitting would kill it for all
+                        if ($connection instanceof \Memcached && ! $connection->isPersistent()) {
                             // quit the connection
-                            $connection -> quit();
+                            $connection->quit();
                         }
                         break;
                 }
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
                 // Ignore close errors silently
             }

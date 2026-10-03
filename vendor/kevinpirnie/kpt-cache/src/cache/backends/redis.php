@@ -13,7 +13,7 @@
 namespace KPT;
 
 // make sure the trait doesn't already exist
-if (! trait_exists('CacheRedis')) {
+if (! trait_exists('\KPT\CacheRedis', false)) {
 
     /**
      * KPT Cache Redis Trait
@@ -28,7 +28,33 @@ if (! trait_exists('CacheRedis')) {
     trait CacheRedis
     {
         // Keep direct connection for non-pooled usage
-        private static ?Redis $_redis = null;
+        private static ?\Redis $_redis = null;
+
+        /**
+         * Check a command name against the pipeline/transaction allowlist
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @param mixed $method The requested command name
+         * @return string Returns the normalized command name
+         * @throws \InvalidArgumentException When the command isn't allowed
+         */
+        private static function allowedRedisCommand(mixed $method): string
+        {
+
+            // only plain data commands, nothing that touches the server or other keys
+            $allowed = ['get', 'set', 'setex', 'del', 'unlink', 'incr', 'incrby', 'decr', 'decrby', 'expire', 'ttl', 'mget', 'exists'];
+
+            // normalize and check
+            $method = is_string($method) ? strtolower($method) : '';
+            if (! in_array($method, $allowed, true)) {
+                throw new \InvalidArgumentException("Redis command not allowed: {$method}");
+            }
+
+            // return the allowed command
+            return $method;
+        }
 
         /**
          * Test Redis connection
@@ -51,28 +77,28 @@ if (! trait_exists('CacheRedis')) {
 
                 // create new redis instance
                 $redis = new \Redis();
-                $connected = $redis -> pconnect(
-                    $config['host'],
-                    $config['port'],
-                    $config['connect_timeout'] ?? 2
-                );
 
-                // check if connection failed
-                if (! $connected) {
+                // connect, authenticate and select the database
+                if (
+                    ! CacheConnectionPool::connectRedis(
+                        $redis,
+                        $config,
+                        (float) ($config['connect_timeout'] ?? 2)
+                    )
+                ) {
                     return false;
                 }
 
-                // select the database and test ping
-                $redis -> select($config['database'] ?? 0);
-                $result = $redis -> ping();
-                $redis -> close();
+                // test ping
+                $result = $redis->ping();
+                $redis->close();
 
                 // return ping result
                 return $result === true || $result === '+PONG';
 
-            // whoopsie... setup the error and return false
+                // whoopsie... setup the error and return false
             } catch (\Exception $e) {
-                self::$_last_error = "Redis test failed: " . $e -> getMessage();
+                self::$_last_error = "Redis test failed: " . $e->getMessage();
                 return false;
             }
         }
@@ -88,7 +114,7 @@ if (! trait_exists('CacheRedis')) {
          *
          * @return Redis|null Returns Redis connection or null on failure
          */
-        private static function getRedis(): ?Redis
+        private static function getRedis(): ?\Redis
         {
 
             // Try connection pool first
@@ -120,7 +146,7 @@ if (! trait_exists('CacheRedis')) {
          *
          * @return Redis|null Returns Redis connection or null on failure
          */
-        private static function createDirectRedisConnection(): ?Redis
+        private static function createDirectRedisConnection(): ?\Redis
         {
 
             // get configuration and setup retry logic
@@ -135,28 +161,19 @@ if (! trait_exists('CacheRedis')) {
                     // create redis instance
                     $redis = new \Redis();
 
-                    // attempt persistent connection
-                    $connected = $redis -> pconnect(
-                        $config['host'],
-                        $config['port'],
-                        $config['connect_timeout'] ?? 2
-                    );
-
-                    // check if connection failed
-                    if (! $connected) {
+                    // connect, authenticate and select the database
+                    if (
+                        ! CacheConnectionPool::connectRedis(
+                            $redis,
+                            $config,
+                            (float) ($config['connect_timeout'] ?? 2)
+                        )
+                    ) {
                         throw new \RedisException("Connection failed");
                     }
 
-                    // select the database
-                    $redis -> select($config['database'] ?? 0);
-
-                    // set prefix if configured
-                    if (! empty($config['prefix'])) {
-                        $redis -> setOption(\Redis::OPT_PREFIX, $config['prefix'] ?? CacheConfig::getGlobalPrefix());
-                    }
-
                     // test connection with ping
-                    $ping_result = $redis -> ping();
+                    $ping_result = $redis->ping();
                     if ($ping_result !== true && $ping_result !== '+PONG') {
                         throw new \RedisException("Ping test failed");
                     }
@@ -164,13 +181,13 @@ if (! trait_exists('CacheRedis')) {
                     // return successful connection
                     return $redis;
 
-                // whoopsie... setup error and retry
+                    // whoopsie... setup error and retry
                 } catch (\RedisException $e) {
-                    self::$_last_error = $e -> getMessage();
+                    self::$_last_error = $e->getMessage();
 
                     // add delay between retries
                     if ($attempts < $max_attempts) {
-                        usleep(( $config['retry_delay'] ?? 100 ) * 1000);
+                        usleep(($config['retry_delay'] ?? 100) * 1000);
                     }
                     $attempts++;
                 }
@@ -202,10 +219,10 @@ if (! trait_exists('CacheRedis')) {
             // try to test connection with ping
             try {
                 // ping the server
-                $result = self::$_redis -> ping();
+                $result = self::$_redis->ping();
                 return $result === true || $result === '+PONG';
 
-            // whoopsie... connection failed
+                // whoopsie... connection failed
             } catch (\RedisException $e) {
                 return false;
             }
@@ -246,21 +263,21 @@ if (! trait_exists('CacheRedis')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('redis');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
-                $value = $connection -> get($prefixed_key);
+                $prefixed_key = ($config['prefix'] ?? CacheConfig::getGlobalPrefix()) . $_key;
+                $value = $connection->get($prefixed_key);
 
                 // unserialize and return the value
-                return $value !== false ? unserialize($value) : false;
+                return $value !== false ? unserialize($value, ['allowed_classes' => CacheConfig::getAllowedClasses()]) : false;
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\RedisException $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 if (! $use_pool) {
                     self::$_redis = null; // Reset direct connection on error
                 }
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('redis', $connection);
@@ -305,20 +322,20 @@ if (! trait_exists('CacheRedis')) {
 
                 // setup config and prefixed key
                 $config = CacheConfig::get('redis');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
+                $prefixed_key = ($config['prefix'] ?? CacheConfig::getGlobalPrefix()) . $_key;
 
                 // set the item with expiration
-                return $connection -> setex($prefixed_key, $_length, serialize($_data));
+                return $connection->setex($prefixed_key, $_length, serialize($_data));
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\RedisException $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 if (! $use_pool) {
                     self::$_redis = null;
                 }
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('redis', $connection);
@@ -361,22 +378,22 @@ if (! trait_exists('CacheRedis')) {
 
                 // delete the item
                 $config = CacheConfig::get('redis');
-                $prefixed_key = ( $config['prefix'] ?? CacheConfig::getGlobalPrefix() ) . $_key;
-                $deleted_count = $connection -> del($prefixed_key);
+                $prefixed_key = ($config['prefix'] ?? CacheConfig::getGlobalPrefix()) . $_key;
+                $deleted_count = $connection->del($prefixed_key);
 
                 // Consider it successful if key was deleted OR if key didn't exist
                 // Both scenarios mean the key is no longer in Redis, which is the desired outcome
                 return $deleted_count >= 0;
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\RedisException $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 if (! $use_pool) {
                     self::$_redis = null;
                 }
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('redis', $connection);
@@ -414,28 +431,28 @@ if (! trait_exists('CacheRedis')) {
 
                 // check if we got a connection
                 if (! $connection) {
-                    return [ ];
+                    return [];
                 }
 
                 // start the multi transaction
-                $multi = $connection -> multi();
+                $multi = $connection->multi();
 
                 // add each command to the transaction
                 foreach ($commands as $command) {
-                    $method = $command['method'];
-                    $args = $command['args'] ?? [ ];
-                    $multi -> $method(...$args);
+                    $method = self::allowedRedisCommand($command['method'] ?? null);
+                    $args = $command['args'] ?? [];
+                    $multi->$method(...$args);
                 }
 
                 // execute the transaction
-                return $multi -> exec() ?: [ ];
+                return $multi->exec() ?: [];
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\RedisException $e) {
-                self::$_last_error = $e -> getMessage();
-                return [ ];
+                self::$_last_error = $e->getMessage();
+                return [];
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('redis', $connection);
@@ -473,28 +490,28 @@ if (! trait_exists('CacheRedis')) {
 
                 // check if we got a connection
                 if (! $connection) {
-                    return [ ];
+                    return [];
                 }
 
                 // create the pipeline
-                $pipeline = $connection -> pipeline();
+                $pipeline = $connection->pipeline();
 
                 // add each command to the pipeline
                 foreach ($commands as $command) {
-                    $method = $command['method'];
-                    $args = $command['args'] ?? [ ];
-                    $pipeline -> $method(...$args);
+                    $method = self::allowedRedisCommand($command['method'] ?? null);
+                    $args = $command['args'] ?? [];
+                    $pipeline->$method(...$args);
                 }
 
                 // execute the pipeline
-                return $pipeline -> exec() ?: [ ];
+                return $pipeline->exec() ?: [];
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\RedisException $e) {
-                self::$_last_error = $e -> getMessage();
-                return [ ];
+                self::$_last_error = $e->getMessage();
+                return [];
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('redis', $connection);
@@ -532,7 +549,7 @@ if (! trait_exists('CacheRedis')) {
 
                 // check if we got a connection
                 if (! $connection) {
-                    return [ ];
+                    return [];
                 }
 
                 // setup config and prefix
@@ -545,29 +562,29 @@ if (! trait_exists('CacheRedis')) {
                 }, $keys);
 
                 // get all values at once
-                $values = $connection -> mget($prefixed_keys);
+                $values = $connection->mget($prefixed_keys);
 
                 // check if we got values
                 if (! $values) {
-                    return [ ];
+                    return [];
                 }
 
                 // Unserialize values and combine with original keys
-                $results = [ ];
+                $results = [];
                 foreach ($keys as $i => $key) {
                     $value = $values[$i] ?? false;
-                    $results[$key] = $value !== false ? unserialize($value) : false;
+                    $results[$key] = $value !== false ? unserialize($value, ['allowed_classes' => CacheConfig::getAllowedClasses()]) : false;
                 }
 
                 // return the results
                 return $results;
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\RedisException $e) {
-                self::$_last_error = $e -> getMessage();
-                return [ ];
+                self::$_last_error = $e->getMessage();
+                return [];
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('redis', $connection);
@@ -614,26 +631,26 @@ if (! trait_exists('CacheRedis')) {
                 $prefix = $config['prefix'] ?? CacheConfig::getGlobalPrefix();
 
                 // Use pipeline for batch operations
-                $pipeline = $connection -> pipeline();
+                $pipeline = $connection->pipeline();
 
                 // add each item to the pipeline
                 foreach ($items as $key => $value) {
                     $prefixed_key = $prefix . $key;
-                    $pipeline -> setex($prefixed_key, $ttl, serialize($value));
+                    $pipeline->setex($prefixed_key, $ttl, serialize($value));
                 }
 
                 // execute the pipeline
-                $results = $pipeline -> exec();
+                $results = $pipeline->exec();
 
                 // Check if all operations succeeded
-                return ! in_array(false, $results ?: [ ]);
+                return ! in_array(false, $results ?: []);
 
-            // whoopsie... handle errors
+                // whoopsie... handle errors
             } catch (\RedisException $e) {
-                self::$_last_error = $e -> getMessage();
+                self::$_last_error = $e->getMessage();
                 return false;
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('redis', $connection);
@@ -670,26 +687,26 @@ if (! trait_exists('CacheRedis')) {
 
                 // check if we got a connection
                 if (! $connection) {
-                    return [ 'error' => 'No connection' ];
+                    return ['error' => 'No connection'];
                 }
 
                 // get server info
-                $info = $connection -> info();
+                $info = $connection->info();
 
                 // Add connection pool stats if using pooled connections
                 if ($use_pool) {
                     $pool_stats = CacheConnectionPool::getPoolStats();
-                    $info['pool_stats'] = $pool_stats['redis'] ?? [ ];
+                    $info['pool_stats'] = $pool_stats['redis'] ?? [];
                 }
 
                 // return the info
                 return $info;
 
-            // whoopsie... return error
+                // whoopsie... return error
             } catch (\RedisException $e) {
-                return [ 'error' => $e -> getMessage() ];
+                return ['error' => $e->getMessage()];
 
-            // always return connection to pool if using pooling
+                // always return connection to pool if using pooling
             } finally {
                 if ($use_pool && $connection) {
                     CacheConnectionPool::returnConnection('redis', $connection);
@@ -698,14 +715,15 @@ if (! trait_exists('CacheRedis')) {
         }
 
         /**
-         * Clear all items from redis cache
+         * Clear this application's keys from Redis
          *
-         * Empties the entire redis cache.
+         * Scans for keys under our prefix and unlinks them in batches,
+         * leaving every other application's data in the database alone.
          *
          * @since 8.4
          * @author Kevin Pirnie <me@kpirnie.com>
          *
-         * @return bool Returns true on success, false on failure
+         * @return bool Returns true if cleared successfully
          */
         public static function clearRedis(): bool
         {
@@ -717,42 +735,83 @@ if (! trait_exists('CacheRedis')) {
 
                 // if we have a connection
                 if ($connection) {
-                    // try to flush the db
+                    // try to clear our keys
                     try {
-                        return $connection -> flushDB();
+                        return self::clearRedisKeys($connection);
 
-                    // finally... return the connection
+                        // whoopsie...
+                    } catch (\Throwable $e) {
+                        Logger::error("Redis clear error", ['error' => $e->getMessage()]);
+                        return false;
+
+                        // finally... return the connection
                     } finally {
                         CacheConnectionPool::returnConnection('redis', $connection);
                     }
                 }
 
-            // otherwise
-            } else {
-                // try to flush the redis db directly
-                try {
-                    // create a redis connection
-                    $redis = new \Redis();
-                    $config = CacheConfig::get('redis');
-
-                    // connect to redis
-                    $redis -> pconnect($config['host'], $config['port']);
-
-                    // select the database
-                    $redis -> select($config['database']);
-
-                    // return flushing the db
-                    return $redis -> flushDB();
-
-                // whoopsie...
-                } catch (\Exception $e) {
-                    // log the error and return false
-                    Logger::error("Redis clear error: " . $e -> getMessage(), 'redis_operation');
-                    return false;
-                }
+                // no connection
+                return false;
             }
 
-            // default return
+            // otherwise try to clear directly
+            try {
+                // get the direct connection
+                $redis = self::getRedis();
+                if (! $redis) {
+                    return false;
+                }
+
+                // clear our keys
+                return self::clearRedisKeys($redis);
+
+                // whoopsie...
+            } catch (\Throwable $e) {
+                // log the error and return false
+                Logger::error("Redis clear error", ['error' => $e->getMessage()]);
+                return false;
+            }
+        }
+
+        /**
+         * Scan and unlink every key under our prefix
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @param \Redis $redis The connection to clear through
+         * @return bool Returns true if cleared successfully
+         */
+        private static function clearRedisKeys(\Redis $redis): bool
+        {
+
+            // get our prefix
+            $config = CacheConfig::get('redis');
+            $prefix = $config['prefix'] ?? CacheConfig::getGlobalPrefix();
+
+            // never clear without a prefix, it would match everyone's keys
+            if ($prefix === '') {
+                self::$_last_error = "Redis clear refused: empty prefix";
+                Logger::error("Redis clear refused, prefix is empty");
+                return false;
+            }
+
+            // the connection prefix is applied on write but not to scan patterns
+            $opt_prefix = (string) $redis->getOption(\Redis::OPT_PREFIX);
+            $pattern = addcslashes($opt_prefix . $prefix, '*?[]\\') . '*';
+
+            // scan in batches and unlink what we find
+            $iterator = null;
+            do {
+                $keys = $redis->scan($iterator, $pattern, 1000);
+                if (! empty($keys)) {
+                    // strip the connection prefix since unlink adds it back
+                    $keys = array_map(fn($k) => substr($k, strlen($opt_prefix)), $keys);
+                    $redis->unlink($keys);
+                }
+            } while ($iterator > 0);
+
+            // done
             return true;
         }
 
@@ -770,51 +829,8 @@ if (! trait_exists('CacheRedis')) {
             // setup the count
             $count = 0;
 
-            $connection = null;
-            $use_pool = self::$_connection_pooling_enabled ?? true;
-
-            try {
-                if ($use_pool) {
-                    $connection = CacheConnectionPool::getConnection('redis');
-                } else {
-                    $connection = self::getRedis();
-                }
-
-                if (!$connection) {
-                    return $count;
-                }
-
-                $config = CacheConfig::get('redis');
-                $prefix = $config['prefix'] ?? CacheConfig::getGlobalPrefix();
-
-                // Scan for keys with our prefix
-                $iterator = null;
-                $pattern = $prefix . '*';
-
-                while ($keys = $connection->scan($iterator, $pattern, 100)) {
-                    foreach ($keys as $key) {
-                        // Check TTL
-                        $ttl = $connection->ttl($key);
-
-                        // If TTL is 0 or about to expire (less than 1 second)
-                        if ($ttl !== false && $ttl >= 0 && $ttl < 1) {
-                            if ($connection->del($key) > 0) {
-                                $count++;
-                            }
-                        }
-                    }
-
-                    if ($iterator === 0) {
-                        break;
-                    }
-                }
-            } catch (\RedisException $e) {
-                // Silent fail
-            } finally {
-                if ($use_pool && $connection) {
-                    CacheConnectionPool::returnConnection('redis', $connection);
-                }
-            }
+            // Redis expires keys itself
+            // Just return 0 as Redis manages this internally
 
             // return the count
             return $count;

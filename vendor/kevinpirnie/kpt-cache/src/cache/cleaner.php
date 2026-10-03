@@ -32,7 +32,7 @@ if (php_sapi_name() !== 'cli') {
 }
 
 // Check if the class doesn't exist before defining it
-if (!class_exists('KPT\CacheCleaner')) {
+if (! class_exists('\KPT\CacheCleaner', false)) {
 
     /**
      * Cache Cleaner - Comprehensive Cache Management Utility
@@ -57,6 +57,11 @@ if (!class_exists('KPT\CacheCleaner')) {
          */
         public static function cli(array $args = []): int
         {
+            // cli only
+            if (php_sapi_name() !== 'cli') {
+                return 1;
+            }
+
             // get our autoloader and try to include it
             $autoloadPath = CacheCleaner::getComposerAutoloadPath();
             if ($autoloadPath && file_exists($autoloadPath)) {
@@ -381,13 +386,8 @@ if (!class_exists('KPT\CacheCleaner')) {
 
                 // loop the path until we find the vendor autoload
                 while ($dir !== '/' && $maxDepth-- > 0) {
-                    // Check for custom main.php first, then standard autoload.php
-                    $customAutoloadPath = $dir . '/vendor/main.php';
+                    // standard autoload.php only
                     $standardAutoloadPath = $dir . '/vendor/autoload.php';
-
-                    if (file_exists($customAutoloadPath)) {
-                        return $customAutoloadPath;
-                    }
 
                     if (file_exists($standardAutoloadPath)) {
                         return $standardAutoloadPath;
@@ -404,13 +404,8 @@ if (!class_exists('KPT\CacheCleaner')) {
             $reflection = new \ReflectionClass(ClassLoader::class);
             $vendorDir = dirname($reflection->getFileName(), 2);
 
-            // Check for custom main.php first, then standard autoload.php
-            $customAutoloadPath = $vendorDir . '/main.php';
+            // standard autoload.php only
             $standardAutoloadPath = $vendorDir . '/autoload.php';
-
-            if (file_exists($customAutoloadPath)) {
-                return $customAutoloadPath;
-            }
 
             if (file_exists($standardAutoloadPath)) {
                 return $standardAutoloadPath;

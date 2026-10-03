@@ -15,7 +15,7 @@
 namespace KPT;
 
 // make sure the class doesn't exist
-if (! class_exists('CacheTierManager')) {
+if (! class_exists('\KPT\CacheTierManager', false)) {
 
     /**
      * KPT Cache Tier Manager
@@ -58,8 +58,12 @@ if (! class_exists('CacheTierManager')) {
 
         /** @var array Valid tier names for validation - ordered by priority (highest to lowest) */
         private static array $_valid_tiers = [
-            self::TIER_ARRAY, self::TIER_OPCACHE, self::TIER_SHMOP, self::TIER_APCU,
-            self::TIER_YAC, self::TIER_REDIS,
+            self::TIER_ARRAY,
+            self::TIER_OPCACHE,
+            self::TIER_SHMOP,
+            self::TIER_APCU,
+            self::TIER_YAC,
+            self::TIER_REDIS,
             self::TIER_MEMCACHED,
             self::TIER_SQLITE,
             self::TIER_FILE
@@ -491,7 +495,6 @@ if (! class_exists('CacheTierManager')) {
          */
         public static function getLastError(): ?string
         {
-            Logger::error("Cache Tier Error", [ 'error' => self::$_last_error ]);
             return self::$_last_error;
         }
 
@@ -579,14 +582,14 @@ if (! class_exists('CacheTierManager')) {
                     self::TIER_SHMOP => function_exists('shmop_open'),
                     self::TIER_APCU => function_exists('apcu_enabled') && apcu_enabled(),
                     self::TIER_YAC => extension_loaded('yac'),
-                    self::TIER_REDIS => class_exists('Redis'),
-                    self::TIER_MEMCACHED => class_exists('Memcached'),
+                    self::TIER_REDIS => class_exists('Redis') && self::testTierAvailability(self::TIER_REDIS),
+                    self::TIER_MEMCACHED => class_exists('Memcached') && self::testTierAvailability(self::TIER_MEMCACHED),
                     self::TIER_SQLITE => class_exists('PDO') && in_array('sqlite', \PDO::getAvailableDrivers()),
                     self::TIER_FILE => true,
                     default => false
                 };
 
-            // whoopsie... just return false
+                // whoopsie... just return false
             } catch (\Exception $e) {
                 return false;
             }
@@ -624,7 +627,7 @@ if (! class_exists('CacheTierManager')) {
                 // return it it's actually enabled
                 return $status['opcache_enabled'] === true;
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
                 // set the error and return false
                 self::$_last_error = "OPcache test failed: " . $e->getMessage();
@@ -658,7 +661,7 @@ if (! class_exists('CacheTierManager')) {
                 $test_size = 1024;
 
                 // Attempt to open shared memory segment
-                $segment = @shmop_open($test_key, 'c', 0644, $test_size);
+                $segment = @shmop_open($test_key, 'c', 0600, $test_size);
                 if ($segment === false) {
                     return false;
                 }
@@ -683,7 +686,7 @@ if (! class_exists('CacheTierManager')) {
                 // Verify data matches
                 return $read_data === $test_data;
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
                 // set the error and return false
                 self::$_last_error = "SHMOP test failed: " . $e->getMessage();
@@ -730,10 +733,10 @@ if (! class_exists('CacheTierManager')) {
                 // Verify retrieved data matches
                 return $retrieved === $test_value;
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
                 // set the error and return false
-                self::$_last_error = "APCu test failed: " . $e -> getMessage();
+                self::$_last_error = "APCu test failed: " . $e->getMessage();
                 return false;
             }
         }
@@ -777,10 +780,10 @@ if (! class_exists('CacheTierManager')) {
                 // Verify retrieved data matches
                 return $retrieved === $test_value;
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
                 // set the error and return false
-                self::$_last_error = "YAC test failed: " . $e -> getMessage();
+                self::$_last_error = "YAC test failed: " . $e->getMessage();
                 return false;
             }
         }
@@ -810,22 +813,15 @@ if (! class_exists('CacheTierManager')) {
                 $redis = new \Redis();
                 $config = CacheConfig::get('redis');
 
-                // Test connection with timeout
-                $connected = $redis -> pconnect(
-                    $config['host'] ?? '127.0.0.1',
-                    $config['port'] ?? 6379,
-                    2 // 2 second timeout
-                );
-
-                // Verify connection succeeded
-                if (! $connected) {
+                // connect, authenticate and select the database
+                if (! CacheConnectionPool::connectRedis($redis, $config, 2.0)) {
                     return false;
                 }
 
                 // Test ping command
-                $ping_result = $redis -> ping();
+                $ping_result = $redis->ping();
                 if ($ping_result !== true && $ping_result !== '+PONG') {
-                    $redis -> close();
+                    $redis->close();
                     return false;
                 }
 
@@ -836,7 +832,7 @@ if (! class_exists('CacheTierManager')) {
                 // Test set with expiration
                 $set_result = $redis->setex($test_key, 60, $test_value);
                 if (! $set_result) {
-                    $redis -> close();
+                    $redis->close();
                     return false;
                 }
 
@@ -844,16 +840,16 @@ if (! class_exists('CacheTierManager')) {
                 $get_result = $redis->get($test_key);
 
                 // Cleanup
-                $redis -> del($test_key);
-                $redis -> close();
+                $redis->del($test_key);
+                $redis->close();
 
                 // Verify retrieved data matches
                 return $get_result === $test_value;
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
                 // set the error and return false
-                self::$_last_error = "Redis test failed: " . $e -> getMessage();
+                self::$_last_error = "Redis test failed: " . $e->getMessage();
                 return false;
             }
         }
@@ -883,14 +879,14 @@ if (! class_exists('CacheTierManager')) {
                 $memcached = new \Memcached();
                 $config = CacheConfig::get('memcached');
 
-                // Add server
                 $memcached->addServer(
                     $config['host'] ?? '127.0.0.1',
                     $config['port'] ?? 11211
                 );
+                CacheConnectionPool::applyMemcachedAuth($memcached, $config);
 
                 // Test connection by getting stats
-                $stats = $memcached -> getStats();
+                $stats = $memcached->getStats();
                 if (empty($stats)) {
                     return false;
                 }
@@ -900,25 +896,25 @@ if (! class_exists('CacheTierManager')) {
                 $test_value = 'test_value_' . time();
 
                 // Test set operation
-                $set_result = $memcached -> set($test_key, $test_value, time() + 60);
+                $set_result = $memcached->set($test_key, $test_value, time() + 60);
                 if (! $set_result) {
                     return false;
                 }
 
                 // Test get operation
-                $get_result = $memcached -> get($test_key);
+                $get_result = $memcached->get($test_key);
 
                 // Cleanup
-                $memcached -> delete($test_key);
-                $memcached ->quit();
+                $memcached->delete($test_key);
+                $memcached->quit();
 
                 // Verify retrieved data matches
                 return $get_result === $test_value;
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
                 // set the error and return false
-                self::$_last_error = "Memcached test failed: " . $e -> getMessage();
+                self::$_last_error = "Memcached test failed: " . $e->getMessage();
                 return false;
             }
         }
@@ -944,7 +940,7 @@ if (! class_exists('CacheTierManager')) {
 
                 // Ensure directory exists and is writable
                 if (! is_dir($cache_path)) {
-                    if (! @mkdir($cache_path, 0755, true)) {
+                    if (! @mkdir($cache_path, 0700, true)) {
                         return false;
                     }
                 }
@@ -972,10 +968,10 @@ if (! class_exists('CacheTierManager')) {
                 // Verify retrieved data matches
                 return $read_data === $test_data;
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
                 // set the error and return false
-                self::$_last_error = "File cache test failed: " . $e -> getMessage();
+                self::$_last_error = "File cache test failed: " . $e->getMessage();
                 return false;
             }
         }
@@ -1026,5 +1022,4 @@ if (! class_exists('CacheTierManager')) {
             self::$_tier_test_cache = [];
         }
     }
-
 }

@@ -15,7 +15,7 @@
 namespace KPT;
 
 // make sure the class doesn't exist
-if (! class_exists('CacheKeyManager')) {
+if (! class_exists('\KPT\CacheKeyManager', false)) {
 
     /**
      * KPT Cache Key Manager
@@ -97,7 +97,7 @@ if (! class_exists('CacheKeyManager')) {
             self::$_last_error = null;
 
             // Check cache first
-            $cache_key = md5($raw_key . $tier . ( $namespace ?? '' ) . ( self::$_global_namespace ?? '' ));
+            $cache_key = $tier . "\0" . ($namespace ?? '') . "\0" . (self::$_global_namespace ?? '') . "\0" . $raw_key;
             if (isset(self::$_key_cache[$cache_key])) {
                 return self::$_key_cache[$cache_key];
             }
@@ -223,13 +223,11 @@ if (! class_exists('CacheKeyManager')) {
             // Create deterministic key using consistent hashing
             $full_key = $prefix . $raw_key;
 
-            // Use CRC32 for consistent numeric generation
-            $hash = crc32($full_key);
+            // use the full 31-bit hash space so keys rarely share a segment
+            $shmop_key = hexdec(substr(hash('xxh3', $full_key), 0, 8)) & 0x7FFFFFFF;
 
-            // Ensure it's positive and within reasonable range
-            $shmop_key = $base_key + abs($hash % 100000);
-
-            return $shmop_key;
+            // ipc key 0 is IPC_PRIVATE, never use it
+            return $shmop_key === 0 ? ($base_key & 0x7FFFFFFF) : $shmop_key;
         }
 
         /**
@@ -357,39 +355,14 @@ if (! class_exists('CacheKeyManager')) {
                 return $key; // Tier allows all characters
             }
 
-            // Replace forbidden characters with safe alternatives
-            $replacements = [
-                '/' => '_slash_',
-                '\\' => '_bslash_',
-                ':' => '_colon_',
-                '*' => '_star_',
-                '?' => '_question_',
-                '"' => '_quote_',
-                '<' => '_lt_',
-                '>' => '_gt_',
-                '|' => '_pipe_',
-                ' ' => '_space_',
-                "\t" => '_tab_',
-                "\r" => '_cr_',
-                "\n" => '_nl_',
-                "\0" => '_null_'
-            ];
-
-            // start with the original key
-            $sanitized = $key;
-
-            // replace forbidden characters
+            // percent-encode the escape char and every forbidden char so no two keys can collide
+            $replacements = ['%' => '%25'];
             foreach ($forbidden_chars as $char) {
-                if (isset($replacements[$char])) {
-                    $sanitized = str_replace($char, $replacements[$char], $sanitized);
-                } else {
-                    // Remove character if no replacement defined
-                    $sanitized = str_replace($char, '', $sanitized);
-                }
+                $replacements[$char] = sprintf('%%%02X', ord($char));
             }
 
             // return the sanitized key
-            return $sanitized;
+            return strtr($key, $replacements);
         }
 
         /**
@@ -414,12 +387,6 @@ if (! class_exists('CacheKeyManager')) {
             // if key is within limits, return as-is
             if (strlen($key) <= $max_length) {
                 return $key;
-            }
-
-            // if auto-hashing is disabled, truncate
-            if (! self::$_auto_hash_long_keys) {
-                // Truncate if auto-hashing is disabled
-                return substr($key, 0, $max_length);
             }
 
             // Use hashing to shorten while preserving uniqueness
@@ -660,7 +627,6 @@ if (! class_exists('CacheKeyManager')) {
          */
         public static function getLastError(): ?string
         {
-            Logger::error("Cache Key Error", [ 'error' => self::$_last_error ]);
             return self::$_last_error;
         }
 

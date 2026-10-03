@@ -1,10 +1,18 @@
 # KPT Router
 
+[![Build Main](https://img.shields.io/github/actions/workflow/status/kpirnie/kp-router/ci.yml?branch=main&label=Main&logoColor=white&logo=github&labelColor=000&style=for-the-badge)](https://github.com/kpirnie/kp-router/actions?query=workflow%3A%22CI%22+branch%3Amain)
+[![GitHub Issues](https://img.shields.io/github/issues/kpirnie/kp-router?style=for-the-badge&logo=github&color=006400&logoColor=white&labelColor=000)](https://github.com/kpirnie/kp-router/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/kpirnie/kp-router?style=for-the-badge&labelColor=000&logoColor=white&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iNC41IiB3aWR0aD0iMTgiIGhlaWdodD0iMTYuNSIgcng9IjIiLz48bGluZSB4MT0iMyIgeTE9IjkuNSIgeDI9IjIxIiB5Mj0iOS41Ii8+PGxpbmUgeDE9IjgiIHkxPSIyLjUiIHgyPSI4IiB5Mj0iNi41Ii8+PGxpbmUgeDE9IjE2IiB5MT0iMi41IiB4Mj0iMTYiIHkyPSI2LjUiLz48L3N2Zz4=)](https://github.com/kpirnie/kp-router/commits/main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg?style=for-the-badge&logo=opensourceinitiative&logoColor=white&labelColor=000)](LICENSE)
+[![PHP](https://img.shields.io/badge/Min.-php8.4-777BB4?logo=php&logoColor=white&style=for-the-badge&labelColor=000)](https://php.net)
+[![Packagist](https://img.shields.io/packagist/v/kevinpirnie/kpt-router?style=for-the-badge&logo=packagist&logoColor=white&color=F28D1A&labelColor=000&label=Packagist)](https://packagist.org/packages/kevinpirnie/kpt-router)
+[![Kevin Pirnie](https://img.shields.io/badge/-KevinPirnie.com-000d2d?style=for-the-badge&labelColor=000&logoColor=white&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz4KICA8ZWxsaXBzZSBjeD0iMTIiIGN5PSIxMiIgcng9IjQuNSIgcnk9IjEwIi8+CiAgPGxpbmUgeDE9IjIiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz4KICA8bGluZSB4MT0iNC41IiB5MT0iNi41IiB4Mj0iMTkuNSIgeTI9IjYuNSIvPgogIDxsaW5lIHgxPSI0LjUiIHkxPSIxNy41IiB4Mj0iMTkuNSIgeTI9IjE3LjUiLz4KPC9zdmc+Cg==)](https://kevinpirnie.com/)
+
 A comprehensive PHP routing library with middleware support, rate limiting, view rendering, and controller resolution capabilities.
 
 ## Features
 
-- **HTTP Method Support**: Full support for GET, POST, PUT, PATCH, DELETE, HEAD, TRACE, and CONNECT methods
+- **HTTP Method Support**: Full support for GET, POST, PUT, PATCH, DELETE, HEAD, and OPTIONS methods
 - **Middleware Pipeline**: Global and route-specific middleware with execution control
 - **Rate Limiting**: Built-in rate limiting with Redis and file-based storage backends
 - **View Rendering**: Template rendering system with data sharing and caching
@@ -16,7 +24,7 @@ A comprehensive PHP routing library with middleware support, rate limiting, view
 
 ## Requirements
 
-- PHP 8.0 or higher
+- PHP 8.4 or higher
 - Redis extension (optional, for Redis-based rate limiting)
 
 ## Installation
@@ -24,7 +32,7 @@ A comprehensive PHP routing library with middleware support, rate limiting, view
 Install via Composer:
 
 ```bash
-composer require kpirnie/kpt-router
+composer require kevinpirnie/kpt-router
 ```
 
 ## Web Server Configuration
@@ -285,7 +293,9 @@ $router->registerRoutes([
 $router->enableRateLimiter([
     'host' => '127.0.0.1',
     'port' => 6379,
-    'password' => 'your_redis_password' // optional
+    'password' => 'your_redis_password', // optional
+    'database' => 1, // optional, default 1
+    'prefix' => 'myapp' // optional, default 'kpt_router'
 ]);
 
 // File-based fallback is automatic if Redis unavailable
@@ -297,6 +307,18 @@ Rate limiting is applied globally with default settings:
 - **Limit**: 100 requests
 - **Window**: 60 seconds
 - **Storage**: Auto-detect (Redis preferred, file fallback)
+
+Rate limiting runs before global middleware, so rejected requests never reach your auth, database, or session setup.
+
+#### Behind a Proxy or Load Balancer
+
+By default the client IP is `REMOTE_ADDR`. If the app sits behind a reverse proxy, load balancer, or Docker network, set the trusted proxies so `X-Forwarded-For` is honored. Otherwise every client shares the proxy's IP and its rate limit bucket.
+
+```php
+Router::setTrustedProxies(['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '::1']);
+```
+
+`X-Forwarded-For` is only read when the request comes from a trusted proxy. It is walked right to left, and the first untrusted address is used as the client IP.
 
 ### View Rendering
 
@@ -395,6 +417,45 @@ $router->registerRoutes([
 ]);
 ```
 
+#### Cache Rules
+
+- Only `GET` and `HEAD` requests are cached
+- The cache key varies by the query string
+- Requests carrying a session cookie are not cached unless the route has a `cache_vary` callback
+- A `POST` to the route purges its cached entry
+
+#### Varying the Cache
+
+Use `cache_vary` to cache per user, role, or anything else. Its return value is added to the cache key, and it lets requests with a session cookie be cached.
+
+```php
+$router->registerRoutes([
+    [
+        'method' => 'GET',
+        'path' => '/dashboard',
+        'handler' => 'view:dashboard.php',
+        'should_cache' => true,
+        'cache_vary' => fn() => $_SESSION['user_id'] ?? 0
+    ]
+]);
+```
+
+#### Purging the Cache
+
+The `?cachedel` query string purges a route's cache only when the route's `cache_delete` callback returns `true`. Without it, `?cachedel` is ignored.
+
+```php
+$router->registerRoutes([
+    [
+        'method' => 'GET',
+        'path' => '/heavy-page',
+        'handler' => 'view:heavy-page.php',
+        'should_cache' => true,
+        'cache_delete' => fn() => ($_SESSION['role'] ?? '') === 'admin'
+    ]
+]);
+```
+
 ### Error Handling
 
 #### Custom 404 Handler
@@ -416,11 +477,13 @@ $router->get('/users/{id}/posts/{slug}', function($id, $slug) {
 });
 ```
 
+Route matching is case-sensitive: `/Users/5` does not match `/users/{id}`.
+
 ### Getting Current Route Information
 
 ```php
 $router->get('/current-route', function() {
-    $route = Router::get_current_route();
+    $route = Router::getCurrentRoute();
     return json_encode([
         'method' => $route->method,
         'path' => $route->path,
@@ -436,6 +499,7 @@ $router->get('/current-route', function() {
 
 ```php
 $userIp = Router::getUserIp();
+// Honors X-Forwarded-For only from proxies set with Router::setTrustedProxies()
 ```
 
 ### Get Current URI
@@ -455,12 +519,7 @@ $cleanPath = Router::sanitizePath('/path//with///slashes/');
 
 ### Environment Setup
 
-The router expects certain constants to be defined:
-
-```php
-// Optional: Define KPT_URI for Redis prefixing
-define('KPT_URI', 'myapp');
-```
+No constants are required. The Redis rate limit key prefix and database are set with the `prefix` and `database` keys passed to `enableRateLimiter()`.
 
 ## Example Application
 
@@ -533,4 +592,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Author
 
-**Kevin Pirnie** - [me@kpirnie.com](mailto:me@kpirnie.com)
+**Kevin Pirnie** - [iam@kevinpirnie.com](mailto:iam@kevinpirnie.com)

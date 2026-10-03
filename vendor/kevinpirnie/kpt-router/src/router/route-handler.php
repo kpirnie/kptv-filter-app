@@ -12,7 +12,7 @@
 namespace KPT;
 
 // make sure it doesn't already exist
-if (! trait_exists('RouterRouteHandler')) {
+if (! trait_exists('\KPT\RouterRouteHandler')) {
 
     /**
      * KPT Router Route Handler Trait
@@ -28,6 +28,9 @@ if (! trait_exists('RouterRouteHandler')) {
     {
         // registered routes by HTTP method
         private array $routes = [];
+
+        // precompiled regex patterns for dynamic routes by HTTP method
+        private array $compiledRoutes = [];
 
         // middleware definitions registry
         private array $middlewareDefinitions = [];
@@ -109,9 +112,11 @@ if (! trait_exists('RouterRouteHandler')) {
             // make sure the cache flag is passed through
             $data['should_cache'] = $should_cache;
             $data['cache_length'] = $cache_length;
+            $data['cache_delete'] = $route['cache_delete'] ?? null;
+            $data['cache_vary'] = $route['cache_vary'] ?? null;
 
             // validate HTTP method
-            if (! in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'TRACE', 'CONNECT'])) {
+            if (! in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])) {
                 Logger::error('Invalid HTTP Method', [$method]);
                 throw new \InvalidArgumentException("Invalid HTTP method: {$method}");
             }
@@ -154,15 +159,20 @@ if (! trait_exists('RouterRouteHandler')) {
         {
 
             // sanitize the path
-            $path = self::sanitizePath($path);
+            $path = Router::sanitizePath($path);
 
             // build full path with base path
-            $fullPath = $this->basePath === '/' ? $path : self::sanitizePath($this->basePath . $path);
+            $fullPath = $this->basePath === '/' ? $path : Router::sanitizePath($this->basePath . $path);
             $fullPath = preg_replace('#/+#', '/', $fullPath);
 
             // register the route if not already exists
             if (! isset($this->routes[$method][$fullPath])) {
                 $this->routes[$method][$fullPath] = $callback;
+
+                // precompile the pattern for dynamic routes
+                if (str_contains($fullPath, '{')) {
+                    $this->compiledRoutes[$method][$fullPath] = $this->convertRouteToPattern($fullPath);
+                }
             }
         }
 
@@ -227,8 +237,7 @@ if (! trait_exists('RouterRouteHandler')) {
                 'PATCH' => array_keys($this->routes['PATCH'] ?? []),
                 'DELETE' => array_keys($this->routes['DELETE'] ?? []),
                 'HEAD' => array_keys($this->routes['HEAD'] ?? []),
-                'TRACE' => array_keys($this->routes['TRACE'] ?? []),
-                'CONNECT' => array_keys($this->routes['CONNECT'] ?? []),
+                'OPTIONS' => array_keys($this->routes['OPTIONS'] ?? []),
             ];
         }
 
@@ -359,9 +368,9 @@ if (! trait_exists('RouterRouteHandler')) {
         }
 
         /**
-         * Register a TRACE route
+         * Register an OPTIONS route
          *
-         * Registers a route that responds to HTTP TRACE requests
+         * Registers a route that responds to HTTP OPTIONS requests
          * with the specified path and handler.
          *
          * @since 8.4
@@ -371,32 +380,11 @@ if (! trait_exists('RouterRouteHandler')) {
          * @param callable $callback Route handler
          * @return self Returns the router instance for method chaining
          */
-        public function trace(string $path, callable $callback): self
+        public function options(string $path, callable $callback): self
         {
 
-            // register TRACE route
-            $this->addRoute('TRACE', $path, $callback);
-            return $this;
-        }
-
-        /**
-         * Register a CONNECT route
-         *
-         * Registers a route that responds to HTTP CONNECT requests
-         * with the specified path and handler.
-         *
-         * @since 8.4
-         * @author Kevin Pirnie <me@kpirnie.com>
-         *
-         * @param string $path Route path
-         * @param callable $callback Route handler
-         * @return self Returns the router instance for method chaining
-         */
-        public function connect(string $path, callable $callback): self
-        {
-
-            // register CONNECT route
-            $this->addRoute('CONNECT', $path, $callback);
+            // register OPTIONS route
+            $this->addRoute('OPTIONS', $path, $callback);
             return $this;
         }
     }

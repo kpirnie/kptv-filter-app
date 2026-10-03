@@ -12,7 +12,7 @@
 namespace KPT;
 
 // make sure the trait doesn't already exist
-if (! trait_exists('CacheFile')) {
+if (! trait_exists('\KPT\CacheFile', false)) {
 
     /**
      * KPT Cache File Trait
@@ -27,14 +27,17 @@ if (! trait_exists('CacheFile')) {
     trait CacheFile
     {
         /**
-         * Create cache directory with proper permissions
-         * Fixed to handle trailing slashes and is_writable() quirks
+         * Create cache directory private to this process
+         *
+         * Creates the directory with 0700, tightens it if we own it, and
+         * refuses it when it is a symlink, owned by someone else, or open
+         * to group or world access.
          *
          * @since 8.4
          * @author Kevin Pirnie <me@kpirnie.com>
          *
          * @param string $path Directory path to create
-         * @return bool Returns true if directory was created or already exists and is writable
+         * @return bool Returns true if directory is private and writable
          */
         private static function createCacheDirectory(string $path): bool
         {
@@ -48,8 +51,8 @@ if (! trait_exists('CacheFile')) {
 
             // Check if directory exists
             if (! is_dir($check_path)) {
-                // Try to create the directory
-                if (! @mkdir($path, 0755, true)) {
+                // Try to create the directory private to this process
+                if (! @mkdir($path, 0700, true) && ! is_dir($check_path)) {
                     $error = error_get_last();
                     Logger::error("Failed to create cache directory", [
                         'path' => $path,
@@ -60,107 +63,29 @@ if (! trait_exists('CacheFile')) {
                 Logger::debug("Created cache directory", ['path' => $path]);
             }
 
+            // if we own it but it's open to others, lock it down
+            if (PHP_OS_FAMILY !== 'Windows' && ! is_link($check_path) && fileowner($check_path) === self::getProcessUid()) {
+                @chmod($check_path, 0700);
+            }
+
+            // refuse anything that isn't private to us
+            if (! self::isPrivatePath($check_path)) {
+                Logger::warning("Cache directory is not private to this process", [
+                    'path' => $path,
+                    'owner' => file_exists($check_path) ? fileowner($check_path) : 'N/A',
+                    'permissions' => file_exists($check_path) ? substr(sprintf('%o', fileperms($check_path)), -4) : 'N/A',
+                ]);
+                return false;
+            }
+
             // Check if writable - use path WITHOUT trailing slash
             if (! is_writable($check_path)) {
-                // Try a actual write test as is_writable() can be unreliable
-                $test_file = $path . '.write_test_' . uniqid();
-                $write_test = @file_put_contents($test_file, 'test');
-
-                if ($write_test !== false) {
-                    // Write succeeded, directory is actually writable
-                    @unlink($test_file);
-                    Logger::debug("Directory is writable (write test passed)", ['path' => $path]);
-                    return true;
-
-                // otherwise, it's really not writable
-                } else {
-                    Logger::debug("Directory not writable (trying next fallback)", [
-                        'path' => $path,
-                        'check_path' => $check_path,
-                        'is_dir' => is_dir($check_path),
-                        'file_exists' => file_exists($check_path),
-                        'permissions' => file_exists($check_path) ? substr(sprintf('%o', fileperms($check_path)), -4) : 'N/A',
-                        'owner' => file_exists($check_path) ? fileowner($check_path) : 'N/A',
-                        'current_user' => get_current_user()
-                    ]);
-                    return false;
-                }
+                Logger::debug("Directory not writable", ['path' => $path]);
+                return false;
             }
 
-            Logger::debug("Directory verified as writable", ['path' => $path]);
+            Logger::debug("Directory verified as private and writable", ['path' => $path]);
             return true;
-        }
-
-        /**
-         * Set a custom cache path for file-based caching
-         *
-         * Configures a custom directory path for file caching operations
-         * and ensures proper permissions are set.
-         *
-         * @since 8.4
-         * @author Kevin Pirnie <me@kpirnie.com>
-         *
-         * @param string $_path The custom cache directory path
-         * @return bool Returns true if successful, false otherwise
-         */
-        public static function setCachePath(string $_path): bool
-        {
-
-            // Normalize the path (ensure it ends with a slash)
-            $_path = rtrim($_path, '/') . '/';
-
-            // Try to create the cache directory with proper permissions
-            $config = CacheConfig::get('file');
-            $permissions = $config['permissions'] ?? 0755;
-
-            // try to create the directory
-            if (self::createCacheDirectory($_path, $permissions)) {
-                // Update the configuration
-                CacheConfig::set('file', array_merge($config, ['path' => $_path]));
-
-                // set the configurable cache path
-                self::$_configurable_cache_path = $_path;
-
-                // If we're already initialized, update the fallback path immediately
-                if (self::$_initialized) {
-                    self::$_fallback_path = $_path;
-                }
-
-                // return success
-                return true;
-            }
-
-            // failed to create directory
-            return false;
-        }
-
-        /**
-         * Get the current cache path being used
-         *
-         * Returns the current cache directory path that's being used
-         * for file-based caching operations.
-         *
-         * @since 8.4
-         * @author Kevin Pirnie <me@kpirnie.com>
-         *
-         * @return string Returns the current cache directory path
-         */
-        public static function getCachePath(): string
-        {
-
-            // First check if we have a specific fallback path set
-            if (self::$_fallback_path !== null) {
-                return self::$_fallback_path;
-            }
-
-            // Then check if there's a global path configured
-            $global_path = CacheConfig::getGlobalPath();
-            if ($global_path !== null) {
-                return $global_path;
-            }
-
-            // Finally fall back to system temp directory
-            return sys_get_temp_dir() . '/kpt_cache/';
         }
 
         /**
@@ -177,6 +102,12 @@ if (! trait_exists('CacheFile')) {
          */
         private static function getFromFile(string $_key): mixed
         {
+
+            // no private directory, no file tier
+            if (! self::$_file_path_private) {
+                return false;
+            }
+
             // Setup the cache file
             $file = self::getCachePath() . md5($_key);
 
@@ -201,7 +132,7 @@ if (! trait_exists('CacheFile')) {
                     }
 
                     // Return the unserialized data
-                    return unserialize(substr($data, 10));
+                    return unserialize(substr($data, 10), ['allowed_classes' => CacheConfig::getAllowedClasses()]);
                 } catch (\Exception $e) {
                     self::$_last_error = "File cache read error: " . $e->getMessage();
                     return false;
@@ -228,6 +159,11 @@ if (! trait_exists('CacheFile')) {
          */
         private static function setToFile(string $_key, mixed $_data, int $_length): bool
         {
+            // no private directory, no file tier
+            if (! self::$_file_path_private) {
+                return false;
+            }
+
             // setup file path and data
             $file = self::getCachePath() . md5($_key);
             $expires = time() + $_length;
@@ -235,9 +171,29 @@ if (! trait_exists('CacheFile')) {
 
             // try to write the file
             try {
-                // Write with exclusive lock
-                $result = file_put_contents($file, $data, LOCK_EX);
-                return $result !== false;
+                // write to a temp file private to this process, then swap it into place
+                $temp_file = $file . '.' . bin2hex(random_bytes(6));
+                $old_umask = umask(0077);
+                try {
+                    $result = file_put_contents($temp_file, $data);
+                } finally {
+                    umask($old_umask);
+                }
+
+                // the write failed
+                if ($result === false) {
+                    @unlink($temp_file);
+                    return false;
+                }
+
+                // atomic replace so readers never see a partial file
+                if (! @rename($temp_file, $file)) {
+                    @unlink($temp_file);
+                    return false;
+                }
+
+                // success
+                return true;
             } catch (\Exception $e) {
                 self::$_last_error = "File cache write error: " . $e->getMessage();
                 return false;
@@ -258,6 +214,10 @@ if (! trait_exists('CacheFile')) {
          */
         private static function deleteFromFile(string $_key): bool
         {
+            // no private directory, nothing of ours to delete
+            if (! self::$_file_path_private) {
+                return false;
+            }
 
             // setup the file path
             $file = self::getCachePath() . md5($_key);
@@ -303,50 +263,6 @@ if (! trait_exists('CacheFile')) {
 
             // return overall success status
             return $success;
-        }
-
-        /**
-         * Cleans up expires items from the cache
-         *
-         * @since 8.4
-         * @author Kevin Pirnie <me@kpirnie.com>
-         *
-         * @return int Returns the number of items removed
-         */
-        private static function cleanupFile(): int
-        {
-
-            // setup the count to return
-            $count = 0;
-
-                        // Clean up file cache
-            $files = glob(self::getCachePath() . '*');
-
-            // loop over each file
-            foreach ($files as $file) {
-                // if it's a real file
-                if (is_file($file)) {
-                    // get the file contents
-                    $content = file_get_contents($file);
-
-                    // if we have content
-                    if ($content !== false) {
-                        // get the expiry time
-                        $expires = substr($content, 0, 10);
-
-                        // if it's numeric and expired
-                        if (is_numeric($expires) && time() > (int)$expires) {
-                            // if we can unlink it, increment the count
-                            if (unlink($file)) {
-                                $count++;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // return the count
-            return $count;
         }
 
         /**
@@ -432,18 +348,9 @@ if (! trait_exists('CacheFile')) {
 
             // try to fix permissions
             try {
-                // Try different permission levels
-                $permission_levels = [ 0755, 0775, 0777 ];
-
-                // loop through each permission level
-                foreach ($permission_levels as $perms) {
-                    // try to change permissions
-                    if (@chmod($path, $perms)) {
-                        // check if it's now writable
-                        if (is_writable($path)) {
-                            return true;
-                        }
-                    }
+                // lock it down to this process only
+                if (@chmod($path, 0700) && self::isPrivatePath($path) && is_writable($path)) {
+                    return true;
                 }
 
                 // If chmod failed, try recreating the directory
@@ -476,9 +383,9 @@ if (! trait_exists('CacheFile')) {
                     }
                 }
 
-            // whoopsie... setup the error
+                // whoopsie... setup the error
             } catch (\Exception $e) {
-                self::$_last_error = "Permission fix failed: " . $e -> getMessage();
+                self::$_last_error = "Permission fix failed: " . $e->getMessage();
             }
 
             // failed to fix permissions
@@ -502,16 +409,12 @@ if (! trait_exists('CacheFile')) {
             // setup suggestions array
             $suggestions = [
                 'current' => self::getCachePath(),
-                'alternatives' => [ ]
+                'alternatives' => []
             ];
 
             // setup test paths to check
             $test_paths = [
-                sys_get_temp_dir() . '/kpt_cache_alt/',
-                getcwd() . '/cache/',
-                __DIR__ . '/cache/',
-                '/tmp/kpt_cache_alt/',
-                sys_get_temp_dir() . '/cache/',
+                sys_get_temp_dir() . '/kpt_cache_' . self::getProcessUid() . '/',
             ];
 
             // test each path
@@ -527,14 +430,14 @@ if (! trait_exists('CacheFile')) {
 
                 // Test if we can create a test directory
                 $test_dir = $path . 'test_' . uniqid();
-                if (@mkdir($test_dir, 0755, true)) {
+                if (@mkdir($test_dir, 0700, true)) {
                     $status['can_create'] = true;
                     $status['recommended'] = is_writable($test_dir);
                     @rmdir($test_dir);
                 }
 
                 // add to suggestions
-                $suggestions['alternatives'][ ] = $status;
+                $suggestions['alternatives'][] = $status;
             }
 
             // return the suggestions
@@ -623,14 +526,14 @@ if (! trait_exists('CacheFile')) {
                         }
                     }
 
-                // whoopsie... skip files we can't read
+                    // whoopsie... skip files we can't read
                 } catch (\Exception $e) {
                     // Skip files we can't read
                 }
             }
 
             // format human readable size and dates
-            $stats['total_size_human'] = KPT::format_bytes($stats['total_size']);
+            $stats['total_size_human'] = self::formatBytes($stats['total_size']);
             $stats['oldest_file'] = $oldest ? date('Y-m-d H:i:s', $oldest) : null;
             $stats['newest_file'] = $newest ? date('Y-m-d H:i:s', $newest) : null;
 
@@ -651,6 +554,11 @@ if (! trait_exists('CacheFile')) {
          */
         private static function cleanupExpiredFiles(): int
         {
+
+            // no private directory, nothing of ours to clean
+            if (! self::$_file_path_private) {
+                return 0;
+            }
 
             // get cache path and files
             $cache_path = self::getCachePath();
@@ -694,7 +602,7 @@ if (! trait_exists('CacheFile')) {
                         }
                     }
 
-                // whoopsie... skip files we can't process
+                    // whoopsie... skip files we can't process
                 } catch (\Exception $e) {
                     // Skip files we can't process
                 }
@@ -721,12 +629,12 @@ if (! trait_exists('CacheFile')) {
             // get cache path and files
             $cache_path = self::getCachePath();
             $files = glob($cache_path . '*');
-            $file_list = [ ];
+            $file_list = [];
             $now = time();
 
             // check if we have files
             if (! is_array($files)) {
-                return [ ];
+                return [];
             }
 
             // loop through each file
@@ -741,7 +649,7 @@ if (! trait_exists('CacheFile')) {
                     'filename' => basename($file),
                     'full_path' => $file,
                     'size' => filesize($file),
-                    'size_human' => KPT::format_bytes(filesize($file)),
+                    'size_human' => self::formatBytes(filesize($file)),
                     'created' => filectime($file),
                     'modified' => filemtime($file),
                     'expires' => null,
@@ -770,13 +678,13 @@ if (! trait_exists('CacheFile')) {
                         }
                     }
 
-                // whoopsie... add error to file info
+                    // whoopsie... add error to file info
                 } catch (\Exception $e) {
-                    $file_info['error'] = $e -> getMessage();
+                    $file_info['error'] = $e->getMessage();
                 }
 
                 // add to file list
-                $file_list[ ] = $file_info;
+                $file_list[] = $file_info;
             }
 
             // Sort by modification time (newest first)
@@ -823,9 +731,9 @@ if (! trait_exists('CacheFile')) {
                 // failed to store
                 return false;
 
-            // whoopsie... setup the error and return false
+                // whoopsie... setup the error and return false
             } catch (\Exception $e) {
-                self::$_last_error = "File cache test failed: " . $e -> getMessage();
+                self::$_last_error = "File cache test failed: " . $e->getMessage();
                 return false;
             }
         }
@@ -858,7 +766,7 @@ if (! trait_exists('CacheFile')) {
                 // Create backup directory
                 if (! is_dir($backup_path)) {
                     // create the backup directory
-                    if (! mkdir($backup_path, 0755, true)) {
+                    if (! mkdir($backup_path, 0700, true)) {
                         return false;
                     }
                 }
@@ -887,9 +795,9 @@ if (! trait_exists('CacheFile')) {
                 // backup successful
                 return true;
 
-            // whoopsie... setup the error and return false
+                // whoopsie... setup the error and return false
             } catch (\Exception $e) {
-                self::$_last_error = "Cache backup failed: " . $e -> getMessage();
+                self::$_last_error = "Cache backup failed: " . $e->getMessage();
                 return false;
             }
         }
@@ -951,9 +859,9 @@ if (! trait_exists('CacheFile')) {
                 // restore successful
                 return true;
 
-            // whoopsie... setup the error and return false
+                // whoopsie... setup the error and return false
             } catch (\Exception $e) {
-                self::$_last_error = "Cache restore failed: " . $e -> getMessage();
+                self::$_last_error = "Cache restore failed: " . $e->getMessage();
                 return false;
             }
         }

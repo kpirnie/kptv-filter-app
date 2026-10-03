@@ -12,7 +12,7 @@
 namespace KPT;
 
 // make sure the trait doesn't already exist
-if (! trait_exists('CacheOPCacheAsync')) {
+if (! trait_exists('\KPT\CacheOPCacheAsync', false)) {
 
     /**
      * KPT Cache OPCache Async Trait
@@ -47,7 +47,7 @@ if (! trait_exists('CacheOPCacheAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // schedule the operation on the next tick
-                    self::$_event_loop -> futureTick(function () use ($key, $resolve, $reject) {
+                    self::$_event_loop->futureTick(function () use ($key, $resolve, $reject) {
 
                         // try to get the item from OPCache
                         try {
@@ -55,13 +55,13 @@ if (! trait_exists('CacheOPCacheAsync')) {
                             $result = self::getFromOPcache($key);
                             $resolve($result);
 
-                        // whoopsie... reject the promise with the error
+                            // whoopsie... reject the promise with the error
                         } catch (\Exception $e) {
                             $reject($e);
                         }
                     });
 
-                // fallback to synchronous operation
+                    // fallback to synchronous operation
                 } else {
                     // try to get the item synchronously
                     try {
@@ -69,7 +69,7 @@ if (! trait_exists('CacheOPCacheAsync')) {
                         $result = self::getFromOPcache($key);
                         $resolve($result);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }
@@ -100,7 +100,7 @@ if (! trait_exists('CacheOPCacheAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // schedule the operation on the next tick
-                    self::$_event_loop -> futureTick(function () use ($key, $data, $ttl, $resolve, $reject) {
+                    self::$_event_loop->futureTick(function () use ($key, $data, $ttl, $resolve, $reject) {
 
                         // try to set the item to OPCache
                         try {
@@ -108,13 +108,13 @@ if (! trait_exists('CacheOPCacheAsync')) {
                             $result = self::setToOPcache($key, $data, $ttl);
                             $resolve($result);
 
-                        // whoopsie... reject the promise with the error
+                            // whoopsie... reject the promise with the error
                         } catch (\Exception $e) {
                             $reject($e);
                         }
                     });
 
-                // fallback to synchronous operation
+                    // fallback to synchronous operation
                 } else {
                     // try to set the item synchronously
                     try {
@@ -122,7 +122,7 @@ if (! trait_exists('CacheOPCacheAsync')) {
                         $result = self::setToOPcache($key, $data, $ttl);
                         $resolve($result);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }
@@ -150,29 +150,29 @@ if (! trait_exists('CacheOPCacheAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // schedule the operation on the next tick
-                    self::$_event_loop -> futureTick(function () use ($resolve, $reject) {
+                    self::$_event_loop->futureTick(function () use ($resolve, $reject) {
 
                         // try to cleanup OPCache files
                         try {
                             // cleanup OPCache files and resolve
-                            $result = self::cleanupOPcacheFiles();
+                            $result = self::cleanupOPcache();
                             $resolve($result);
 
-                        // whoopsie... reject the promise with the error
+                            // whoopsie... reject the promise with the error
                         } catch (\Exception $e) {
                             $reject($e);
                         }
                     });
 
-                // fallback to synchronous operation
+                    // fallback to synchronous operation
                 } else {
                     // try to cleanup OPCache files synchronously
                     try {
                         // cleanup OPCache files and resolve
-                        $result = self::cleanupOPcacheFiles();
+                        $result = self::cleanupOPcache();
                         $resolve($result);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }

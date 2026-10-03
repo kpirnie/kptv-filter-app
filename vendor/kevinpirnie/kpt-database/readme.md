@@ -1,5 +1,13 @@
 # KPT Database
 
+[![Build Main](https://img.shields.io/github/actions/workflow/status/kpirnie/kp-database/ci.yml?branch=main&label=Main&logoColor=white&logo=github&labelColor=000&style=for-the-badge)](https://github.com/kpirnie/kp-database/actions?query=workflow%3A%22CI%22+branch%3Amain)
+[![GitHub Issues](https://img.shields.io/github/issues/kpirnie/kp-database?style=for-the-badge&logo=github&color=006400&logoColor=white&labelColor=000)](https://github.com/kpirnie/kp-database/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/kpirnie/kp-database?style=for-the-badge&labelColor=000&logoColor=white&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iNC41IiB3aWR0aD0iMTgiIGhlaWdodD0iMTYuNSIgcng9IjIiLz48bGluZSB4MT0iMyIgeTE9IjkuNSIgeDI9IjIxIiB5Mj0iOS41Ii8+PGxpbmUgeDE9IjgiIHkxPSIyLjUiIHgyPSI4IiB5Mj0iNi41Ii8+PGxpbmUgeDE9IjE2IiB5MT0iMi41IiB4Mj0iMTYiIHkyPSI2LjUiLz48L3N2Zz4=)](https://github.com/kpirnie/kp-database/commits/main)
+[![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg?style=for-the-badge&logo=opensourceinitiative&logoColor=white&labelColor=000)](LICENSE)
+[![PHP](https://img.shields.io/badge/Min.-php8.4-777BB4?logo=php&logoColor=white&style=for-the-badge&labelColor=000)](https://php.net)
+[![Packagist](https://img.shields.io/packagist/v/kevinpirnie/kpt-database?style=for-the-badge&logo=packagist&logoColor=white&color=F28D1A&labelColor=000&label=Packagist)](https://packagist.org/packages/kevinpirnie/kpt-database)
+[![Kevin Pirnie](https://img.shields.io/badge/-KevinPirnie.com-000d2d?style=for-the-badge&labelColor=000&logoColor=white&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz4KICA8ZWxsaXBzZSBjeD0iMTIiIGN5PSIxMiIgcng9IjQuNSIgcnk9IjEwIi8+CiAgPGxpbmUgeDE9IjIiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz4KICA8bGluZSB4MT0iNC41IiB5MT0iNi41IiB4Mj0iMTkuNSIgeTI9IjYuNSIvPgogIDxsaW5lIHgxPSI0LjUiIHkxPSIxNy41IiB4Mj0iMTkuNSIgeTI9IjE3LjUiLz4KPC9zdmc+Cg==)](https://kevinpirnie.com/)
+
 A modern, fluent PHP database wrapper built on top of PDO, providing an elegant and secure way to interact with databases.
 
 ## Features
@@ -20,7 +28,7 @@ A modern, fluent PHP database wrapper built on top of PDO, providing an elegant 
 
 ## Requirements
 
-- PHP 8.2 or higher
+- PHP 8.4 or higher
 - PDO extension
 - Supported databases: MySQL 5.7+, MariaDB 10.2+, PostgreSQL, SQLite, SQL Server, Oracle
 
@@ -261,11 +269,12 @@ echo "Inserted {$inserted} rows";
 ### Upsert and Replace
 
 ```php
-// Insert or update on duplicate key (MySQL)
+// Insert or update on duplicate key
 $db->upsert(
     'users',
     ['id' => 1, 'name' => 'John Doe', 'email' => 'john@example.com'], // insert data
-    ['name' => 'John Doe', 'email' => 'john@example.com'] // update data on duplicate
+    ['name' => 'John Doe', 'email' => 'john@example.com'], // update data on duplicate
+    ['id'] // conflict columns (required for SQLite/PostgreSQL, ignored for MySQL)
 );
 
 // Replace (delete + insert if exists)
@@ -335,7 +344,7 @@ $quoted = $db->quote("O'Brien");
 - `count(string $table, string $column = '*', ?string $where = null, array $params = [])` - Count records
 - `exists(string $table, string $where, array $params = [])` - Check if records exist
 - `insertBatch(string $table, array $columns, array $rows)` - Insert multiple rows
-- `upsert(string $table, array $data, array $update)` - Insert or update on duplicate
+- `upsert(string $table, array $data, array $update, array $conflict = [])` - Insert or update on duplicate (`$conflict` required for SQLite/PostgreSQL)
 - `replace(string $table, array $data)` - Replace record
 - `quote(string $value, int $type = PDO::PARAM_STR)` - Quote a string for safe use
 

@@ -12,7 +12,7 @@
 namespace KPT;
 
 // make sure the trait doesn't already exist
-if (! trait_exists('CacheMemcachedAsync')) {
+if (! trait_exists('\KPT\CacheMemcachedAsync', false)) {
 
     /**
      * KPT Cache Memcached Async Trait
@@ -47,7 +47,7 @@ if (! trait_exists('CacheMemcachedAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // schedule the operation on the next tick
-                    self::$_event_loop -> futureTick(function () use ($key, $resolve, $reject) {
+                    self::$_event_loop->futureTick(function () use ($key, $resolve, $reject) {
 
                         // try to get the item from Memcached
                         try {
@@ -55,13 +55,13 @@ if (! trait_exists('CacheMemcachedAsync')) {
                             $result = self::getFromMemcached($key);
                             $resolve($result);
 
-                        // whoopsie... reject the promise with the error
+                            // whoopsie... reject the promise with the error
                         } catch (\Exception $e) {
                             $reject($e);
                         }
                     });
 
-                // fallback to synchronous operation
+                    // fallback to synchronous operation
                 } else {
                     // try to get the item synchronously
                     try {
@@ -69,7 +69,7 @@ if (! trait_exists('CacheMemcachedAsync')) {
                         $result = self::getFromMemcached($key);
                         $resolve($result);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }
@@ -100,7 +100,7 @@ if (! trait_exists('CacheMemcachedAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // schedule the operation on the next tick
-                    self::$_event_loop -> futureTick(function () use ($key, $data, $ttl, $resolve, $reject) {
+                    self::$_event_loop->futureTick(function () use ($key, $data, $ttl, $resolve, $reject) {
 
                         // try to set the item to Memcached
                         try {
@@ -108,13 +108,13 @@ if (! trait_exists('CacheMemcachedAsync')) {
                             $result = self::setToMemcached($key, $data, $ttl);
                             $resolve($result);
 
-                        // whoopsie... reject the promise with the error
+                            // whoopsie... reject the promise with the error
                         } catch (\Exception $e) {
                             $reject($e);
                         }
                     });
 
-                // fallback to synchronous operation
+                    // fallback to synchronous operation
                 } else {
                     // try to set the item synchronously
                     try {
@@ -122,7 +122,7 @@ if (! trait_exists('CacheMemcachedAsync')) {
                         $result = self::setToMemcached($key, $data, $ttl);
                         $resolve($result);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }
@@ -151,7 +151,7 @@ if (! trait_exists('CacheMemcachedAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // schedule the operation on the next tick
-                    self::$_event_loop -> futureTick(function () use ($keys, $resolve, $reject) {
+                    self::$_event_loop->futureTick(function () use ($keys, $resolve, $reject) {
 
                         // try to get multiple items from Memcached
                         try {
@@ -159,13 +159,13 @@ if (! trait_exists('CacheMemcachedAsync')) {
                             $result = self::memcachedMultiGet($keys);
                             $resolve($result);
 
-                        // whoopsie... reject the promise with the error
+                            // whoopsie... reject the promise with the error
                         } catch (\Exception $e) {
                             $reject($e);
                         }
                     });
 
-                // fallback to synchronous operation
+                    // fallback to synchronous operation
                 } else {
                     // try to get multiple items synchronously
                     try {
@@ -173,7 +173,7 @@ if (! trait_exists('CacheMemcachedAsync')) {
                         $result = self::memcachedMultiGet($keys);
                         $resolve($result);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }
@@ -203,7 +203,7 @@ if (! trait_exists('CacheMemcachedAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // schedule the operation on the next tick
-                    self::$_event_loop -> futureTick(function () use ($items, $ttl, $resolve, $reject) {
+                    self::$_event_loop->futureTick(function () use ($items, $ttl, $resolve, $reject) {
 
                         // try to set multiple items to Memcached
                         try {
@@ -211,13 +211,13 @@ if (! trait_exists('CacheMemcachedAsync')) {
                             $result = self::memcachedMultiSet($items, $ttl);
                             $resolve($result);
 
-                        // whoopsie... reject the promise with the error
+                            // whoopsie... reject the promise with the error
                         } catch (\Exception $e) {
                             $reject($e);
                         }
                     });
 
-                // fallback to synchronous operation
+                    // fallback to synchronous operation
                 } else {
                     // try to set multiple items synchronously
                     try {
@@ -225,7 +225,7 @@ if (! trait_exists('CacheMemcachedAsync')) {
                         $result = self::memcachedMultiSet($items, $ttl);
                         $resolve($result);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }

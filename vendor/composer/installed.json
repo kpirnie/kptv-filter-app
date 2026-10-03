@@ -2,17 +2,17 @@
     "packages": [
         {
             "name": "kevinpirnie/kpt-cache",
-            "version": "v1.0.83",
-            "version_normalized": "1.0.83.0",
+            "version": "v1.1.32",
+            "version_normalized": "1.1.32.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/kpirnie/kp-cache.git",
-                "reference": "4882c41f5c36c64d02b9af4244adfa1f439a2372"
+                "reference": "1fb47dd7bbb3ba9550dfe5a55dfcbb84976f61cd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kpirnie/kp-cache/zipball/4882c41f5c36c64d02b9af4244adfa1f439a2372",
-                "reference": "4882c41f5c36c64d02b9af4244adfa1f439a2372",
+                "url": "https://api.github.com/repos/kpirnie/kp-cache/zipball/1fb47dd7bbb3ba9550dfe5a55dfcbb84976f61cd",
+                "reference": "1fb47dd7bbb3ba9550dfe5a55dfcbb84976f61cd",
                 "shasum": ""
             },
             "require": {
@@ -21,7 +21,7 @@
                 "php": ">=8.4"
             },
             "require-dev": {
-                "phpunit/phpunit": "^10",
+                "phpunit/phpunit": "^13",
                 "squizlabs/php_codesniffer": "^3.7"
             },
             "suggest": {
@@ -30,7 +30,7 @@
                 "ext-redis": "For Redis cache support",
                 "ext-yac": "For YAC cache support"
             },
-            "time": "2026-02-06T21:06:19+00:00",
+            "time": "2026-10-01T21:52:06+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -83,29 +83,29 @@
         },
         {
             "name": "kevinpirnie/kpt-database",
-            "version": "v1.1.98",
-            "version_normalized": "1.1.98.0",
+            "version": "v1.2.16",
+            "version_normalized": "1.2.16.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/kpirnie/kp-database.git",
-                "reference": "aee74b72fb9757bfa6fe3a36a6f3f56a027bf5b1"
+                "reference": "8e5e3d68480d1747f457ceb2fd19ce6d7d98f02d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kpirnie/kp-database/zipball/aee74b72fb9757bfa6fe3a36a6f3f56a027bf5b1",
-                "reference": "aee74b72fb9757bfa6fe3a36a6f3f56a027bf5b1",
+                "url": "https://api.github.com/repos/kpirnie/kp-database/zipball/8e5e3d68480d1747f457ceb2fd19ce6d7d98f02d",
+                "reference": "8e5e3d68480d1747f457ceb2fd19ce6d7d98f02d",
                 "shasum": ""
             },
             "require": {
                 "ext-pdo": "*",
                 "kevinpirnie/kpt-logger": "^1.0",
-                "php": ">=8.2"
+                "php": ">=8.4"
             },
             "require-dev": {
-                "phpunit/phpunit": "^11.0",
+                "phpunit/phpunit": "^13.0",
                 "squizlabs/php_codesniffer": "^3.7"
             },
-            "time": "2026-01-25T14:59:30+00:00",
+            "time": "2026-10-01T14:28:45+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -227,17 +227,17 @@
         },
         {
             "name": "kevinpirnie/kpt-logger",
-            "version": "v1.0.11",
-            "version_normalized": "1.0.11.0",
+            "version": "v1.0.22",
+            "version_normalized": "1.0.22.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/kpirnie/kp-logger.git",
-                "reference": "6dc32295c85cf7b070db1825c502ba877594e6bb"
+                "reference": "c65a9c27ad9d4631a396d4a41dc6f600b7c3f79e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kpirnie/kp-logger/zipball/6dc32295c85cf7b070db1825c502ba877594e6bb",
-                "reference": "6dc32295c85cf7b070db1825c502ba877594e6bb",
+                "url": "https://api.github.com/repos/kpirnie/kp-logger/zipball/c65a9c27ad9d4631a396d4a41dc6f600b7c3f79e",
+                "reference": "c65a9c27ad9d4631a396d4a41dc6f600b7c3f79e",
                 "shasum": ""
             },
             "require": {
@@ -246,7 +246,7 @@
             "require-dev": {
                 "squizlabs/php_codesniffer": "^3.9"
             },
-            "time": "2026-02-06T21:33:52+00:00",
+            "time": "2026-10-01T13:00:24+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -266,7 +266,7 @@
                 }
             ],
             "description": "Simple Universal Application Logger for PHP with configurable output destinations and four standard log levels",
-            "homepage": "https://github.com/kpirnie/kpt-logger",
+            "homepage": "https://github.com/kpirnie/kp-logger",
             "keywords": [
                 "debug",
                 "error",
@@ -279,8 +279,8 @@
                 "warning"
             ],
             "support": {
-                "issues": "https://github.com/kpirnie/kpt-logger/issues",
-                "source": "https://github.com/kpirnie/kpt-logger"
+                "issues": "https://github.com/kpirnie/kp-logger/issues",
+                "source": "https://github.com/kpirnie/kp-logger"
             },
             "funding": [
                 {
@@ -296,17 +296,17 @@
         },
         {
             "name": "kevinpirnie/kpt-router",
-            "version": "v1.0.33",
-            "version_normalized": "1.0.33.0",
+            "version": "v1.0.53",
+            "version_normalized": "1.0.53.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/kpirnie/kp-router.git",
-                "reference": "47366559b17a28f29cf5b5e08533d1212a01c0e6"
+                "reference": "83a1e25605243efbdce235fb706f5048f385cb91"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kpirnie/kp-router/zipball/47366559b17a28f29cf5b5e08533d1212a01c0e6",
-                "reference": "47366559b17a28f29cf5b5e08533d1212a01c0e6",
+                "url": "https://api.github.com/repos/kpirnie/kp-router/zipball/83a1e25605243efbdce235fb706f5048f385cb91",
+                "reference": "83a1e25605243efbdce235fb706f5048f385cb91",
                 "shasum": ""
             },
             "require": {
@@ -315,13 +315,14 @@
                 "php": ">=8.4"
             },
             "require-dev": {
+                "phpunit/phpunit": "^13",
                 "squizlabs/php_codesniffer": "^3.6"
             },
             "suggest": {
                 "ext-redis": "Required for Redis-based rate limiting and caching",
                 "predis/predis": "Alternative Redis client if ext-redis is not available"
             },
-            "time": "2026-02-06T21:30:10+00:00",
+            "time": "2026-10-03T19:01:31+00:00",
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -344,7 +345,7 @@
                 }
             ],
             "description": "A comprehensive PHP routing library with middleware support, rate limiting, view rendering, and controller resolution capabilities",
-            "homepage": "https://github.com/kpirnie/kpt-router",
+            "homepage": "https://github.com/kpirnie/kp-router",
             "keywords": [
                 "api",
                 "caching",
@@ -362,9 +363,9 @@
                 "web"
             ],
             "support": {
-                "docs": "https://github.com/kpirnie/kpt-router/blob/main/README.md",
-                "issues": "https://github.com/kpirnie/kpt-router/issues",
-                "source": "https://github.com/kpirnie/kpt-router"
+                "docs": "https://github.com/kpirnie/kp-router/blob/main/README.md",
+                "issues": "https://github.com/kpirnie/kp-router/issues",
+                "source": "https://github.com/kpirnie/kp-router"
             },
             "funding": [
                 {

@@ -17,7 +17,7 @@
 namespace KPT;
 
 // make sure the class doesn't exist
-if (! class_exists('CacheConfig')) {
+if (! class_exists('\KPT\CacheConfig', false)) {
 
     /**
      * KPT Cache Configuration Manager
@@ -35,8 +35,9 @@ if (! class_exists('CacheConfig')) {
         // global config across all caching tiers
         private static array $global_config = [
             'path' => null,
-            'prefix' => '',
+            'prefix' => null, // null means derive the default per app
             'allowed_backends' => null, // null means all backends allowed
+            'allowed_classes' => false, // classes allowed when unserializing, false for none
         ];
 
         // default configs for the caching tiers
@@ -49,6 +50,9 @@ if (! class_exists('CacheConfig')) {
                 'host' => 'localhost',
                 'port' => 6379,
                 'database' => 0,
+                'username' => null,
+                'password' => null,
+                'tls' => false, // true, or an array of ssl stream context options
                 'prefix' => null,
                 'read_timeout' => 0,
                 'connect_timeout' => 2,
@@ -59,6 +63,8 @@ if (! class_exists('CacheConfig')) {
             'memcached' => [
                 'host' => 'localhost',
                 'port' => 11211,
+                'username' => null,
+                'password' => null,
                 'prefix' => null,
                 'persistent' => true,
                 'retry_attempts' => 2,
@@ -89,7 +95,7 @@ if (! class_exists('CacheConfig')) {
             ],
             'file' => [
                 'path' => null,
-                'permissions' => 0755,
+                'permissions' => 0700,
                 'prefix' => null,
             ]
         ];
@@ -97,6 +103,7 @@ if (! class_exists('CacheConfig')) {
         // class properties
         private static array $current_configs = [];
         private static bool $initialized = false;
+        private static array $resolved_configs = [];
 
         /**
          * Initialize configuration with defaults
@@ -124,6 +131,11 @@ if (! class_exists('CacheConfig')) {
             if (self::$global_config['path'] === null) {
                 // set to system temp directory
                 self::$global_config['path'] = sys_get_temp_dir() . '/kpt_cache/';
+            }
+
+            // Set default global prefix if not already set
+            if (self::$global_config['prefix'] === null) {
+                self::$global_config['prefix'] = self::getDefaultPrefix();
             }
 
             // debug logging
@@ -158,6 +170,7 @@ if (! class_exists('CacheConfig')) {
 
             // Set the global path
             self::$global_config['path'] = $normalized_path;
+            self::$resolved_configs = [];
 
             Logger::debug("Cache Global Path Set", ['path' => $normalized_path]);
             return true;
@@ -189,6 +202,12 @@ if (! class_exists('CacheConfig')) {
 
             // set the global prefix
             self::$global_config['prefix'] = $prefix;
+            self::$resolved_configs = [];
+
+            // generated keys may depend on the global prefix
+            if (class_exists('\KPT\CacheKeyManager', false)) {
+                CacheKeyManager::clearKeyCache();
+            }
         }
 
         /**
@@ -232,6 +251,39 @@ if (! class_exists('CacheConfig')) {
         }
 
         /**
+         * Build the default global prefix for this application
+         *
+         * Uses a short hash of the composer root package name so each app
+         * gets its own key namespace, falling back to the process user id.
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @return string Returns the default prefix
+         */
+        private static function getDefaultPrefix(): string
+        {
+
+            // try the composer root package name
+            $name = null;
+            if (class_exists('\Composer\InstalledVersions')) {
+                try {
+                    $name = \Composer\InstalledVersions::getRootPackage()['name'] ?? null;
+                } catch (\Throwable $e) {
+                    $name = null;
+                }
+            }
+
+            // composer names unnamed roots __root__, so fall back to the uid
+            if (empty($name) || $name === '__root__') {
+                $name = 'uid_' . (function_exists('posix_geteuid') ? posix_geteuid() : getmyuid());
+            }
+
+            // short hash keeps keys inside tight tier limits
+            return substr(hash('xxh3', $name), 0, 8) . ':';
+        }
+
+        /**
          * Reset global settings only
          *
          * Resets only the global configuration settings to their defaults
@@ -245,11 +297,15 @@ if (! class_exists('CacheConfig')) {
         public static function resetGlobal(): void
         {
 
+            // drop resolved configs
+            self::$resolved_configs = [];
+
             // reset global config to defaults
             self::$global_config = [
                 'path' => sys_get_temp_dir() . '/kpt_cache/',
-                'prefix' => '',
+                'prefix' => self::getDefaultPrefix(),
                 'allowed_backends' => null,
+                'allowed_classes' => false,
             ];
         }
 
@@ -264,7 +320,7 @@ if (! class_exists('CacheConfig')) {
             self::$global_config['allowed_backends'] = $backends;
 
             // Reset tier discovery when allowed backends change
-            if (class_exists('CacheTierManager')) {
+            if (class_exists('\KPT\CacheTierManager', false)) {
                 CacheTierManager::reset();
             }
         }
@@ -278,6 +334,28 @@ if (! class_exists('CacheConfig')) {
         {
             self::initialize();
             return self::$global_config['allowed_backends'];
+        }
+
+        /**
+         * Set classes allowed when unserializing cached data
+         *
+         * @param array|bool $classes Array of class names, true for all, false for none
+         * @return void
+         */
+        public static function setAllowedClasses(array|bool $classes): void
+        {
+            self::$global_config['allowed_classes'] = $classes;
+        }
+
+        /**
+         * Get classes allowed when unserializing cached data
+         *
+         * @return array|bool Returns allowed class names, true for all, false for none
+         */
+        public static function getAllowedClasses(): array|bool
+        {
+            self::initialize();
+            return self::$global_config['allowed_classes'] ?? false;
         }
 
         /**
@@ -298,22 +376,18 @@ if (! class_exists('CacheConfig')) {
             // make sure we're initialized
             self::initialize();
 
+            // return the resolved config if we already have it
+            if (isset(self::$resolved_configs[$backend])) {
+                return self::$resolved_configs[$backend];
+            }
+
             // if the backend doesn't exist, return empty array
             if (! isset(self::$current_configs[$backend])) {
                 return [];
             }
 
-            // get the backend config
-            $config = self::$current_configs[$backend];
-
-            // Apply global defaults where backend-specific values are null
-            $config = self::applyGlobalDefaults($config, $backend);
-
-            // debug logging
-            Logger::debug("Cache Config Get", ['config' => $config]);
-
-            // return the config
-            return $config;
+            // resolve global defaults once and hold onto it
+            return self::$resolved_configs[$backend] = self::applyGlobalDefaults(self::$current_configs[$backend], $backend);
         }
 
         /**
@@ -350,9 +424,15 @@ if (! class_exists('CacheConfig')) {
                 self::$default_configs[$backend],
                 $config
             );
+            self::$resolved_configs = [];
+
+            // generated keys may depend on this config's prefix
+            if (class_exists('\KPT\CacheKeyManager', false)) {
+                CacheKeyManager::clearKeyCache();
+            }
 
             // debug logging
-            Logger::debug("Cache Config Set", ['config' => $config]);
+            Logger::debug("Cache Config Set", ['config' => self::redact($config)]);
 
             // return success
             return true;
@@ -380,21 +460,38 @@ if (! class_exists('CacheConfig')) {
 
             // loop over each backend
             foreach (array_keys(self::$current_configs) as $backend) {
-                // get the backend config with globals applied
-                $all_configs[$backend] = self::get($backend);
+                // get the backend config with globals applied, minus secrets
+                $all_configs[$backend] = self::redact(self::get($backend));
             }
-
-            // debug logging
-            Logger::debug('Cache Get Full Config', ['config' => [
-                'global' => self::$global_config,
-                'backends' => $all_configs
-            ]]);
 
             // return global and backend configs
             return [
                 'global' => self::$global_config,
                 'backends' => $all_configs
             ];
+        }
+
+        /**
+         * Mask credentials in a configuration array
+         *
+         * @since 8.4
+         * @author Kevin Pirnie <me@kpirnie.com>
+         *
+         * @param array $config The configuration array to mask
+         * @return array Returns the configuration with credentials masked
+         */
+        private static function redact(array $config): array
+        {
+
+            // mask any credential keys that are set
+            foreach (['password', 'username', 'auth'] as $secret) {
+                if (isset($config[$secret]) && $config[$secret] !== '') {
+                    $config[$secret] = '********';
+                }
+            }
+
+            // return the masked config
+            return $config;
         }
 
         /**
@@ -462,6 +559,7 @@ if (! class_exists('CacheConfig')) {
 
             // set the path field
             self::$current_configs[$backend][$path_field] = $normalized_path;
+            self::$resolved_configs = [];
 
             // return success
             return true;
@@ -557,7 +655,7 @@ if (! class_exists('CacheConfig')) {
                     // add issue
                     $issues[] = "Global path parent directory does not exist: {$parent_dir}";
 
-                // check if parent directory is writable
+                    // check if parent directory is writable
                 } elseif (! is_writable($parent_dir)) {
                     // add issue
                     $issues[] = "Global path parent directory is not writable: {$parent_dir}";
@@ -569,7 +667,7 @@ if (! class_exists('CacheConfig')) {
                     $issues[] = "Global path exists but is not writable: {$path}";
                 }
 
-            // otherwise
+                // otherwise
             } else {
                 // add issue
                 $issues[] = "Global path is not set";
@@ -607,10 +705,7 @@ if (! class_exists('CacheConfig')) {
             self::$current_configs = self::$default_configs;
 
             // reset global config to defaults
-            self::$global_config = [
-                'path' => sys_get_temp_dir() . '/kpt_cache/',
-                'prefix' => 'KPTV_APP:',
-            ];
+            self::resetGlobal();
         }
 
         /**
@@ -638,14 +733,15 @@ if (! class_exists('CacheConfig')) {
                 // set the configurations
                 self::$global_config = $config_data['global'];
                 self::$current_configs = $config_data['current'];
+                self::$resolved_configs = [];
                 self::$initialized = $config_data['initialized'] ?? true;
 
                 // return success
                 return true;
 
-            // whoopsie...
+                // whoopsie...
             } catch (\Exception $e) {
-                Logger::error('Cache Config Import Error', ['error' => $e -> getMessage()]);
+                Logger::error('Cache Config Import Error', ['error' => $e->getMessage()]);
                 // return failure
                 return false;
             }
@@ -698,11 +794,11 @@ if (! class_exists('CacheConfig')) {
                 };
 
                 // if we have a path field and it's using global
-                if ($path_field && ( ! isset($raw_config[$path_field]) || $raw_config[$path_field] === null )) {
+                if ($path_field && (! isset($raw_config[$path_field]) || $raw_config[$path_field] === null)) {
                     // using global path
                     $summary['backends_using_global_path'][] = $backend;
 
-                // otherwise if we have a path field
+                    // otherwise if we have a path field
                 } elseif ($path_field) {
                     // using custom path
                     $summary['backends_with_custom_path'][] = $backend;

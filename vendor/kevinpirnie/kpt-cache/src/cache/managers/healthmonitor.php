@@ -16,7 +16,7 @@
 namespace KPT;
 
 // make sure the class doesn't exist
-if (! class_exists('CacheHealthMonitor')) {
+if (! class_exists('\KPT\CacheHealthMonitor', false)) {
 
     /**
      * KPT Cache Health Monitor
@@ -392,7 +392,7 @@ if (! class_exists('CacheHealthMonitor')) {
                     default => ['message' => 'Unknown tier type']
                 };
 
-            // whoopsie... nfg
+                // whoopsie... nfg
             } catch (\Exception $e) {
                 $result['success'] = false;
                 $result['message'] = 'Connectivity check failed: ' . $e->getMessage();
@@ -432,15 +432,8 @@ if (! class_exists('CacheHealthMonitor')) {
                 // get the configuration
                 $config = CacheConfig::get('redis');
 
-                // connect to redis
-                $connected = $redis->pconnect(
-                    $config['host'] ?? '127.0.0.1',
-                    $config['port'] ?? 6379,
-                    2
-                );
-
-                // if connection failed
-                if (! $connected) {
+                // connect, authenticate and select the database
+                if (! CacheConnectionPool::connectRedis($redis, $config, 2.0)) {
                     $result['message'] = 'Failed to connect to Redis server';
                     return $result;
                 }
@@ -518,6 +511,7 @@ if (! class_exists('CacheHealthMonitor')) {
                     $config['host'] ?? '127.0.0.1',
                     $config['port'] ?? 11211
                 );
+                CacheConnectionPool::applyMemcachedAuth($memcached, $config);
 
                 // Test connection with stats
                 $stats = $memcached->getStats();
@@ -1206,7 +1200,7 @@ if (! class_exists('CacheHealthMonitor')) {
 
             // calculate memory usage
             $memory = $status['memory_usage'];
-            $memory_usage = round(( $memory['used_memory'] / $memory['free_memory'] + $memory['used_memory'] ) * 100, 2);
+            $memory_usage = round(($memory['used_memory'] / $memory['free_memory'] + $memory['used_memory']) * 100, 2);
 
             // return the metrics
             return [
@@ -1241,7 +1235,7 @@ if (! class_exists('CacheHealthMonitor')) {
             }
 
             // calculate memory usage
-            $memory_usage = round(( $info['mem_size'] - $info['avail_mem'] ) / $info['mem_size'] * 100, 2);
+            $memory_usage = round(($info['mem_size'] - $info['avail_mem']) / $info['mem_size'] * 100, 2);
 
             // return the metrics
             return [
@@ -1249,7 +1243,7 @@ if (! class_exists('CacheHealthMonitor')) {
                 'cached_entries' => $info['num_entries'],
                 'cache_hits' => $info['num_hits'],
                 'cache_misses' => $info['num_misses'],
-                'hit_rate' => $info['num_hits'] > 0 ? round($info['num_hits'] / ( $info['num_hits'] + $info['num_misses'] ) * 100, 2) : 0
+                'hit_rate' => $info['num_hits'] > 0 ? round($info['num_hits'] / ($info['num_hits'] + $info['num_misses']) * 100, 2) : 0
             ];
         }
 
@@ -1270,7 +1264,7 @@ if (! class_exists('CacheHealthMonitor')) {
                 $config = CacheConfig::get('redis');
 
                 // connect to redis
-                if (! $redis->pconnect($config['host'] ?? '127.0.0.1', $config['port'] ?? 6379, 2)) {
+                if (! CacheConnectionPool::connectRedis($redis, $config, 2.0)) {
                     return ['error' => 'Failed to connect to Redis'];
                 }
 
@@ -1280,13 +1274,13 @@ if (! class_exists('CacheHealthMonitor')) {
 
                 // return the metrics
                 return [
-                    'memory_usage' => round(( $info['used_memory'] / $info['maxmemory'] ) * 100, 2),
+                    'memory_usage' => round(($info['used_memory'] / $info['maxmemory']) * 100, 2),
                     'connected_clients' => $info['connected_clients'],
                     'operations_per_sec' => $info['instantaneous_ops_per_sec'],
                     'keyspace_hits' => $info['keyspace_hits'],
                     'keyspace_misses' => $info['keyspace_misses'],
-                    'hit_rate' => ( $info['keyspace_hits'] + $info['keyspace_misses'] ) > 0
-                        ? round($info['keyspace_hits'] / ( $info['keyspace_hits'] + $info['keyspace_misses'] ) * 100, 2)
+                    'hit_rate' => ($info['keyspace_hits'] + $info['keyspace_misses']) > 0
+                        ? round($info['keyspace_hits'] / ($info['keyspace_hits'] + $info['keyspace_misses']) * 100, 2)
                         : 0
                 ];
             } catch (\Exception $e) {
@@ -1312,6 +1306,7 @@ if (! class_exists('CacheHealthMonitor')) {
 
                 // add server
                 $memcached->addServer($config['host'] ?? '127.0.0.1', $config['port'] ?? 11211);
+                CacheConnectionPool::applyMemcachedAuth($memcached, $config);
                 $stats = $memcached->getStats();
                 $memcached->quit();
 
@@ -1322,7 +1317,7 @@ if (! class_exists('CacheHealthMonitor')) {
 
                 // get first server stats
                 $server_stats = reset($stats);
-                $memory_usage = round(( $server_stats['bytes'] / $server_stats['limit_maxbytes'] ) * 100, 2);
+                $memory_usage = round(($server_stats['bytes'] / $server_stats['limit_maxbytes']) * 100, 2);
 
                 // return the metrics
                 return [
@@ -1330,8 +1325,8 @@ if (! class_exists('CacheHealthMonitor')) {
                     'current_connections' => $server_stats['curr_connections'],
                     'cache_hits' => $server_stats['get_hits'],
                     'cache_misses' => $server_stats['get_misses'],
-                    'hit_rate' => ( $server_stats['get_hits'] + $server_stats['get_misses'] ) > 0
-                        ? round($server_stats['get_hits'] / ( $server_stats['get_hits'] + $server_stats['get_misses'] ) * 100, 2)
+                    'hit_rate' => ($server_stats['get_hits'] + $server_stats['get_misses']) > 0
+                        ? round($server_stats['get_hits'] / ($server_stats['get_hits'] + $server_stats['get_misses']) * 100, 2)
                         : 0
                 ];
             } catch (\Exception $e) {
@@ -1358,7 +1353,7 @@ if (! class_exists('CacheHealthMonitor')) {
                 $total_space = disk_total_space($cache_path);
                 $free_space = disk_free_space($cache_path);
                 $used_space = $total_space - $free_space;
-                $disk_usage = round(( $used_space / $total_space ) * 100, 2);
+                $disk_usage = round(($used_space / $total_space) * 100, 2);
 
                 // get cache file info
                 $files = glob($cache_path . '*');
@@ -1492,7 +1487,7 @@ if (! class_exists('CacheHealthMonitor')) {
                 'healthy_tiers' => $healthy_tiers,
                 'total_checks' => $total_checks,
                 'total_failures' => $total_failures,
-                'success_rate' => $total_checks > 0 ? round(( $total_checks - $total_failures ) / $total_checks * 100, 2) : 0,
+                'success_rate' => $total_checks > 0 ? round(($total_checks - $total_failures) / $total_checks * 100, 2) : 0,
                 'check_interval' => self::$_check_interval,
                 'cache_duration' => self::$_cache_duration,
                 'system_resources' => self::$_system_resources

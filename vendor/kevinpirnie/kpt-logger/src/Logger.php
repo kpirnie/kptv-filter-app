@@ -48,7 +48,7 @@ class Logger
     private static string|null $logFile = null;
 
     /** @var bool Whether to include stack trace */
-    private static bool $includeStackTrace = true;
+    private static bool $includeStackTrace = false;
 
     /**
      * Initialize the logger class
@@ -57,7 +57,7 @@ class Logger
      */
     public function __construct(
         private readonly bool $instanceEnabled,
-        private readonly bool $instanceShowStack = true
+        private readonly bool $instanceShowStack = false
     ) {
         self::$enabled = $this->instanceEnabled;
         self::$includeStackTrace = $this->instanceShowStack;
@@ -193,7 +193,7 @@ class Logger
         $dir = dirname($filePath);
 
         // Create directory if it doesn't exist
-        if (!is_dir($dir) && !@mkdir($dir, 0755, true)) {
+        if (!is_dir($dir) && !@mkdir($dir, 0750, true)) {
             return false;
         }
 
@@ -227,7 +227,10 @@ class Logger
             includeStack: $includeStack
         );
 
-        match (self::$logFile) {
+        // Track whether this write creates the log file
+        $isNewFile = self::$logFile !== null && !file_exists(self::$logFile);
+
+        $written = match (self::$logFile) {
             null => error_log($formattedMessage),
             default => @file_put_contents(
                 self::$logFile,
@@ -235,6 +238,16 @@ class Logger
                 FILE_APPEND | LOCK_EX
             )
         };
+
+        // Fall back to the system log if the file write failed
+        if (self::$logFile !== null && $written === false) {
+            error_log($formattedMessage);
+        }
+
+        // Restrict permissions on a newly created log file
+        if ($isNewFile && file_exists(self::$logFile)) {
+            @chmod(self::$logFile, 0640);
+        }
     }
 
     /**
@@ -254,12 +267,19 @@ class Logger
     ): string {
         $timestamp = date('Y-m-d H:i:s');
         $levelName = self::getLevelName($level);
+
+        // Neutralize line breaks to prevent log line forging
+        $message = addcslashes($message, "\r\n");
         $formatted = "[{$timestamp}] {$levelName}: {$message}";
 
         // Add context if present
         if (!empty($context)) {
             try {
-                $contextJson = json_encode($context, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                $contextJson = json_encode(
+                    $context,
+                    JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE |
+                        JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_THROW_ON_ERROR
+                );
                 $formatted .= " | Context: {$contextJson}";
             } catch (JsonException) {
                 $formatted .= ' | Context: [JSON encoding failed]';
@@ -275,7 +295,11 @@ class Logger
             $filteredTrace = array_slice($trace, 3);
 
             try {
-                $traceJson = json_encode($filteredTrace, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                $traceJson = json_encode(
+                    $filteredTrace,
+                    JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE |
+                        JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_THROW_ON_ERROR
+                );
                 $formatted .= " | Stack: {$traceJson}";
             } catch (JsonException) {
                 $formatted .= ' | Stack: [JSON encoding failed]';

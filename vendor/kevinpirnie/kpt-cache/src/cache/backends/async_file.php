@@ -12,7 +12,7 @@
 namespace KPT;
 
 // make sure the trait doesn't already exist
-if (! trait_exists('CacheFileAsync')) {
+if (! trait_exists('\KPT\CacheFileAsync', false)) {
 
     /**
      * KPT Cache File Async Trait
@@ -47,7 +47,7 @@ if (! trait_exists('CacheFileAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // schedule the operation on the next tick
-                    self::$_event_loop -> futureTick(function () use ($key, $resolve, $reject) {
+                    self::$_event_loop->futureTick(function () use ($key, $resolve, $reject) {
 
                         // try to get the item from file cache
                         try {
@@ -55,13 +55,13 @@ if (! trait_exists('CacheFileAsync')) {
                             $result = self::getFromFile($key);
                             $resolve($result);
 
-                        // whoopsie... reject the promise with the error
+                            // whoopsie... reject the promise with the error
                         } catch (\Exception $e) {
                             $reject($e);
                         }
                     });
 
-                // fallback to synchronous operation
+                    // fallback to synchronous operation
                 } else {
                     // try to get the item synchronously
                     try {
@@ -69,7 +69,7 @@ if (! trait_exists('CacheFileAsync')) {
                         $result = self::getFromFile($key);
                         $resolve($result);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }
@@ -100,7 +100,7 @@ if (! trait_exists('CacheFileAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // schedule the operation on the next tick
-                    self::$_event_loop -> futureTick(function () use ($key, $data, $ttl, $resolve, $reject) {
+                    self::$_event_loop->futureTick(function () use ($key, $data, $ttl, $resolve, $reject) {
 
                         // try to set the item to file cache
                         try {
@@ -108,13 +108,13 @@ if (! trait_exists('CacheFileAsync')) {
                             $result = self::setToFile($key, $data, $ttl);
                             $resolve($result);
 
-                        // whoopsie... reject the promise with the error
+                            // whoopsie... reject the promise with the error
                         } catch (\Exception $e) {
                             $reject($e);
                         }
                     });
 
-                // fallback to synchronous operation
+                    // fallback to synchronous operation
                 } else {
                     // try to set the item synchronously
                     try {
@@ -122,7 +122,7 @@ if (! trait_exists('CacheFileAsync')) {
                         $result = self::setToFile($key, $data, $ttl);
                         $resolve($result);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }
@@ -151,7 +151,7 @@ if (! trait_exists('CacheFileAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // setup promises array
-                    $promises = [ ];
+                    $promises = [];
 
                     // loop through each operation and create promises
                     foreach ($operations as $op) {
@@ -164,29 +164,29 @@ if (! trait_exists('CacheFileAsync')) {
                         };
 
                         // add to promises array
-                        $promises[ ] = $promise;
+                        $promises[] = $promise;
                     }
 
                     // wait for all promises to complete
                     CachePromise::all($promises)
-                        -> then(function ($results) use ($resolve) {
+                        ->then(function ($results) use ($resolve) {
                             $resolve($results);
                         })
-                        -> catch(function ($error) use ($reject) {
+                        ->catch(function ($error) use ($reject) {
                             $reject($error);
                         });
 
-                // Fallback to synchronous batch processing
+                    // Fallback to synchronous batch processing
                 } else {
                     // try to process batch synchronously
                     try {
                         // setup results array
-                        $results = [ ];
+                        $results = [];
 
                         // loop through each operation
                         foreach ($operations as $op) {
                             // match the operation type and execute
-                            $results[ ] = match ($op['type']) {
+                            $results[] = match ($op['type']) {
                                 'get' => self::getFromFile($op['key']),
                                 'set' => self::setToFile($op['key'], $op['data'], $op['ttl'] ?? 3600),
                                 'delete' => self::deleteFromFile($op['key']),
@@ -197,7 +197,7 @@ if (! trait_exists('CacheFileAsync')) {
                         // resolve with results
                         $resolve($results);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }
@@ -226,7 +226,7 @@ if (! trait_exists('CacheFileAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // schedule the operation on the next tick
-                    self::$_event_loop -> futureTick(function () use ($key, $resolve, $reject) {
+                    self::$_event_loop->futureTick(function () use ($key, $resolve, $reject) {
 
                         // try to delete the item from file cache
                         try {
@@ -234,13 +234,13 @@ if (! trait_exists('CacheFileAsync')) {
                             $result = self::deleteFromFile($key);
                             $resolve($result);
 
-                        // whoopsie... reject the promise with the error
+                            // whoopsie... reject the promise with the error
                         } catch (\Exception $e) {
                             $reject($e);
                         }
                     });
 
-                // fallback to synchronous operation
+                    // fallback to synchronous operation
                 } else {
                     // try to delete the item synchronously
                     try {
@@ -248,7 +248,7 @@ if (! trait_exists('CacheFileAsync')) {
                         $result = self::deleteFromFile($key);
                         $resolve($result);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }
@@ -276,7 +276,7 @@ if (! trait_exists('CacheFileAsync')) {
                 // check if async is enabled and we have an event loop
                 if (self::$_async_enabled && self::$_event_loop) {
                     // schedule the operation on the next tick
-                    self::$_event_loop -> futureTick(function () use ($resolve, $reject) {
+                    self::$_event_loop->futureTick(function () use ($resolve, $reject) {
 
                         // try to cleanup expired files
                         try {
@@ -284,13 +284,13 @@ if (! trait_exists('CacheFileAsync')) {
                             $result = self::cleanupExpiredFiles();
                             $resolve($result);
 
-                        // whoopsie... reject the promise with the error
+                            // whoopsie... reject the promise with the error
                         } catch (\Exception $e) {
                             $reject($e);
                         }
                     });
 
-                // fallback to synchronous operation
+                    // fallback to synchronous operation
                 } else {
                     // try to cleanup expired files synchronously
                     try {
@@ -298,7 +298,7 @@ if (! trait_exists('CacheFileAsync')) {
                         $result = self::cleanupExpiredFiles();
                         $resolve($result);
 
-                    // whoopsie... reject the promise with the error
+                        // whoopsie... reject the promise with the error
                     } catch (\Exception $e) {
                         $reject($e);
                     }

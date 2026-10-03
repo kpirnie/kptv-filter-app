@@ -1,5 +1,5 @@
 {
-    "name": "kevinpirnie/kpt-logger",
+    "name": "kevinpirnie/kp-logger",
     "description": "Simple Universal Application Logger for PHP with configurable output destinations and four standard log levels",
     "type": "library",
     "keywords": [
@@ -13,7 +13,7 @@
         "file-logging",
         "system-log"
     ],
-    "homepage": "https://github.com/kpirnie/kpt-logger",
+    "homepage": "https://github.com/kpirnie/kp-logger",
     "license": "MIT",
     "funding": [
         {
@@ -60,7 +60,7 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "support": {
-        "issues": "https://github.com/kpirnie/kpt-logger/issues",
-        "source": "https://github.com/kpirnie/kpt-logger"
+        "issues": "https://github.com/kpirnie/kp-logger/issues",
+        "source": "https://github.com/kpirnie/kp-logger"
     }
 }
