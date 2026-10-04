@@ -25,10 +25,16 @@ if (typeof window.fetch !== 'undefined' && csrfToken) {
         if (method === 'POST') {
             init.headers = init.headers || {};
             if (init.headers instanceof Headers) {
-                init.headers.set('X-CSRF-TOKEN', csrfToken);
+                if (!init.headers.has('X-CSRF-TOKEN')) {
+                    init.headers.set('X-CSRF-TOKEN', csrfToken);
+                }
                 init.headers.set('X-Requested-With', 'XMLHttpRequest');
             } else {
-                init.headers['X-CSRF-TOKEN'] = csrfToken;
+                // leave an existing csrf header alone (kp-datatables sends its own)
+                const hasCsrf = Object.keys(init.headers).some((k) => k.toLowerCase() === 'x-csrf-token');
+                if (!hasCsrf) {
+                    init.headers['X-CSRF-TOKEN'] = csrfToken;
+                }
                 init.headers['X-Requested-With'] = 'XMLHttpRequest';
             }
 
