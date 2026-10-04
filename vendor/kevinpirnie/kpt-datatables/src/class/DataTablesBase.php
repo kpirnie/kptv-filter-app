@@ -126,6 +126,20 @@ if (! class_exists('KPT\DataTablesBase', false)) {
         protected bool $searchEnabled = true;
 
         /**
+         * Columns included in global search (empty = all configured columns)
+         *
+         * @var array
+         */
+        protected array $searchableColumns = [];
+
+        /**
+         * Minimum search term length before a search is applied
+         *
+         * @var int
+         */
+        protected int $minSearchLength = 0;
+
+        /**
          * Configuration for action buttons (edit, delete, custom)
          *
          * @var array
@@ -209,6 +223,13 @@ if (! class_exists('KPT\DataTablesBase', false)) {
          * @var string
          */
         protected string $primaryKey = 'id';
+
+        /**
+         * Session key the CSRF token is stored under
+         *
+         * @var string
+         */
+        protected const CSRF_SESSION_KEY = 'kpt_datatables_csrf';
 
         /**
          * WHERE conditions for filtering records
@@ -425,6 +446,26 @@ if (! class_exists('KPT\DataTablesBase', false)) {
         }
 
         /**
+         * Get the columns included in global search
+         *
+         * @return array Column keys or alias names (empty = all)
+         */
+        public function getSearchableColumns(): array
+        {
+            return $this->searchableColumns;
+        }
+
+        /**
+         * Get the minimum search term length
+         *
+         * @return int Minimum length
+         */
+        public function getMinSearchLength(): int
+        {
+            return $this->minSearchLength;
+        }
+
+        /**
          * Get the action configuration
          *
          * @return array Action buttons configuration array
@@ -605,6 +646,38 @@ if (! class_exists('KPT\DataTablesBase', false)) {
         public function getIncludeCdn(): bool
         {
             return $this->includeCdn;
+        }
+
+        /**
+         * Get the CSRF token for mutating AJAX requests
+         *
+         * Stores a random token in the PHP session, starting a session
+         * if one isn't already active.
+         *
+         * @return string The CSRF token
+         * @throws \RuntimeException If sessions are disabled or can't be started
+         */
+        public function getCsrfToken(): string
+        {
+            // sessions are required to hold the token
+            if (session_status() === PHP_SESSION_DISABLED) {
+                throw new \RuntimeException('PHP sessions are disabled; DataTables requires a session for CSRF protection');
+            }
+
+            // start a session if needed
+            if (session_status() !== PHP_SESSION_ACTIVE) {
+                if (headers_sent()) {
+                    throw new \RuntimeException('Session must be started before output for DataTables CSRF protection');
+                }
+                session_start();
+            }
+
+            // generate the token once per session
+            if (empty($_SESSION[self::CSRF_SESSION_KEY]) || !is_string($_SESSION[self::CSRF_SESSION_KEY])) {
+                $_SESSION[self::CSRF_SESSION_KEY] = bin2hex(random_bytes(32));
+            }
+
+            return $_SESSION[self::CSRF_SESSION_KEY];
         }
     }
 }

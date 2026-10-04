@@ -88,11 +88,29 @@ if (! class_exists('KPT\DataTables', false)) {
             try {
                 Logger::debug("Loading table schema", ['table' => $this->tableName]);
 
-                // Get table structure using DESCRIBE with the fluent interface
-                $schema = $this->db->query("DESCRIBE `{$this->tableName}`")->fetch();
+                // Try the APCu cache first (keyed by connection + table)
+                $schema = null;
+                $useApcu = function_exists('apcu_fetch') && apcu_enabled();
+                $cacheKey = 'kpt_dt_schema_' . md5(json_encode($this->dbConfig) . '|' . $this->tableName);
+                if ($useApcu) {
+                    $cached = apcu_fetch($cacheKey, $hit);
+                    if ($hit && is_array($cached)) {
+                        $schema = $cached;
+                    }
+                }
 
-                if (!$schema || empty($schema)) {
-                    throw new RuntimeException("Table '{$this->tableName}' does not exist or is not accessible");
+                // Fall back to DESCRIBE and cache the result
+                if ($schema === null) {
+                    $rows = $this->db->query("DESCRIBE `{$this->tableName}`")->fetch();
+
+                    if (!$rows || empty($rows)) {
+                        throw new RuntimeException("Table '{$this->tableName}' does not exist or is not accessible");
+                    }
+
+                    $schema = array_map(fn($column) => (array) $column, $rows);
+                    if ($useApcu) {
+                        apcu_store($cacheKey, $schema, 300);
+                    }
                 }
 
                 Logger::debug("Schema query returned", ['column_count' => count($schema)]);
@@ -100,17 +118,17 @@ if (! class_exists('KPT\DataTables', false)) {
                 $this->tableSchema = [];
 
                 foreach ($schema as $column) {
-                    $this->tableSchema[$column->Field] = [
-                        'type' => $this->parseColumnType($column->Type),
-                        'null' => $column->Null === 'YES',
-                        'key' => $column->Key,
-                        'default' => $column->Default,
-                        'extra' => $column->Extra
+                    $this->tableSchema[$column['Field']] = [
+                        'type' => $this->parseColumnType($column['Type'], $column['Field']),
+                        'null' => $column['Null'] === 'YES',
+                        'key' => $column['Key'],
+                        'default' => $column['Default'],
+                        'extra' => $column['Extra']
                     ];
 
                     // Auto-detect primary key
-                    if ($column->Key === 'PRI') {
-                        $this->primaryKey = $column->Field;
+                    if ($column['Key'] === 'PRI') {
+                        $this->primaryKey = $column['Field'];
                     }
                 }
 
@@ -140,9 +158,10 @@ if (! class_exists('KPT\DataTables', false)) {
          * Parse MySQL column type to appropriate form field type with enhanced detection
          *
          * @param  string $columnType MySQL column type from DESCRIBE
+         * @param  string $field      Column name, used for name-based type detection
          * @return string HTML form field type
          */
-        private function parseColumnType(string $columnType): string
+        private function parseColumnType(string $columnType, string $field = ''): string
         {
             $type = strtolower($columnType);
 
@@ -178,7 +197,7 @@ if (! class_exists('KPT\DataTables', false)) {
             }
 
             // Handle select2 fields (before enum/select check)
-            if (isset($field) && strpos(strtolower($field), 'select2') !== false) {
+            if ($field !== '' && strpos(strtolower($field), 'select2') !== false) {
                 return 'select2';
             }
 
@@ -190,10 +209,10 @@ if (! class_exists('KPT\DataTables', false)) {
             // Handle image fields (VARCHAR fields with 'image' in name or specific pattern)
             if (
                 strpos($type, 'varchar') !== false && (
-                    strpos(strtolower($field ?? ''), 'image') !== false ||
-                    strpos(strtolower($field ?? ''), 'photo') !== false ||
-                    strpos(strtolower($field ?? ''), 'avatar') !== false ||
-                    strpos(strtolower($field ?? ''), 'picture') !== false
+                    strpos(strtolower($field), 'image') !== false ||
+                    strpos(strtolower($field), 'photo') !== false ||
+                    strpos(strtolower($field), 'avatar') !== false ||
+                    strpos(strtolower($field), 'picture') !== false
                 )
             ) {
                 return 'image';
@@ -553,13 +572,17 @@ if (! class_exists('KPT\DataTables', false)) {
          * Controls whether the search input and column selector are displayed.
          * When enabled, provides both global and column-specific searching.
          *
-         * @param  bool $enabled Whether search functionality should be enabled
+         * @param  bool  $enabled   Whether to enable search
+         * @param  array $columns   Columns (keys or alias names) included in global search; empty for all
+         * @param  int   $minLength Minimum search term length before searching
          * @return self Returns self for method chaining
          */
-        public function search(bool $enabled = true): self
+        public function search(bool $enabled = true, array $columns = [], int $minLength = 0): self
         {
             $this->searchEnabled = $enabled;
-            Logger::debug("DataTables search configured", ['enabled' => $enabled]);
+            $this->searchableColumns = array_values(array_map('strval', $columns));
+            $this->minSearchLength = max(0, $minLength);
+            Logger::debug("DataTables search configured", ['enabled' => $enabled, 'columns' => $this->searchableColumns, 'min_length' => $this->minSearchLength]);
             return $this;
         }
 
@@ -887,6 +910,9 @@ if (! class_exists('KPT\DataTables', false)) {
          */
         public function handleAjax(): void
         {
+            // actions that change data require POST and a valid CSRF token
+            $mutatingActions = ['add_record', 'edit_record', 'delete_record', 'bulk_action', 'inline_edit', 'upload_file', 'action_callback'];
+
             try {
                 // Extract and sanitize the action from POST or GET parameters
                 $action = $this->sanitizeInput($_POST['action'] ?? $_GET['action'] ?? '');
@@ -897,14 +923,33 @@ if (! class_exists('KPT\DataTables', false)) {
 
                 Logger::debug("DataTables handling AJAX request", ['action' => $action]);
 
+                // Enforce POST + CSRF on mutating actions
+                if (in_array($action, $mutatingActions, true)) {
+                    $isPost = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']);
+                    $submitted = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['_token'] ?? '';
+
+                    if (!$isPost || !is_string($submitted) || $submitted === '' || !hash_equals($this->getCsrfToken(), $submitted)) {
+                        Logger::error("DataTables CSRF check failed", ['action' => $action]);
+                        http_response_code(403);
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => false, 'message' => 'Invalid or missing security token']);
+                        exit;
+                    }
+                }
+
                 // Delegate to the AJAX handler
                 $handler = new AjaxHandler($this);
                 $handler->handle($action);
             } catch (Exception $e) {
-                // Log the error and return error response
+                // Log the full error, but only expose validation messages to the client
                 Logger::error("DataTables AJAX error", ['message' => $e->getMessage()]);
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+                $isValidation = $e instanceof InvalidArgumentException;
+                http_response_code($isValidation ? 400 : 500);
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => false,
+                    'message' => $isValidation ? $e->getMessage() : 'An error occurred processing the request',
+                ]);
                 exit;
             }
         }
@@ -1007,7 +1052,7 @@ if (! class_exists('KPT\DataTables', false)) {
 
             // Include framework JS from CDN if enabled
             if ($includeCdn) {
-                $html .= $tm->getJsIncludes(true, $useMinified);
+                $html .= $tm->getJsIncludes($theme, true, $useMinified);
             }
 
             // if we are minifying

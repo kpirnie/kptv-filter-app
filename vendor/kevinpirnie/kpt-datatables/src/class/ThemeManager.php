@@ -47,6 +47,33 @@ if (! class_exists('KPT\ThemeManager', false)) {
         private const CDN_BOOTSTRAP_MINICONS = 'https://cdn.jsdelivr.net/npm/bootstrap-icons@latest/font/bootstrap-icons.min.css';
 
         /**
+         * Base URL the package assets are served from
+         *
+         * @var string
+         */
+        private static string $assetBase = '/vendor/kevinpirnie/kpt-datatables/src/assets';
+
+        /**
+         * Set the base URL the package assets are served from
+         *
+         * @param  string $url Public URL of the copied/published assets directory
+         * @return void
+         */
+        public static function setAssetBase(string $url): void
+        {
+            self::$assetBase = rtrim($url, '/');
+        }
+
+        /**
+         * Get the base URL the package assets are served from
+         *
+         * @return string Asset base URL without trailing slash
+         */
+        public static function getAssetBase(): string
+        {
+            return self::$assetBase;
+        }
+        /**
          * Current theme
          *
          * @var string
@@ -180,7 +207,7 @@ if (! class_exists('KPT\ThemeManager', false)) {
             // Add theme-specific CSS
             $themeCss = $this->getThemeCssPath($useMinified);
             if ($themeCss) {
-                $html .= "<link rel=\"stylesheet\" href=\"{$themeCss}\">\n";
+                $html .= "<link rel=\"stylesheet\" href=\"" . htmlspecialchars($themeCss, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . "\">\n";
             }
 
             return $html;
@@ -193,27 +220,49 @@ if (! class_exists('KPT\ThemeManager', false)) {
          * @param  bool $useMinified Whether to include the minified versions for framework
          * @return string HTML script tags
          */
-        public function getJsIncludes(bool $includeCdn = true, bool $useMinified = false): string
+        public static function getJsIncludes(string $theme = 'uikit', bool $includeCdn = true, bool $useMinified = false): string
         {
-            $html = '';
+            $tm = new ThemeManager($theme);
+            $assetBase = htmlspecialchars(ThemeManager::getAssetBase(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $html = "<!-- DataTables JavaScript -->\n";
 
-            // Add framework CDN JS if enabled
+            // Include framework JS from CDN if enabled
             if ($includeCdn) {
-                switch ($this->theme) {
-                    case self::THEME_UIKIT:
-                        $js = ($useMinified) ? self::CDN_UIKIT_MINJS : self::CDN_UIKIT_JS;
-                        $jsIcons = ($useMinified) ? self::CDN_UIKIT_MINICONS : self::CDN_UIKIT_ICONS;
-                        $html .= "<script src=\"" . $js . "\" defer></script>\n";
-                        $html .= "<script src=\"" . $jsIcons . "\" defer></script>\n";
-                        break;
-                    case self::THEME_BOOTSTRAP:
-                        $js = ($useMinified) ? self::CDN_BOOTSTRAP_MINJS : self::CDN_BOOTSTRAP_JS;
-                        $html .= "<script src=\"" . $js . "\" defer></script>\n";
-                        break;
+                $html .= $tm->getJsIncludes($theme, true, $useMinified);
+            }
+
+            // if we are minifying
+            if ($useMinified) {
+                // Include main DataTables JS
+                $html .= "<script src=\"{$assetBase}/js/dist/kpt-datatables.min.js\" defer></script>\n";
+
+                // otherwise
+            } else {
+                // Include theme helper for plain/tailwind/bootstrap themes
+                if (in_array($theme, [ThemeManager::THEME_PLAIN, ThemeManager::THEME_TAILWIND, ThemeManager::THEME_BOOTSTRAP])) {
+                    $html .= "<script src=\"{$assetBase}/js/theme-helpers.js\" defer></script>\n";
                 }
+
+                // Include main DataTables JS
+                $html .= "<script src=\"{$assetBase}/js/datatables.js\" defer></script>\n";
+                $html .= "<script src=\"{$assetBase}/js/select2.js\" defer></script>\n";
             }
 
             return $html;
+        }
+
+        /**
+         * Set the public URL the package assets are served from
+         *
+         * Copy (or symlink) the package's src/assets directory into the web root
+         * and point this at it, so vendor/ never needs to be web-exposed.
+         *
+         * @param  string $url Public URL of the assets directory (e.g. '/assets/kpt-datatables')
+         * @return void
+         */
+        public static function assetUrl(string $url): void
+        {
+            ThemeManager::setAssetBase($url);
         }
 
         /**
@@ -225,7 +274,7 @@ if (! class_exists('KPT\ThemeManager', false)) {
         {
             // seutp the css file to use
             $cssFile = ($useMinified) ? sprintf('dist/%s.min', $this->theme) : sprintf('themes/%s', $this->theme);
-            return "/vendor/kevinpirnie/kpt-datatables/src/assets/css/{$cssFile}.css";
+            return self::$assetBase . "/css/{$cssFile}.css";
         }
 
         /**
@@ -514,17 +563,22 @@ if (! class_exists('KPT\ThemeManager', false)) {
          */
         public function getNotificationJs(string $message, string $status = 'success'): string
         {
+            $flags = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP;
+            $jsMessage = json_encode($message, $flags);
+            $jsStatus = json_encode($status, $flags);
+
             switch ($this->theme) {
                 case self::THEME_UIKIT:
-                    return "UIkit.notification('{$message}', { status: '{$status}' });";
+                    $jsMessage = json_encode(htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), $flags);
+                    return "UIkit.notification({$jsMessage}, { status: {$jsStatus} });";
 
                 case self::THEME_BOOTSTRAP:
-                    return "KPDataTablesBootstrap.notification('{$message}', '{$status}');";
+                    return "KPDataTablesBootstrap.notification({$jsMessage}, {$jsStatus});";
 
                 case self::THEME_TAILWIND:
                 case self::THEME_PLAIN:
                 default:
-                    return "KPDataTablesPlain.notification('{$message}', '{$status}');";
+                    return "KPDataTablesPlain.notification({$jsMessage}, {$jsStatus});";
             }
         }
 
@@ -580,15 +634,18 @@ if (! class_exists('KPT\ThemeManager', false)) {
          */
         public function getModalConfirmJs(string $message): string
         {
+            $flags = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP;
+
             switch ($this->theme) {
                 case self::THEME_UIKIT:
-                    return "UIkit.modal.confirm('{$message}')";
+                    $jsMessage = json_encode(htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), $flags);
+                    return "UIkit.modal.confirm({$jsMessage})";
 
                 case self::THEME_BOOTSTRAP:
                 case self::THEME_TAILWIND:
                 case self::THEME_PLAIN:
                 default:
-                    return "KPDataTablesPlain.confirm('{$message}')";
+                    return "KPDataTablesPlain.confirm(" . json_encode($message, $flags) . ")";
             }
         }
     }

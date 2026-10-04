@@ -33,6 +33,64 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private DataTables $dataTable;
 
         /**
+         * Allowed MIME types per file extension for upload sniffing
+         *
+         * @var array
+         */
+        private const UPLOAD_MIME_MAP = [
+            'jpg' => ['image/jpeg'],
+            'jpeg' => ['image/jpeg'],
+            'png' => ['image/png'],
+            'gif' => ['image/gif'],
+            'webp' => ['image/webp'],
+            'bmp' => ['image/bmp', 'image/x-ms-bmp'],
+            'ico' => ['image/vnd.microsoft.icon', 'image/x-icon'],
+            'svg' => ['image/svg+xml'],
+            'pdf' => ['application/pdf'],
+            'doc' => ['application/msword', 'application/vnd.ms-office', 'application/octet-stream'],
+            'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip', 'application/octet-stream'],
+            'xls' => ['application/vnd.ms-excel', 'application/vnd.ms-office', 'application/octet-stream'],
+            'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip', 'application/octet-stream'],
+            'ppt' => ['application/vnd.ms-powerpoint', 'application/vnd.ms-office', 'application/octet-stream'],
+            'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip', 'application/octet-stream'],
+            'csv' => ['text/csv', 'text/plain', 'application/csv'],
+            'txt' => ['text/plain'],
+            'zip' => ['application/zip', 'application/x-zip-compressed'],
+            'mp3' => ['audio/mpeg'],
+            'mp4' => ['video/mp4'],
+            'html' => ['text/html'],
+            'htm' => ['text/html'],
+        ];
+
+        /**
+         * Extensions that are never accepted, regardless of configuration
+         *
+         * @var array
+         */
+        private const UPLOAD_BLOCKED_EXTENSIONS = [
+            'php',
+            'php3',
+            'php4',
+            'php5',
+            'php7',
+            'php8',
+            'phps',
+            'pht',
+            'phtml',
+            'phar',
+            'cgi',
+            'pl',
+            'py',
+            'sh',
+            'asp',
+            'aspx',
+            'jsp',
+            'exe',
+            'htaccess',
+            'htpasswd',
+        ];
+
+        /**
          * Constructor - Initialize the AJAX handler
          *
          * @param DataTables $dataTable The DataTables instance with configuration
@@ -135,7 +193,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private function handleFileUpload(): void
         {
             // Check if file was uploaded
-            if (!isset($_FILES['file'])) {
+            if (!isset($_FILES['file']) || !is_array($_FILES['file']) || ($_FILES['file']['error'] ?? null) !== UPLOAD_ERR_OK) {
                 throw new InvalidArgumentException('No file uploaded');
             }
 
@@ -153,22 +211,37 @@ if (! class_exists('KPT\AjaxHandler', false)) {
          * Process file uploads in form data
          *
          * Scans $_FILES for uploaded files and processes them, updating the form data
-         * with the file paths. Used during add/edit record operations.
+         * with the file paths. Only fields that exist in the schema and are configured
+         * as file/image fields are accepted. Used during add/edit record operations.
          *
-         * @param  array $data Form data to process
+         * @param  array  $data Form data to process
+         * @param  string $form Form the upload belongs to ('add' or 'edit')
          * @return array Updated form data with file paths
          */
-        private function processFileUploads(array $data): array
+        private function processFileUploads(array $data, string $form): array
         {
+            $schema = $this->dataTable->getTableSchema();
+            $formConfig = $form === 'edit' ? $this->dataTable->getEditFormConfig() : $this->dataTable->getAddFormConfig();
+            $formFields = $formConfig['fields'] ?? [];
+            $unqualifiedPK = $this->getUnqualifiedPrimaryKey();
+
             // Loop through all uploaded files
             foreach ($_FILES as $fieldName => $file) {
                 // Handle image field uploads (remove -file suffix)
-                $actualFieldName = $fieldName;
-                if (strpos($fieldName, '-file') !== false) {
-                    $actualFieldName = str_replace('-file', '', $fieldName);
+                $actualFieldName = str_ends_with((string) $fieldName, '-file') ? substr((string) $fieldName, 0, -5) : (string) $fieldName;
+
+                // Field names are identifiers only, must exist in the schema, and can't be the PK
+                if (!preg_match('/^[A-Za-z0-9_]+$/', $actualFieldName) || !isset($schema[$actualFieldName]) || $actualFieldName === $unqualifiedPK) {
+                    continue;
                 }
 
-                if ($file['error'] === UPLOAD_ERR_OK) {
+                // Only accept fields configured as file or image
+                $type = $formFields[$actualFieldName]['type'] ?? $schema[$actualFieldName]['override_type'] ?? $schema[$actualFieldName]['type'] ?? '';
+                if (!in_array($type, ['file', 'image'], true)) {
+                    continue;
+                }
+
+                if (is_array($file) && ($file['error'] ?? null) === UPLOAD_ERR_OK) {
                     $uploadResult = $this->uploadFile($file);
 
                     if ($uploadResult['success']) {
@@ -183,8 +256,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         /**
          * Upload a single file with enhanced validation
          *
-         * Handles the complete file upload process including validation of file size,
-         * extension, directory creation, and file movement with security checks.
+         * Handles the complete file upload process including validation of upload status,
+         * file size, extension, sniffed MIME type, directory creation, and file movement
+         * with security checks. Files are stored under a random name.
          *
          * @param  array $file File array from $_FILES
          * @return array Upload result with success status, file path, and message
@@ -194,6 +268,14 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             // Get upload configuration
             $config = $this->dataTable->getFileUploadConfig();
 
+            // Validate upload status
+            if (($file['error'] ?? null) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'] ?? '')) {
+                return [
+                    'success' => false,
+                    'message' => 'File upload failed'
+                ];
+            }
+
             // Validate file size
             if ($file['size'] > $config['max_file_size']) {
                 return [
@@ -202,25 +284,57 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 ];
             }
 
-            // Extract and validate file extension
-            $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-            if (!in_array($extension, $config['allowed_extensions'])) {
+            // Extract and validate file extension, never allowing executable types
+            $extension = strtolower(pathinfo((string) $file['name'], PATHINFO_EXTENSION));
+            $allowed = array_map('strtolower', $config['allowed_extensions']);
+            if ($extension === '' || in_array($extension, self::UPLOAD_BLOCKED_EXTENSIONS, true) || !in_array($extension, $allowed, true)) {
                 return [
                     'success' => false,
                     'message' => 'File type not allowed'
                 ];
             }
 
-            // Ensure upload directory exists
-            if (!is_dir($config['upload_path'])) {
-                // Create directory with appropriate permissions
-                mkdir($config['upload_path'], 0755, true);
+            // Sniff the real MIME type and make sure it matches the extension
+            if (isset(self::UPLOAD_MIME_MAP[$extension])) {
+                $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+                if ($mime === false || !in_array($mime, self::UPLOAD_MIME_MAP[$extension], true)) {
+                    return [
+                        'success' => false,
+                        'message' => 'File type not allowed'
+                    ];
+                }
             }
 
-            // Generate unique filename with optional prepend
-            $prepend = $_POST['prepend'] ?? '';
-            $fileName = $prepend ? $prepend . '_' . uniqid() . '_' . basename($file['name']) : uniqid() . '_' . basename($file['name']);
-            $filePath = $config['upload_path'] . $fileName;
+            // Ensure upload directory exists
+            if (!is_dir($config['upload_path'])) {
+                // Create directory with restricted permissions
+                mkdir($config['upload_path'], 0750, true);
+            }
+
+            // Resolve the real upload directory
+            $uploadDir = realpath($config['upload_path']);
+            if ($uploadDir === false) {
+                return [
+                    'success' => false,
+                    'message' => 'Upload directory unavailable'
+                ];
+            }
+
+            // Generate random filename with optional restricted prepend
+            $prepend = (string) ($_POST['prepend'] ?? '');
+            if ($prepend !== '' && !preg_match('/^[A-Za-z0-9_-]{1,32}$/', $prepend)) {
+                $prepend = '';
+            }
+            $fileName = ($prepend !== '' ? $prepend . '_' : '') . bin2hex(random_bytes(16)) . '.' . $extension;
+            $filePath = $uploadDir . DIRECTORY_SEPARATOR . $fileName;
+
+            // Make sure the final path stays inside the upload directory
+            if (dirname($filePath) !== $uploadDir) {
+                return [
+                    'success' => false,
+                    'message' => 'Invalid upload path'
+                ];
+            }
 
             // Attempt to move uploaded file to final destination
             if (move_uploaded_file($file['tmp_name'], $filePath)) {
@@ -239,131 +353,6 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         }
 
         /**
-         * Build SELECT query with filtering, sorting, and pagination
-         *
-         * Constructs a complete SELECT query based on the DataTables configuration
-         * and request parameters. Handles JOINs, WHERE conditions, ORDER BY, and LIMIT.
-         * All inputs are sanitized and validated.
-         *
-         * @param  string $search        Search term to filter results
-         * @param  string $searchColumn  Specific column to search (or 'all' for global search)
-         * @param  string $sortColumn    Column to sort by
-         * @param  string $sortDirection Sort direction (ASC or DESC)
-         * @param  int    $page          Page number for pagination
-         * @param  int    $perPage       Number of records per page (0 for all records)
-         * @return array Array with 'sql' query string and 'params' array
-         */
-        private function buildSelectQuery(string $search = '', string $searchColumn = '', string $sortColumn = '', string $sortDirection = 'ASC', int $page = 1, int $perPage = 25): array
-        {
-            // Build SELECT field list from column configuration
-            $selectFields = [];
-            $columns = $this->dataTable->getColumns();
-
-            // If no columns configured, get all columns from schema
-            if (empty($columns)) {
-                $schema = $this->dataTable->getTableSchema();
-                if (!empty($schema)) {
-                    foreach ($schema as $columnName => $info) {
-                        $selectFields[] = "`{$columnName}`";
-                    }
-                } else {
-                    // Last resort - select all
-                    $selectFields[] = "*";
-                }
-            } else {
-                foreach ($columns as $column => $label) {
-                    $selectFields[] = "`{$column}`";
-                }
-            }
-
-            // Start building the SQL query
-            $sql = "SELECT " . implode(', ', $selectFields) . " FROM `{$this->dataTable->getTableName()}`";
-            $params = [];
-
-            // Add JOIN clauses from configuration
-            foreach ($this->dataTable->getJoins() as $join) {
-                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
-            }
-
-            // Add WHERE clause for search functionality
-            $searchConditions = [];
-            foreach ($this->dataTable->getColumns() as $column => $label) {
-                $searchConditions[] = "`{$column}` LIKE ?";
-                $params[] = "%{$search}%";
-            }
-
-            // Only add WHERE clause if we have searchable columns
-            if (!empty($searchConditions)) {
-                $sql .= " WHERE " . implode(' OR ', $searchConditions);
-            }
-
-            // Add ORDER BY clause for sorting
-            if (!empty($sortColumn) && in_array($sortColumn, $this->dataTable->getSortableColumns())) {
-                // Validate and normalize sort direction
-                $direction = strtoupper($sortDirection) === 'DESC' ? 'DESC' : 'ASC';
-                $sql .= " ORDER BY `{$sortColumn}` {$direction}";
-            }
-
-            // Add LIMIT clause for pagination
-            if ($perPage > 0) {
-                // Calculate offset for pagination
-                $offset = ($page - 1) * $perPage;
-                $sql .= " LIMIT {$offset}, {$perPage}";
-            }
-
-            return ['sql' => $sql, 'params' => $params];
-        }
-
-        /**
-         * Build COUNT query for pagination metadata
-         *
-         * Constructs a COUNT query to determine total number of records that match
-         * the current search/filter criteria. Used for pagination calculations.
-         *
-         * @param  string $search       Search term to filter results
-         * @param  string $searchColumn Specific column to search (or 'all' for global search)
-         * @return array Array with 'sql' query string and 'params' array
-         */
-        private function buildCountQuery(string $search = '', string $searchColumn = ''): array
-        {
-            // Build basic COUNT query
-            $sql = "SELECT COUNT(*) as total FROM `{$this->dataTable->getTableName()}`";
-            $params = [];
-
-            // Add same JOIN clauses as the main query
-            foreach ($this->dataTable->getJoins() as $join) {
-                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
-            }
-
-            // Add same WHERE conditions as the main query
-            if (!empty($search)) {
-                $columns = $this->dataTable->getColumns();
-
-                // Use schema if no columns configured
-                if (empty($columns)) {
-                    $schema = $this->dataTable->getTableSchema();
-                    $columns = array_keys($schema);
-                } else {
-                    $columns = array_keys($columns);
-                }
-
-                // Global search across all columns
-                $searchConditions = [];
-                foreach ($columns as $column) {
-                    $searchConditions[] = "`{$column}` LIKE ?";
-                    $params[] = "%{$search}%";
-                }
-
-                // Only add WHERE clause if we have searchable columns
-                if (!empty($searchConditions)) {
-                    $sql .= " WHERE " . implode(' OR ', $searchConditions);
-                }
-            }
-
-            return ['sql' => $sql, 'params' => $params];
-        }
-
-        /**
          * Handle data fetching for table display with enhanced input sanitization
          *
          * Processes requests for table data including pagination, sorting, and searching.
@@ -375,12 +364,24 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private function handleFetchData(): void
         {
             // Extract and validate pagination parameters with bounds checking
-            $page = $this->validateInteger($_GET['page'] ?? 1, 1);
-            $perPage = $this->validateInteger($_GET['per_page'] ?? $this->dataTable->getRecordsPerPage(), 0, 1000);
+            $defaultPerPage = $this->dataTable->getRecordsPerPage();
+            $perPage = filter_var($_GET['per_page'] ?? $defaultPerPage, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 1000]]);
+
+            // Invalid values fall back to the default; 0 (all) only when the All option is enabled
+            if ($perPage === false || ($perPage === 0 && !$this->dataTable->getIncludeAllOption())) {
+                $perPage = $defaultPerPage;
+            }
+
+            // Cap the page so the offset stays bounded
+            $maxPage = $perPage > 0 ? max(1, intdiv(1000000, $perPage)) : 1;
+            $page = $this->validateInteger($_GET['page'] ?? 1, 1, $maxPage);
 
             // Sanitize search inputs with proper escaping
             $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
-            $searchColumn = $this->sanitizeColumnName($_GET['search_column'] ?? '');
+            if (mb_strlen(trim((string) ($_GET['search'] ?? ''))) < $this->dataTable->getMinSearchLength()) {
+                $search = '';
+            }
+            $searchColumn = $this->validateSearchColumn($_GET['search_column'] ?? '');
 
             // Sanitize and validate sort inputs
             $sortColumn = $this->sanitizeColumnName($_GET['sort_column'] ?? '');
@@ -492,13 +493,16 @@ if (! class_exists('KPT\AjaxHandler', false)) {
 
                 if (!empty($searchColumn) && $searchColumn !== 'all') {
                     if (strpos($searchColumn, '.') !== false) {
-                        $searchConditions[] = "{$searchColumn} LIKE ?";
+                        $searchConditions[] = "{$searchColumn} LIKE ? ESCAPE '!'";
                     } else {
-                        $searchConditions[] = "`{$searchColumn}` LIKE ?";
+                        $searchConditions[] = "`{$searchColumn}` LIKE ? ESCAPE '!'";
                     }
                     $params[] = "%{$search}%";
                 } else {
                     foreach ($this->dataTable->getColumns() as $column => $label) {
+                        if (!$this->isSearchableColumn((string) $column)) {
+                            continue;
+                        }
                         // For aliased columns, use only the expression part (before AS) in WHERE clause
                         $searchColumn = $column;
                         if (stripos($column, ' AS ') !== false) {
@@ -507,9 +511,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                         }
 
                         if (strpos($searchColumn, '.') !== false) {
-                            $searchConditions[] = "{$searchColumn} LIKE ?";
+                            $searchConditions[] = "{$searchColumn} LIKE ? ESCAPE '!'";
                         } else {
-                            $searchConditions[] = "`{$searchColumn}` LIKE ?";
+                            $searchConditions[] = "`{$searchColumn}` LIKE ? ESCAPE '!'";
                         }
                         $params[] = "%{$search}%";
                     }
@@ -661,13 +665,16 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 $searchConditions = [];
                 if (!empty($searchColumn) && $searchColumn !== 'all') {
                     if (strpos($searchColumn, '.') !== false) {
-                        $searchConditions[] = "{$searchColumn} LIKE ?";
+                        $searchConditions[] = "{$searchColumn} LIKE ? ESCAPE '!'";
                     } else {
-                        $searchConditions[] = "`{$searchColumn}` LIKE ?";
+                        $searchConditions[] = "`{$searchColumn}` LIKE ? ESCAPE '!'";
                     }
                     $params[] = "%{$search}%";
                 } else {
                     foreach ($columns as $column) {
+                        if (!$this->isSearchableColumn((string) $column)) {
+                            continue;
+                        }
                         // For aliased columns, use only the expression part (before AS) in WHERE clause
                         $searchColumn = $column;
                         if (stripos($column, ' AS ') !== false) {
@@ -676,9 +683,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                         }
 
                         if (strpos($searchColumn, '.') !== false) {
-                            $searchConditions[] = "{$searchColumn} LIKE ?";
+                            $searchConditions[] = "{$searchColumn} LIKE ? ESCAPE '!'";
                         } else {
-                            $searchConditions[] = "`{$searchColumn}` LIKE ?";
+                            $searchConditions[] = "`{$searchColumn}` LIKE ? ESCAPE '!'";
                         }
                         $params[] = "%{$search}%";
                     }
@@ -824,7 +831,15 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 }
             }
 
-            $validatedData = $this->processFileUploads($validatedData);
+            $validatedData = $this->processFileUploads($validatedData, 'add');
+
+            // Only allow configured add form fields
+            $validatedData = array_intersect_key($validatedData, $this->getFormFieldWhitelist('add'));
+
+            // Force where() scope values on insert
+            foreach ($this->getScopeEqualityValues() as $scopeField => $scopeValue) {
+                $validatedData[$scopeField] = $scopeValue;
+            }
 
             if (empty($validatedData)) {
                 throw new InvalidArgumentException('No valid data to insert');
@@ -890,7 +905,11 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 }
             }
 
-            $validatedData = $this->processFileUploads($validatedData);
+            $validatedData = $this->processFileUploads($validatedData, 'edit');
+
+            // Only allow configured edit form fields, never the where() scope columns
+            $validatedData = array_intersect_key($validatedData, $this->getFormFieldWhitelist('edit'));
+            $validatedData = array_diff_key($validatedData, $this->getScopeEqualityValues());
 
             if (empty($validatedData)) {
                 throw new InvalidArgumentException('No valid data to update');
@@ -1006,7 +1025,33 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             $primaryKey    = $this->dataTable->getPrimaryKey();
             $idColumn      = strpos($primaryKey, '.') !== false ? $unqualifiedPK : $primaryKey;
 
-            $sql    = "SELECT * FROM `{$this->dataTable->getBaseTableName()}`";
+            // Columns the client may see: PK, edit form fields, and select2 {placeholder} fields
+            $schema      = $this->dataTable->getTableSchema();
+            $editFields  = $this->dataTable->getEditFormConfig()['fields'] ?? [];
+            $visible     = [$unqualifiedPK => true];
+            $serverOnly  = [];
+            foreach ($editFields as $fieldName => $fieldConfig) {
+                $visible[$this->getUnqualifiedFieldName((string) $fieldName)] = true;
+                if (($fieldConfig['type'] ?? '') === 'select2' && !empty($fieldConfig['query'])) {
+                    preg_match_all('/\{([a-zA-Z0-9_]+)\}/', (string) $fieldConfig['query'], $placeholderMatches);
+                    foreach ($placeholderMatches[1] as $placeholderField) {
+                        $visible[$placeholderField] = true;
+                    }
+                }
+                // allow_on compare fields are needed server-side only
+                if (!empty($fieldConfig['allow_on']['field'])) {
+                    $serverOnly[(string) $fieldConfig['allow_on']['field']] = true;
+                }
+            }
+
+            // Only select columns that exist on the base table
+            $selectColumns = array_filter(
+                array_keys($visible + $serverOnly),
+                fn($column) => isset($schema[$column]) || $column === $unqualifiedPK
+            );
+            $selectList = implode(', ', array_map(fn($column) => "`{$column}`", $selectColumns));
+
+            $sql    = "SELECT {$selectList} FROM `{$this->dataTable->getBaseTableName()}`";
             $params = [$id];
 
             $whereConditions  = $this->dataTable->getWhereConditions();
@@ -1064,11 +1109,14 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 }
             }
 
+            // Strip server-only columns before sending
+            $data = $result ? array_intersect_key((array) $result, $visible) : null;
+
             header('Content-Type: application/json');
             echo json_encode([
                 'success'        => $success,
                 'message'        => $success ? 'Record fetched successfully' : 'Record not found',
-                'data'           => $result ?: null,
+                'data'           => $data,
                 'field_overrides' => $fieldOverrides,
             ]);
             exit;
@@ -1125,6 +1173,12 @@ if (! class_exists('KPT\AjaxHandler', false)) {
 
             if (!isset($bulkActions['actions'][$bulkAction])) {
                 throw new InvalidArgumentException("Unknown bulk action: {$bulkAction}");
+            }
+
+            // Drop any IDs outside the where() scope
+            $selectedIds = array_keys($this->fetchScopedRows($selectedIds));
+            if (empty($selectedIds)) {
+                throw new InvalidArgumentException('No valid records selected');
             }
 
             $result = false;
@@ -1207,8 +1261,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             $columnName = strpos($field, '.') !== false ? explode('.', $field)[1] : $field;
             $inlineEditableColumns = $this->dataTable->getInlineEditableColumns();
 
-            if (!in_array($field, $inlineEditableColumns) && !in_array($columnName, $inlineEditableColumns)) {
-                throw new InvalidArgumentException("Field '{$field}' is not inline editable. Configured fields: " . implode(', ', $inlineEditableColumns));
+            // Never allow the where() scope columns to change
+            if (array_key_exists($columnName, $this->getScopeEqualityValues())) {
+                throw new InvalidArgumentException('Field is not editable');
             }
 
             $schema = $this->dataTable->getTableSchema();
@@ -1264,7 +1319,6 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         {
             $actionName = $this->sanitizeInput($_POST['action_name'] ?? '');
             $rowId = $this->validateInteger($_POST['row_id'] ?? null);
-            $rowData = json_decode($_POST['row_data'] ?? '{}', true);
 
             if (empty($actionName) || !$rowId) {
                 throw new InvalidArgumentException('Valid action and row ID are required');
@@ -1291,6 +1345,13 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             if (!$callback) {
                 throw new InvalidArgumentException("No callback found for action: {$actionName}");
             }
+
+            // Re-fetch the row server-side within the where() scope
+            $rows = $this->fetchScopedRows([$rowId]);
+            if (!isset($rows[$rowId])) {
+                throw new InvalidArgumentException('Record not found');
+            }
+            $rowData = $rows[$rowId];
 
             // Execute the callback with row ID and full row data
             $result = call_user_func(
@@ -1324,6 +1385,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private function handleFetchAggregations(): void
         {
             $search = $this->sanitizeSearchInput($_GET['search'] ?? '');
+            if (mb_strlen(trim((string) ($_GET['search'] ?? ''))) < $this->dataTable->getMinSearchLength()) {
+                $search = '';
+            }
             $searchColumn = $this->sanitizeColumnName($_GET['search_column'] ?? '');
             $filtersJson = $this->sanitizeJsonInput($_GET['filters'] ?? '[]');
 
@@ -1378,15 +1442,18 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             if (!empty($search)) {
                 $searchConditions = [];
                 foreach ($this->dataTable->getColumns() as $col => $label) {
+                    if (!$this->isSearchableColumn((string) $col)) {
+                        continue;
+                    }
                     $sc = $col;
                     if (stripos($col, ' AS ') !== false) {
                         $parts = explode(' AS ', $col);
                         $sc = trim($parts[0]);
                     }
                     if (strpos($sc, '.') !== false) {
-                        $searchConditions[] = "{$sc} LIKE ?";
+                        $searchConditions[] = "{$sc} LIKE ? ESCAPE '!'";
                     } else {
-                        $searchConditions[] = "`{$sc}` LIKE ?";
+                        $searchConditions[] = "`{$sc}` LIKE ? ESCAPE '!'";
                     }
                     $params[] = "%{$search}%";
                 }
@@ -1441,9 +1508,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                             $sc = trim($parts[0]);
                         }
                         if (strpos($sc, '.') !== false) {
-                            $innerSearchConditions[] = "{$sc} LIKE ?";
+                            $innerSearchConditions[] = "{$sc} LIKE ? ESCAPE '!'";
                         } else {
-                            $innerSearchConditions[] = "`{$sc}` LIKE ?";
+                            $innerSearchConditions[] = "`{$sc}` LIKE ? ESCAPE '!'";
                         }
                         $innerParams[] = "%{$search}%";
                     }
@@ -1565,7 +1632,20 @@ if (! class_exists('KPT\AjaxHandler', false)) {
          */
         private function sanitizeSearchInput(string $input): string
         {
-            return trim(htmlspecialchars($input, ENT_QUOTES, 'UTF-8'));
+            return $this->escapeLike(trim($input));
+        }
+
+        /**
+         * Escape LIKE wildcards using '!' as the escape character
+         *
+         * Pair with `LIKE ? ESCAPE '!'` in SQL.
+         *
+         * @param  string $value Raw value
+         * @return string Value with !, % and _ escaped
+         */
+        private function escapeLike(string $value): string
+        {
+            return str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $value);
         }
 
         /**
@@ -1577,6 +1657,53 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private function sanitizeColumnName(string $column): string
         {
             return preg_replace('/[^a-zA-Z0-9_\.]/', '', $column);
+        }
+
+        /**
+         * Validate a search column against the configured columns
+         *
+         * Only plain (non-aliased) configured column keys are searchable by name.
+         *
+         * @param  mixed $column Raw column name
+         * @return string Configured column name, or empty string for global search
+         */
+        private function validateSearchColumn(mixed $column): string
+        {
+            if (!is_string($column) || $column === '' || $column === 'all') {
+                return '';
+            }
+
+            foreach (array_keys($this->dataTable->getColumns()) as $configured) {
+                if (stripos((string) $configured, ' AS ') === false && $configured === $column) {
+                    return $column;
+                }
+            }
+
+            return '';
+        }
+
+        /**
+         * Check whether a configured column is included in global search
+         *
+         * @param  string $column Column key (may be "expr AS alias")
+         * @return bool True if searchable
+         */
+        private function isSearchableColumn(string $column): bool
+        {
+            $searchable = $this->dataTable->getSearchableColumns();
+            if (empty($searchable)) {
+                return true;
+            }
+
+            // Match the full key or its alias name
+            if (in_array($column, $searchable, true)) {
+                return true;
+            }
+            if (preg_match('/\s+AS\s+(.+)$/i', $column, $matches)) {
+                return in_array(trim($matches[1], '`\'" '), $searchable, true);
+            }
+
+            return false;
         }
 
         /**
@@ -1624,6 +1751,12 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             $allowedOperators = ['=', '!=', '>', '>=', '<', '<=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN', 'BETWEEN', 'REGEXP'];
             $sanitized = [];
 
+            // Only configured filter fields, each with its configured operator
+            $configuredOperators = [];
+            foreach ($this->dataTable->getFilterConfig() as $configField => $config) {
+                $configuredOperators[(string) $configField] = strtoupper(trim(is_string($config) ? $config : (string) ($config['operator'] ?? '=')));
+            }
+
             foreach ($decoded as $filter) {
                 // Must be an array with required keys
                 if (!is_array($filter) || !isset($filter['field'], $filter['operator'])) {
@@ -1636,9 +1769,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                     continue;
                 }
 
-                // Operator must be whitelisted
+                // Operator must be whitelisted and match the field's configured operator
                 $operator = strtoupper(trim($filter['operator']));
-                if (!in_array($operator, $allowedOperators, true)) {
+                if (!in_array($operator, $allowedOperators, true) || !isset($configuredOperators[$field]) || $configuredOperators[$field] !== $operator) {
                     continue;
                 }
 
@@ -1679,6 +1812,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
          *
          * @param  string $jsonIds JSON string of IDs
          * @return array  Validated array of integer IDs
+         * @throws InvalidArgumentException If more than 1000 IDs are submitted
          */
         private function validateIdArray(string $jsonIds): array
         {
@@ -1687,9 +1821,14 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 return [];
             }
 
-            return array_filter(array_map('intval', $ids), function ($id) {
+            // Cap the number of IDs per request
+            if (count($ids) > 1000) {
+                throw new InvalidArgumentException('Too many records selected (maximum 1000)');
+            }
+
+            return array_values(array_unique(array_filter(array_map('intval', $ids), function ($id) {
                 return $id > 0;
-            });
+            })));
         }
 
         /**
@@ -1759,6 +1898,157 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         {
             $d = \DateTime::createFromFormat($format, $date);
             return $d && $d->format($format) === $date;
+        }
+        /**
+         * Get the allowed field names for a form
+         *
+         * Returns the unqualified field names configured in the add or edit
+         * form (excluding display-only static fields), keyed for intersection.
+         *
+         * @param  string $form Form name ('add' or 'edit')
+         * @return array Allowed field names as keys
+         */
+        private function getFormFieldWhitelist(string $form): array
+        {
+            $formConfig = $form === 'edit' ? $this->dataTable->getEditFormConfig() : $this->dataTable->getAddFormConfig();
+            $allowed = [];
+
+            foreach ($formConfig['fields'] ?? [] as $field => $config) {
+                // static fields are display-only
+                if (($config['type'] ?? '') === 'static') {
+                    continue;
+                }
+                $allowed[$this->getUnqualifiedFieldName((string) $field)] = true;
+            }
+
+            return $allowed;
+        }
+
+        /**
+         * Get base table columns pinned by where() equality conditions
+         *
+         * Collects `=` conditions with scalar values from the plain condition list
+         * or AND groups (OR groups can't pin a value) that target the base table.
+         *
+         * @return array Unqualified column => required value
+         */
+        private function getScopeEqualityValues(): array
+        {
+            $conditions = $this->dataTable->getWhereConditions();
+            if (empty($conditions)) {
+                return [];
+            }
+
+            // Figure out the base table alias for qualified field names
+            $tableParts = preg_split('/\s+/', trim($this->dataTable->getTableName()));
+            $baseAlias = $tableParts[1] ?? $tableParts[0];
+            $baseTable = $this->dataTable->getBaseTableName();
+            $schema = $this->dataTable->getTableSchema();
+
+            // Normalize to a list of AND groups
+            if (isset($conditions[0]) && is_array($conditions[0])) {
+                $groups = [$conditions];
+            } else {
+                $groups = [];
+                foreach ($conditions as $operator => $group) {
+                    if (is_array($group) && strtoupper((string) $operator) !== 'OR') {
+                        $groups[] = isset($group['field']) ? [$group] : $group;
+                    }
+                }
+            }
+
+            $scoped = [];
+            foreach ($groups as $group) {
+                foreach ($group as $condition) {
+                    if (!is_array($condition) || !isset($condition['field'], $condition['comparison']) || !array_key_exists('value', $condition)) {
+                        continue;
+                    }
+
+                    // Only plain equality with a scalar value pins a column
+                    if (trim((string) $condition['comparison']) !== '=' || !is_scalar($condition['value'])) {
+                        continue;
+                    }
+
+                    // Qualified fields must belong to the base table
+                    $field = (string) $condition['field'];
+                    if (strpos($field, '.') !== false) {
+                        $prefix = explode('.', $field)[0];
+                        if ($prefix !== $baseAlias && $prefix !== $baseTable) {
+                            continue;
+                        }
+                    }
+
+                    $column = $this->getUnqualifiedFieldName($field);
+                    if (isset($schema[$column])) {
+                        $scoped[$column] = $condition['value'];
+                    }
+                }
+            }
+
+            return $scoped;
+        }
+        /**
+         * Fetch rows by primary key within the configured where() scope
+         *
+         * Uses the same select list, joins, where() conditions and group by as the
+         * table query, limited to the given IDs. IDs outside the scope are dropped.
+         *
+         * @param  array $ids Primary key values
+         * @return array Rows as associative arrays keyed by primary key
+         */
+        private function fetchScopedRows(array $ids): array
+        {
+            $ids = array_values(array_unique(array_map('intval', $ids)));
+            if (empty($ids)) {
+                return [];
+            }
+
+            // Resolve the primary key expression
+            $primaryKey = $this->dataTable->getPrimaryKey();
+            $tableName = $this->dataTable->getTableName();
+            $tableParts = preg_split('/\s+/', trim($tableName));
+            if (strpos($primaryKey, '.') !== false) {
+                $pkExpr = $primaryKey;
+            } elseif (isset($tableParts[1])) {
+                $pkExpr = "{$tableParts[1]}.`{$primaryKey}`";
+            } else {
+                $pkExpr = "`{$primaryKey}`";
+            }
+
+            // Same select list as the table, plus a fixed PK alias for mapping
+            $selectFields = $this->getSelectFields();
+            $selectFields[] = "{$pkExpr} AS `__kpt_pk`";
+
+            $sql = "SELECT " . implode(', ', $selectFields) . " FROM " . (strpos($tableName, ' ') !== false ? $tableName : "`{$tableName}`");
+
+            foreach ($this->dataTable->getJoins() as $join) {
+                $sql .= " {$join['type']} JOIN {$join['table']} ON {$join['condition']}";
+            }
+
+            // where() scope plus the requested IDs
+            $params = [];
+            $whereClause = $this->buildWhereClause($this->dataTable->getWhereConditions(), $params);
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $sql .= (!empty($whereClause) ? $whereClause . ' AND ' : ' WHERE ') . "{$pkExpr} IN ({$placeholders})";
+            $params = array_merge($params, $ids);
+
+            $groupBy = $this->dataTable->getGroupBy();
+            if (!empty($groupBy)) {
+                $sql .= strpos($groupBy, '.') !== false ? " GROUP BY {$groupBy}" : " GROUP BY `{$groupBy}`";
+            }
+
+            $rows = $this->dataTable->getDatabase()->query($sql)->bind($params)->fetch();
+
+            // Key by primary key and drop the helper alias
+            $mapped = [];
+            foreach ($rows ?: [] as $row) {
+                $rowArray = (array) $row;
+                $key = (int) $rowArray['__kpt_pk'];
+                unset($rowArray['__kpt_pk']);
+                $mapped[$key] = $rowArray;
+            }
+
+            return $mapped;
         }
 
         /**
@@ -1934,8 +2224,8 @@ if (! class_exists('KPT\AjaxHandler', false)) {
 
                     case 'LIKE':
                     case 'NOT LIKE':
-                        $parts[]  = "{$fieldSql} {$operator} ?";
-                        $params[] = '%' . $value . '%';
+                        $parts[]  = "{$fieldSql} {$operator} ? ESCAPE '!'";
+                        $params[] = '%' . $this->escapeLike($value) . '%';
                         break;
 
                     case 'IN':
@@ -2002,7 +2292,9 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         private function handleFetchSelect2Options(): void
         {
 
-            $query = $_POST['query'] ?? '';
+            $field = $_POST['field'] ?? '';
+            $form = $_POST['form'] ?? '';
+            $query = $this->getSelect2Query($field, $form);
             $search = $this->sanitizeSearchInput($_POST['search'] ?? '');
             $maxResults = $this->validateInteger($_POST['max_results'] ?? 50, 0);
             $valueFilter = $_POST['value_filter'] ?? '';
@@ -2015,7 +2307,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 'recordData' => $recordDataJson
             ]);
             if (empty($query)) {
-                throw new InvalidArgumentException('Query is required for Select2 options');
+                throw new InvalidArgumentException('Invalid Select2 field');
             }
 
             // Parse record data for parameter substitution
@@ -2024,12 +2316,11 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 $recordData = [];
             }
 
-            // Substitute {field_name} placeholders with record data values
-            $processedQuery = $this->substituteQueryParameters($query, $recordData);
+            // Swap {field_name} placeholders for bound params from record data
+            [$processedQuery, $params] = $this->substituteQueryParameters($query, $recordData);
 
             // Build WHERE clause for search and value filter
             $whereClauses = [];
-            $params = [];
 
             // Add value filter if present (for loading initial selected value)
             if (!empty($valueFilter)) {
@@ -2047,7 +2338,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                     $labelColumn = 'Label';
                 }
 
-                $whereClauses[] = "{$labelColumn} LIKE ?";
+                $whereClauses[] = "{$labelColumn} LIKE ? ESCAPE '!'";
                 $params[] = "%{$search}%";
             }
 
@@ -2157,49 +2448,65 @@ if (! class_exists('KPT\AjaxHandler', false)) {
         /**
          * Substitute query parameters from record data
          *
-         * Replaces {field_name} placeholders in the query with actual values
-         * from the provided record data array. Parameters are properly escaped
-         * for SQL injection prevention.
+         * Replaces {field_name} placeholders in the query with bound `?`
+         * parameters, collecting their values from the provided record data
+         * in placeholder order. Missing or non-scalar values bind as NULL.
          *
          * @param  string $query      SQL query with {field_name} placeholders
          * @param  array  $recordData Associative array of field => value pairs
-         * @return string Processed query with substituted values
+         * @return array  [processed query, ordered bind params]
          * @since  1.2.0
          */
-        private function substituteQueryParameters(string $query, array $recordData): string
+        private function substituteQueryParameters(string $query, array $recordData): array
         {
-            // Find all {field_name} placeholders
-            preg_match_all('/\{([a-zA-Z0-9_]+)\}/', $query, $matches);
+            $params = [];
 
-            if (empty($matches[0])) {
-                return $query;
+            // Replace each placeholder occurrence with a bound param
+            $processedQuery = preg_replace_callback('/\{([a-zA-Z0-9_]+)\}/', function (array $matches) use ($recordData, &$params): string {
+                $value = $recordData[$matches[1]] ?? null;
+                $params[] = is_scalar($value) ? $value : null;
+                return '?';
+            }, $query);
+
+            return [$processedQuery, $params];
+        }
+
+        /**
+         * Resolve the configured Select2 query for a field
+         *
+         * Looks the query up server-side from the add/edit form field config,
+         * falling back to the table schema, so the client never supplies SQL.
+         *
+         * @param  string $field Field name (may be qualified, e.g. 's.u_id')
+         * @param  string $form  Form the field belongs to ('add', 'edit', or empty for inline)
+         * @return string Configured query, or empty string if the field isn't a select2
+         * @since  1.2.0
+         */
+        private function getSelect2Query(string $field, string $form): string
+        {
+            // Field names are identifiers only
+            if (!preg_match('/^[A-Za-z0-9_.]+$/', $field)) {
+                return '';
             }
 
-            $processedQuery = $query;
-
-            // Replace each placeholder with its value from record data
-            foreach ($matches[1] as $index => $fieldName) {
-                $placeholder = $matches[0][$index];
-
-                if (isset($recordData[$fieldName])) {
-                    $value = $recordData[$fieldName];
-
-                    // Escape value for SQL safety
-                    if (is_numeric($value)) {
-                        $escapedValue = $value;
-                    } else {
-                        // Use database escape method if available, otherwise basic escaping
-                        $escapedValue = "'" . addslashes($value) . "'";
-                    }
-
-                    $processedQuery = str_replace($placeholder, $escapedValue, $processedQuery);
-                } else {
-                    // Replace with NULL if field not found in record data
-                    $processedQuery = str_replace($placeholder, 'NULL', $processedQuery);
-                }
+            // Check the matching form config first
+            $formConfig = match ($form) {
+                'add' => $this->dataTable->getAddFormConfig(),
+                'edit' => $this->dataTable->getEditFormConfig(),
+                default => [],
+            };
+            $fieldConfig = $formConfig['fields'][$field] ?? [];
+            if (($fieldConfig['type'] ?? '') === 'select2' && !empty($fieldConfig['query'])) {
+                return $fieldConfig['query'];
             }
 
-            return $processedQuery;
+            // Fall back to the table schema
+            $schemaInfo = $this->dataTable->getTableSchema()[$this->getUnqualifiedFieldName($field)] ?? [];
+            if (($schemaInfo['override_type'] ?? '') === 'select2' && !empty($schemaInfo['select2_query'])) {
+                return $schemaInfo['select2_query'];
+            }
+
+            return '';
         }
     }
 }

@@ -1,11 +1,11 @@
 # KPT DataTables
 
+[![Build Main](https://img.shields.io/github/actions/workflow/status/kpirnie/kp-datatables/ci.yml?branch=main&label=Main&logoColor=white&logo=github&labelColor=000&style=for-the-badge)](https://github.com/kpirnie/kp-datatables/actions?query=workflow%3A%22CI%22+branch%3Amain)
 [![GitHub Issues](https://img.shields.io/github/issues/kpirnie/kp-datatables?style=for-the-badge&logo=github&color=006400&logoColor=white&labelColor=000)](https://github.com/kpirnie/kp-datatables/issues)
-[![Last Commit](https://img.shields.io/github/last-commit/kpirnie/kptv-filter-app?style=for-the-badge&labelColor=000)](https://github.com/kpirnie/kptv-filter-app/commits/main)
+[![Last Commit](https://img.shields.io/github/last-commit/kpirnie/kp-datatables?style=for-the-badge&labelColor=000)](https://github.com/kpirnie/kp-datatables/commits/main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg?style=for-the-badge&logo=opensourceinitiative&logoColor=white&labelColor=000)](LICENSE)
-
 [![PHP](https://img.shields.io/badge/Up%20To-php8.4-777BB4?logo=php&logoColor=white&style=for-the-badge&labelColor=000)](https://php.net)
-[![Discord](https://img.shields.io/badge/Discord-Join-blue?logo=discord&logoColor=white&style=for-the-badge&labelColor=000)](https://discord.gg/bd4Qan3PaN)
+[![Packagist](https://img.shields.io/packagist/v/kevinpirnie/kpt-datatables?style=for-the-badge&logo=packagist&logoColor=white&color=F28D1A&labelColor=000&label=Packagist)](https://packagist.org/packages/kevinpirnie/kpt-datatables)
 [![Kevin Pirnie](https://img.shields.io/badge/-KevinPirnie.com-000d2d?style=for-the-badge&labelColor=000&logoColor=white&logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz4KICA8ZWxsaXBzZSBjeD0iMTIiIGN5PSIxMiIgcng9IjQuNSIgcnk9IjEwIi8+CiAgPGxpbmUgeDE9IjIiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz4KICA8bGluZSB4MT0iNC41IiB5MT0iNi41IiB4Mj0iMTkuNSIgeTI9IjYuNSIvPgogIDxsaW5lIHgxPSI0LjUiIHkxPSIxNy41IiB4Mj0iMTkuNSIgeTI9IjE3LjUiLz4KPC9zdmc+Cg==)](https://kevinpirnie.com/)
 
 Advanced PHP DataTables library with full CRUD operations, multi-table JOIN support, per-column filter accordion, calculated columns, footer aggregations, inline editing, Select2 AJAX dropdowns, file uploads, bulk actions, tabbed modal forms, and a theme system covering UIKit3, Bootstrap 5, Tailwind CSS, and a framework-agnostic Plain theme. All rendering is server-side PHP with client-side interactivity handled by a zero-dependency vanilla JS class.
