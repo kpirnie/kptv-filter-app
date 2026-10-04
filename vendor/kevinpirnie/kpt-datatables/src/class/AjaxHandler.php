@@ -417,8 +417,16 @@ if (! class_exists('KPT\AjaxHandler', false)) {
             // Sanitize and validate raw filter JSON from request
             $filtersJson = $this->sanitizeJsonInput($_GET['filters'] ?? '[]');
 
+            // Grid mode pinned and dragged card order from the client
+            $pinnedIds = [];
+            $orderIds = [];
+            if ($this->dataTable->isGridMode()) {
+                $pinnedIds = $this->validateIdArray(is_string($_GET['pinned_ids'] ?? null) ? $_GET['pinned_ids'] : '[]');
+                $orderIds = $this->validateIdArray(is_string($_GET['order_ids'] ?? null) ? $_GET['order_ids'] : '[]');
+            }
+
             // Execute data query using fluent interface
-            $data  = $this->executeDataQuery($search, $searchColumn, $sortColumn, $sortDirection, $page, $perPage, $filtersJson);
+            $data  = $this->executeDataQuery($search, $searchColumn, $sortColumn, $sortDirection, $page, $perPage, $filtersJson, $pinnedIds, $orderIds);
 
             // Execute count query using fluent interface
             $total = $this->executeCountQuery($search, $searchColumn, $filtersJson);
@@ -459,10 +467,12 @@ if (! class_exists('KPT\AjaxHandler', false)) {
          * @param  int    $page          Page number for pagination (1-based)
          * @param  int    $perPage       Number of records per page (0 for all records)
          * @param  string $filtersJson   JSON string containing filter conditions (optional)
+         * @param  array  $pinnedIds     Grid mode pinned primary keys, in pinned order (optional)
+         * @param  array  $orderIds      Grid mode dragged primary keys, in dragged order (optional)
          * @return mixed                 Query result object or false on failure
          * @since  1.0.0
          */
-        private function executeDataQuery(string $search = '', string $searchColumn = '', string $sortColumn = '', string $sortDirection = 'ASC', int $page = 1, int $perPage = 25, string $filtersJson = '[]'): mixed
+        private function executeDataQuery(string $search = '', string $searchColumn = '', string $sortColumn = '', string $sortDirection = 'ASC', int $page = 1, int $perPage = 25, string $filtersJson = '[]', array $pinnedIds = [], array $orderIds = []): mixed
         {
             $selectFields = $this->getSelectFields();
             $tableName = $this->dataTable->getTableName();
@@ -559,6 +569,38 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 }
             }
 
+            $orderParts = [];
+
+            // Grid mode: pinned cards first, then dragged cards, both in their stored order
+            if (!empty($pinnedIds) || !empty($orderIds)) {
+                // Resolve the primary key expression
+                $primaryKey = $this->dataTable->getPrimaryKey();
+                $tableParts = preg_split('/\s+/', trim($tableName));
+                if (strpos($primaryKey, '.') !== false) {
+                    $pkExpr = $primaryKey;
+                } elseif (isset($tableParts[1])) {
+                    $pkExpr = "{$tableParts[1]}.`{$primaryKey}`";
+                } else {
+                    $pkExpr = "`{$primaryKey}`";
+                }
+
+                // Pinned first, in pinned order
+                if (!empty($pinnedIds)) {
+                    $placeholders = implode(',', array_fill(0, count($pinnedIds), '?'));
+                    $orderParts[] = "(FIELD({$pkExpr}, {$placeholders}) > 0) DESC";
+                    $orderParts[] = "FIELD({$pkExpr}, {$placeholders})";
+                    $params = array_merge($params, $pinnedIds, $pinnedIds);
+                }
+
+                // Dragged before never-dragged, in dragged order
+                if (!empty($orderIds)) {
+                    $placeholders = implode(',', array_fill(0, count($orderIds), '?'));
+                    $orderParts[] = "(FIELD({$pkExpr}, {$placeholders}) = 0)";
+                    $orderParts[] = "FIELD({$pkExpr}, {$placeholders})";
+                    $params = array_merge($params, $orderIds, $orderIds);
+                }
+            }
+
             if ($isSortable) {
                 $direction = strtoupper($sortDirection) === 'DESC' ? 'DESC' : 'ASC';
 
@@ -566,12 +608,19 @@ if (! class_exists('KPT\AjaxHandler', false)) {
                 if (stripos($sortColumn, ' AS ') !== false) {
                     $parts = explode(' AS ', $sortColumn);
                     $aliasName = trim($parts[1], '`\'" ');
-                    $sql .= " ORDER BY `{$aliasName}` {$direction}";
+                    $orderParts[] = "`{$aliasName}` {$direction}";
                 } elseif (strpos($sortColumn, '.') !== false) {
-                    $sql .= " ORDER BY {$sortColumn} {$direction}";
+                    $orderParts[] = "{$sortColumn} {$direction}";
                 } else {
-                    $sql .= " ORDER BY `{$sortColumn}` {$direction}";
+                    $orderParts[] = "`{$sortColumn}` {$direction}";
                 }
+            } elseif (!empty($orderParts)) {
+                // Stable paging tiebreaker for grid ordering without a sort column
+                $orderParts[] = $pkExpr;
+            }
+
+            if (!empty($orderParts)) {
+                $sql .= " ORDER BY " . implode(', ', $orderParts);
             }
 
             if ($perPage > 0) {

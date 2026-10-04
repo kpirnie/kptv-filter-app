@@ -426,3 +426,49 @@ a.uk-icon-link[uk-icon="plus"]:hover {
 .row-action {
     text-align: right !important;
 }
+
+
+/* ============================================
+   GRID / CARD VIEW
+   ============================================ */
+.datatables-card.uk-card-default {
+    background: var(--kptv-navy);
+    color: var(--kptv-white);
+    border: 1px solid rgba(61, 139, 189, 0.4);
+    box-shadow: none;
+}
+
+.datatables-card .uk-card-header,
+.datatables-card .uk-card-footer {
+    border-color: rgba(61, 139, 189, 0.3);
+}
+
+.datatables-card .datatables-card-label.uk-text-muted {
+    color: var(--kptv-cyan-light) !important;
+}
+
+.datatables-card .datatables-card-value {
+    color: var(--kptv-white);
+}
+
+.datatables-card .datatables-drag-handle {
+    color: var(--kptv-cyan);
+}
+
+.datatables-card-pinned {
+    border-color: var(--kptv-orange) !important;
+    box-shadow: 0 0 0 1px var(--kptv-orange) !important;
+}
+
+.datatables-card-pinned .datatables-pin-btn.uk-icon-link {
+    border-color: var(--kptv-orange);
+    color: var(--kptv-orange);
+}
+
+.datatables-card-pinned .datatables-pin-btn.uk-icon-link svg polygon {
+    fill: currentColor !important;
+}
+
+.datatables-card-cell.drag-over .datatables-card {
+    outline: 2px dashed var(--kptv-orange);
+}

@@ -30,6 +30,7 @@ $rowActionsConfig = KPTV::view_configs('providers', userForExport: $userForExpor
 
 // configure the datatable
 $dt->table('kptv_stream_providers p')
+    ->showAsGrid(4)
     ->tableClass('uk-table uk-table-divider uk-table-small uk-margin-bottom')
     ->where([
         [ // unless specified as OR, it should always be AND

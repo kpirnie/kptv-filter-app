@@ -312,6 +312,20 @@ if (! class_exists('KPT\DataTablesBase', false)) {
          */
         protected bool $includeCdn = true;
 
+        /**
+         * Whether to render as a card grid instead of a table
+         *
+         * @var bool
+         */
+        protected bool $gridMode = false;
+
+        /**
+         * Number of cards per row in grid mode (1-6)
+         *
+         * @var int
+         */
+        protected int $gridPerRow = 3;
+
         // === GETTER METHODS FOR CONFIGURATION ACCESS ===
         // These methods provide read-only access to configuration for other classes
 
@@ -646,6 +660,26 @@ if (! class_exists('KPT\DataTablesBase', false)) {
         public function getIncludeCdn(): bool
         {
             return $this->includeCdn;
+        }
+
+        /**
+         * Get whether the table renders as a card grid
+         *
+         * @return bool Whether grid mode is enabled
+         */
+        public function isGridMode(): bool
+        {
+            return $this->gridMode;
+        }
+
+        /**
+         * Get the number of cards per row in grid mode
+         *
+         * @return int Cards per row
+         */
+        public function getGridPerRow(): int
+        {
+            return $this->gridPerRow;
         }
 
         /**

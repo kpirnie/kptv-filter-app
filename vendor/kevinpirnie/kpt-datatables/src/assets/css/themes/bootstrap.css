@@ -253,3 +253,63 @@
 .kp-dt-datepicker-wrap .kp-dt-datepicker-native {
     display: none;
 }
+
+/* === GRID / CARD VIEW === */
+.kp-dt-grid-toolbar-bootstrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.kp-dt-grid-toolbar-bootstrap .form-select {
+    display: inline-block;
+}
+
+.datatables-card-body {
+    flex: 1;
+}
+
+.datatables-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.datatables-card-footer {
+    text-align: right;
+}
+
+.datatables-drag-handle {
+    cursor: grab;
+    color: #6c757d;
+}
+
+.datatables-pin-btn {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    color: #6c757d;
+}
+
+.datatables-card-pinned {
+    box-shadow: 0 0 0 2px #ffc107;
+}
+
+.datatables-card-pinned .datatables-pin-btn {
+    color: #ffc107;
+}
+
+.datatables-card-field {
+    margin-bottom: 0.5rem;
+}
+
+.datatables-card-cell.dragging {
+    opacity: 0.5;
+}
+
+.datatables-card-cell.drag-over .datatables-card {
+    outline: 2px dashed #0d6efd;
+}

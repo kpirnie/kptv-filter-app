@@ -24,6 +24,8 @@ class DataTablesJS {
     this.cssClasses = config.cssClasses || {};
     this.theme = config.theme || "uikit";
     this.footerAggregations = config.footerAggregations || {};
+    this.gridMode = config.gridMode || false;
+    this.gridPerRow = config.gridPerRow || 3;
     this.csrfToken =
       document.querySelector(".datatables-container")?.dataset.csrf || "";
 
@@ -82,6 +84,15 @@ class DataTablesJS {
         },
         border: { rounded: "uk-border-rounded" },
         display: { block: "uk-display-block" },
+        card: {
+          cell: "",
+          card: "uk-card uk-card-default uk-card-small",
+          header: "uk-card-header",
+          body: "uk-card-body",
+          footer: "uk-card-footer",
+          label: "uk-text-muted",
+          full: "uk-width-1-1",
+        },
       },
       bootstrap: {
         table: { shrink: "", center: "text-center", muted: "text-muted" },
@@ -103,6 +114,15 @@ class DataTablesJS {
         margin: { smallRight: "me-2", smallBottom: "mb-2", smallTop: "mt-2" },
         border: { rounded: "rounded" },
         display: { block: "d-block" },
+        card: {
+          cell: "col",
+          card: "card h-100",
+          header: "card-header",
+          body: "card-body",
+          footer: "card-footer",
+          label: "text-muted",
+          full: "w-100",
+        },
       },
       plain: {
         table: {
@@ -136,6 +156,15 @@ class DataTablesJS {
         },
         border: { rounded: "kp-dt-border-rounded" },
         display: { block: "kp-dt-display-block" },
+        card: {
+          cell: "",
+          card: "kp-dt-card",
+          header: "kp-dt-card-header",
+          body: "kp-dt-card-body",
+          footer: "kp-dt-card-footer",
+          label: "kp-dt-text-muted",
+          full: "kp-dt-grid-full",
+        },
       },
       tailwind: {
         table: {
@@ -170,6 +199,15 @@ class DataTablesJS {
         margin: { smallRight: "mr-2", smallBottom: "mb-2", smallTop: "mt-2" },
         border: { rounded: "rounded" },
         display: { block: "block" },
+        card: {
+          cell: "",
+          card: "kp-dt-card-tailwind",
+          header: "kp-dt-card-header-tailwind",
+          body: "kp-dt-card-body-tailwind",
+          footer: "kp-dt-card-footer-tailwind",
+          label: "text-gray-500",
+          full: "col-span-full",
+        },
       },
     };
 
@@ -303,6 +341,8 @@ class DataTablesJS {
         "triangle-down": "bi-caret-down-fill",
         "chevron-double-left": "bi-chevron-double-left",
         "chevron-double-right": "bi-chevron-double-right",
+        move: "bi-arrows-move",
+        star: "bi-star-fill",
       };
       return `<i class="bi ${iconMap[iconName] || "bi-link"} ${extraClass}"></i>`;
     } else {
@@ -329,6 +369,8 @@ class DataTablesJS {
           '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polyline fill="none" stroke="currentColor" stroke-width="1.2" points="10,14 6,10 10,6"></polyline><polyline fill="none" stroke="currentColor" stroke-width="1.2" points="14,14 10,10 14,6"></polyline></svg>',
         "chevron-double-right":
           '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polyline fill="none" stroke="currentColor" stroke-width="1.2" points="10,14 14,10 10,6"></polyline><polyline fill="none" stroke="currentColor" stroke-width="1.2" points="6,14 10,10 6,6"></polyline></svg>',
+        move: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polyline fill="none" stroke="currentColor" points="4,7 1,10 4,13"></polyline><polyline fill="none" stroke="currentColor" points="16,7 19,10 16,13"></polyline><polyline fill="none" stroke="currentColor" points="7,4 10,1 13,4"></polyline><polyline fill="none" stroke="currentColor" points="7,16 10,19 13,16"></polyline><line fill="none" stroke="currentColor" x1="10" y1="1" x2="10" y2="19"></line><line fill="none" stroke="currentColor" x1="1" y1="10" x2="19" y2="10"></line></svg>',
+        star: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><polygon fill="none" stroke="currentColor" stroke-width="1.01" points="10 2 12.63 7.27 18.5 8.12 14.25 12.22 15.25 18 10 15.27 4.75 18 5.75 12.22 1.5 8.12 7.37 7.27"></polygon></svg>',
       };
       return `<span class="${extraClass}">${icons[iconName] || ""}</span>`;
     }
@@ -413,6 +455,28 @@ class DataTablesJS {
         }
       }
     });
+
+    // Grid sort-by and direction selectors
+    document
+      .querySelectorAll(
+        ".datatables-grid-sort, .datatables-grid-sort-direction",
+      )
+      .forEach((select) => {
+        select.addEventListener("change", () => {
+          this.sortColumn =
+            document.querySelector(".datatables-grid-sort")?.value || "";
+          this.sortDirection =
+            document.querySelector(".datatables-grid-sort-direction")?.value ||
+            "ASC";
+          this.currentPage = 1;
+          this.loadData();
+        });
+      });
+
+    // Grid drag and drop ordering
+    if (this.gridMode) {
+      this.bindGridDnD();
+    }
   }
 
   // === DATA LOADING ===
@@ -428,11 +492,21 @@ class DataTablesJS {
       filters: JSON.stringify(this.activeFilters),
     });
 
+    // Grid mode pinned and dragged order from this browser
+    if (this.gridMode) {
+      params.set("pinned_ids", JSON.stringify(this.getGridIds("pins")));
+      params.set("order_ids", JSON.stringify(this.getGridIds("order")));
+    }
+
     fetch("?" + params.toString())
       .then((response) => response.json())
       .then((data) => {
         if (data.success) {
-          this.renderTable(data.data);
+          if (this.gridMode) {
+            this.renderGrid(data.data);
+          } else {
+            this.renderTable(data.data);
+          }
           this.renderPagination(data);
           this.renderInfo(data);
           this.loadAggregations();
@@ -453,6 +527,7 @@ class DataTablesJS {
   // === AGGREGATION ===
   loadAggregations() {
     if (
+      this.gridMode ||
       !this.footerAggregations ||
       Object.keys(this.footerAggregations).length === 0
     ) {
@@ -614,108 +689,13 @@ class DataTablesJS {
           }
         }
         const isEditable = this.inlineEditableColumns.includes(column);
-        const safeColumn = this.escapeAttr(column);
-
-        // Handle aliases - if column contains " AS ", use the alias name to access row data
-        let dataKey = column;
-        if (column.toLowerCase().includes(" as ")) {
-          const parts = column.split(/\s+as\s+/i);
-          if (parts.length === 2) {
-            dataKey = parts[1].replace(/[`'"]/g, ""); // Remove any quotes/backticks
-          }
-        }
-
-        let cellContent = row[dataKey] ?? "";
         const tdClass = isEditable ? " cell-edit" : "";
-
-        // Get field type from schema
-        const fieldType =
-          tableSchema[column]?.override_type ||
-          tableSchema[column]?.type ||
-          "text";
-        const safeFieldType = this.escapeAttr(fieldType);
-
-        // Handle boolean display with icons
-        if (fieldType === "boolean") {
-          const isActive =
-            cellContent == "1" ||
-            cellContent === "true" ||
-            cellContent === true;
-          const iconName = isActive ? "check" : "close";
-          const iconClass = isActive
-            ? this.getThemeClass("icon.success")
-            : this.getThemeClass("icon.danger");
-
-          // Store the raw value for form population
-          const rawValue = this.escapeAttr(cellContent); // Keep original value
-
-          if (isEditable) {
-            cellContent = `<span class="inline-editable boolean-toggle" data-field="${safeColumn}" data-id="${safeRowId}" data-type="boolean" data-value="${rawValue}" style="cursor: pointer;">`;
-            cellContent += this.renderIcon(iconName, iconClass);
-            cellContent += "</span>";
-          } else {
-            cellContent = `<span data-value="${rawValue}">${this.renderIcon(iconName, iconClass)}</span>`;
-          }
-
-          // Handle select display with labels
-        } else if (fieldType === "select") {
-          const selectOptions = tableSchema[column]?.form_options || {};
-          // Convert cellContent to string to ensure proper key lookup
-          const cellContentStr = String(cellContent);
-          // Use nullish coalescing or check if key exists to handle '0' value correctly
-          const displayLabel =
-            cellContentStr in selectOptions
-              ? selectOptions[cellContentStr]
-              : cellContent;
-
-          if (isEditable) {
-            cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(cellContent)}" style="cursor: pointer;">${this.escapeHtml(displayLabel)}</span>`;
-          } else {
-            cellContent = this.escapeHtml(displayLabel);
-          }
-
-          // Handle select2 display with fetched labels
-        } else if (fieldType === "select2") {
-          const labelKey = dataKey + "_label";
-          const displayValue = row[labelKey] || cellContent;
-
-          if (isEditable) {
-            cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(cellContent)}" style="cursor: pointer;">${this.escapeHtml(displayValue)}</span>`;
-          } else {
-            cellContent = this.escapeHtml(displayValue);
-          }
-
-          // Handle image display with thumbnails
-        } else if (fieldType === "image") {
-          const roundedClass = this.getThemeClass("border.rounded");
-          const imageValue = String(cellContent);
-          if (imageValue.trim()) {
-            const imageSrc = this.escapeAttr(
-              this.safeUrl(
-                imageValue.startsWith("http")
-                  ? imageValue
-                  : `/uploads/${imageValue}`,
-              ),
-            );
-
-            if (isEditable) {
-              cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(imageValue)}" style="cursor: pointer;">`;
-              cellContent += `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
-              cellContent += "</span>";
-            } else {
-              cellContent = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
-            }
-          } else {
-            cellContent = isEditable
-              ? `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="" style="cursor: pointer;">No image</span>`
-              : "No image";
-          }
-        } else if (isEditable) {
-          // Add inline-editable class and attributes for non-boolean editable fields
-          cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" style="cursor: pointer;">${this.escapeHtml(cellContent)}</span>`;
-        } else {
-          cellContent = this.escapeHtml(cellContent);
-        }
+        const cellContent = this.renderCellContent(
+          row,
+          column,
+          rowId,
+          tableSchema,
+        );
 
         const classNames = [columnClass, tdClass].filter((c) => c).join(" ");
         html += `<td${classNames ? ` class="${this.escapeAttr(classNames)}"` : ""}>${cellContent}</td>`;
@@ -735,6 +715,359 @@ class DataTablesJS {
     this.bindTableEvents();
     this.updateBulkActionButtons();
     this.calculatePageAggregations(data);
+  }
+  renderCellContent(row, column, rowId, tableSchema) {
+    const safeRowId = this.escapeAttr(rowId);
+    const isEditable = this.inlineEditableColumns.includes(column);
+    const safeColumn = this.escapeAttr(column);
+
+    // Handle aliases - if column contains " AS ", use the alias name to access row data
+    let dataKey = column;
+    if (column.toLowerCase().includes(" as ")) {
+      const parts = column.split(/\s+as\s+/i);
+      if (parts.length === 2) {
+        dataKey = parts[1].replace(/[`'"]/g, ""); // Remove any quotes/backticks
+      }
+    }
+
+    let cellContent = row[dataKey] ?? "";
+
+    // Get field type from schema
+    const fieldType =
+      tableSchema[column]?.override_type || tableSchema[column]?.type || "text";
+    const safeFieldType = this.escapeAttr(fieldType);
+
+    // Handle boolean display with icons
+    if (fieldType === "boolean") {
+      const isActive =
+        cellContent == "1" || cellContent === "true" || cellContent === true;
+      const iconName = isActive ? "check" : "close";
+      const iconClass = isActive
+        ? this.getThemeClass("icon.success")
+        : this.getThemeClass("icon.danger");
+
+      // Store the raw value for form population
+      const rawValue = this.escapeAttr(cellContent); // Keep original value
+
+      if (isEditable) {
+        cellContent = `<span class="inline-editable boolean-toggle" data-field="${safeColumn}" data-id="${safeRowId}" data-type="boolean" data-value="${rawValue}" style="cursor: pointer;">`;
+        cellContent += this.renderIcon(iconName, iconClass);
+        cellContent += "</span>";
+      } else {
+        cellContent = `<span data-value="${rawValue}">${this.renderIcon(iconName, iconClass)}</span>`;
+      }
+
+      // Handle select display with labels
+    } else if (fieldType === "select") {
+      const selectOptions = tableSchema[column]?.form_options || {};
+      // Convert cellContent to string to ensure proper key lookup
+      const cellContentStr = String(cellContent);
+      // Use nullish coalescing or check if key exists to handle '0' value correctly
+      const displayLabel =
+        cellContentStr in selectOptions
+          ? selectOptions[cellContentStr]
+          : cellContent;
+
+      if (isEditable) {
+        cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(cellContent)}" style="cursor: pointer;">${this.escapeHtml(displayLabel)}</span>`;
+      } else {
+        cellContent = this.escapeHtml(displayLabel);
+      }
+
+      // Handle select2 display with fetched labels
+    } else if (fieldType === "select2") {
+      const labelKey = dataKey + "_label";
+      const displayValue = row[labelKey] || cellContent;
+
+      if (isEditable) {
+        cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(cellContent)}" style="cursor: pointer;">${this.escapeHtml(displayValue)}</span>`;
+      } else {
+        cellContent = this.escapeHtml(displayValue);
+      }
+
+      // Handle image display with thumbnails
+    } else if (fieldType === "image") {
+      const roundedClass = this.getThemeClass("border.rounded");
+      const imageValue = String(cellContent);
+      if (imageValue.trim()) {
+        const imageSrc = this.escapeAttr(
+          this.safeUrl(
+            imageValue.startsWith("http")
+              ? imageValue
+              : `/uploads/${imageValue}`,
+          ),
+        );
+
+        if (isEditable) {
+          cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(imageValue)}" style="cursor: pointer;">`;
+          cellContent += `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
+          cellContent += "</span>";
+        } else {
+          cellContent = `<img src="${imageSrc}" alt="Image" style="max-width: 50px; max-height: 50px; object-fit: cover;" class="${roundedClass}">`;
+        }
+      } else {
+        cellContent = isEditable
+          ? `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="" style="cursor: pointer;">No image</span>`
+          : "No image";
+      }
+    } else if (isEditable) {
+      // Add inline-editable class and attributes for non-boolean editable fields
+      cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" style="cursor: pointer;">${this.escapeHtml(cellContent)}</span>`;
+    } else {
+      cellContent = this.escapeHtml(cellContent);
+    }
+
+    return cellContent;
+  }
+
+  // === GRID RENDERING ===
+  gridStorageKey(type) {
+    return `kpdt:${location.pathname}:${this.tableName}:${type}`;
+  }
+
+  getGridIds(type) {
+    try {
+      const ids = JSON.parse(
+        localStorage.getItem(this.gridStorageKey(type)) || "[]",
+      );
+      return Array.isArray(ids) ? ids.map(String) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  setGridIds(type, ids) {
+    try {
+      localStorage.setItem(this.gridStorageKey(type), JSON.stringify(ids));
+    } catch (e) {
+      // Storage unavailable, ordering just won't persist
+    }
+  }
+
+  togglePin(id) {
+    const pins = this.getGridIds("pins");
+    const index = pins.indexOf(String(id));
+    if (index === -1) {
+      pins.push(String(id));
+    } else {
+      pins.splice(index, 1);
+    }
+    this.setGridIds("pins", pins);
+    this.loadData();
+  }
+
+  renderGrid(data) {
+    const grid = document.querySelector(".datatables-grid");
+    if (!grid) {
+      return;
+    }
+
+    const centerClass = this.getThemeClass("table.center");
+    const mutedClass = this.getThemeClass("table.muted");
+    const checkboxClass = this.getThemeClass("checkbox");
+    const iconLinkClass = this.getThemeClass("icon.link");
+    const cellClass = this.getThemeClass("card.cell");
+    const cardClass = this.getThemeClass("card.card");
+    const headerClass = this.getThemeClass("card.header");
+    const bodyClass = this.getThemeClass("card.body");
+    const footerClass = this.getThemeClass("card.footer");
+    const labelClass = this.getThemeClass("card.label");
+    const fullClass = this.getThemeClass("card.full");
+
+    if (!data || data.length === 0) {
+      grid.innerHTML = `<div class="${fullClass} ${centerClass} ${mutedClass}">No records found</div>`;
+      return;
+    }
+
+    // Get table schema for field type information
+    const gridWrap = document.querySelector(".datatables-grid-wrap");
+    const tableSchema = gridWrap
+      ? JSON.parse(gridWrap.dataset.columns || "{}")
+      : {};
+
+    // Reset stored row data for this render
+    window.DataTablesRowData = {};
+
+    const pins = this.getGridIds("pins");
+
+    let html = "";
+    data.forEach((row) => {
+      // Find the ID value regardless of key format
+      const rowId =
+        row["s.id"] ||
+        row["id"] ||
+        row[this.primaryKey] ||
+        Object.values(row)[0];
+      const safeRowId = this.escapeAttr(rowId);
+      const rowClass = this.getRowClass(rowId);
+      const isPinned = pins.includes(String(rowId));
+
+      html += `<div class="datatables-card-cell${cellClass ? ` ${cellClass}` : ""}" data-id="${safeRowId}" draggable="true">`;
+      html += `<div class="datatables-card row-select ${cardClass}${isPinned ? " datatables-card-pinned" : ""}${rowClass ? ` ${this.escapeAttr(rowClass)}` : ""}" data-id="${safeRowId}">`;
+
+      // Card header: drag handle, pin, bulk checkbox
+      html += `<div class="datatables-card-header ${headerClass}">`;
+      html += `<span class="datatables-drag-handle" title="Drag to reorder">${this.renderIcon("move")}</span>`;
+      html += `<button type="button" class="datatables-pin-btn ${iconLinkClass}" data-pin-id="${safeRowId}" aria-pressed="${isPinned ? "true" : "false"}" title="${isPinned ? "Unpin" : "Pin"}">${this.renderIcon("star")}</button>`;
+      if (this.bulkActionsEnabled) {
+        html += `<label class="row-check"><input type="checkbox" class="${checkboxClass} row-checkbox" value="${safeRowId}" onchange="DataTables.toggleRowSelection(this)"></label>`;
+      }
+      html += "</div>";
+
+      // Card body: label/value pairs for each configured column
+      html += `<div class="datatables-card-body ${bodyClass}">`;
+      Object.keys(this.columns).forEach((column) => {
+        const label = this.columns[column];
+        const displayLabel =
+          label && typeof label === "object" ? label.label || column : label;
+        const isEditable = this.inlineEditableColumns.includes(column);
+
+        // Check for CSS classes using both full column key and alias name
+        let columnClass = this.cssClasses?.columns?.[column] || "";
+        if (!columnClass && column.toLowerCase().includes(" as ")) {
+          const parts = column.split(/\s+as\s+/i);
+          if (parts.length === 2) {
+            const aliasName = parts[1].replace(/[`'"]/g, "");
+            columnClass = this.cssClasses?.columns?.[aliasName] || "";
+          }
+        }
+
+        html += `<div class="datatables-card-field${isEditable ? " cell-edit" : ""}${columnClass ? ` ${this.escapeAttr(columnClass)}` : ""}">`;
+        html += `<span class="datatables-card-label ${labelClass}">${this.escapeHtml(displayLabel)}</span> `;
+        html += `<span class="datatables-card-value">${this.renderCellContent(row, column, rowId, tableSchema)}</span>`;
+        html += "</div>";
+      });
+      html += "</div>";
+
+      // Card footer: row actions
+      html += `<div class="datatables-card-footer datatables-card-actions row-action ${footerClass}">${this.renderActionButtons(rowId, row)}</div>`;
+
+      html += "</div></div>";
+    });
+
+    grid.innerHTML = html;
+
+    // Pin toggles
+    grid.querySelectorAll(".datatables-pin-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.togglePin(btn.getAttribute("data-pin-id"));
+      });
+    });
+
+    this.bindTableEvents();
+    this.updateBulkActionButtons();
+  }
+  bindGridDnD() {
+    const grid = document.querySelector(".datatables-grid");
+    if (!grid) {
+      return;
+    }
+
+    let dragSource = null;
+    const isPinnedCell = (cell) =>
+      cell.querySelector(".datatables-card-pinned") !== null;
+    const clearDragOver = () =>
+      grid
+        .querySelectorAll(".drag-over")
+        .forEach((el) => el.classList.remove("drag-over"));
+
+    grid.addEventListener("dragstart", (e) => {
+      const cell = e.target.closest(".datatables-card-cell");
+      if (!cell) {
+        return;
+      }
+      dragSource = cell;
+      cell.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", cell.getAttribute("data-id"));
+    });
+
+    grid.addEventListener("dragover", (e) => {
+      if (!dragSource) {
+        return;
+      }
+      e.preventDefault();
+      clearDragOver();
+
+      // Only allow drops within the same block (pinned or not)
+      const target = e.target.closest(".datatables-card-cell");
+      if (
+        target &&
+        target !== dragSource &&
+        isPinnedCell(target) === isPinnedCell(dragSource)
+      ) {
+        target.classList.add("drag-over");
+      }
+    });
+
+    grid.addEventListener("drop", (e) => {
+      if (!dragSource) {
+        return;
+      }
+      e.preventDefault();
+      clearDragOver();
+
+      const target = e.target.closest(".datatables-card-cell");
+      if (
+        !target ||
+        target === dragSource ||
+        isPinnedCell(target) !== isPinnedCell(dragSource)
+      ) {
+        return;
+      }
+
+      // Before or after the target, split diagonally so it works for single and multi column layouts
+      const rect = target.getBoundingClientRect();
+      const after =
+        (e.clientX - rect.left) / rect.width +
+          (e.clientY - rect.top) / rect.height >
+        1;
+      target.parentNode.insertBefore(
+        dragSource,
+        after ? target.nextSibling : target,
+      );
+
+      this.saveGridOrder(isPinnedCell(dragSource));
+    });
+
+    grid.addEventListener("dragend", () => {
+      clearDragOver();
+      if (dragSource) {
+        dragSource.classList.remove("dragging");
+      }
+      dragSource = null;
+    });
+  }
+
+  saveGridOrder(pinned) {
+    const grid = document.querySelector(".datatables-grid");
+    if (!grid) {
+      return;
+    }
+
+    // This page's IDs for the dragged block, in their new DOM order
+    const pageIds = Array.from(grid.querySelectorAll(".datatables-card-cell"))
+      .filter(
+        (cell) =>
+          (cell.querySelector(".datatables-card-pinned") !== null) === pinned,
+      )
+      .map((cell) => cell.getAttribute("data-id"));
+
+    // Re-insert them as a block where the earliest one was stored, keeping other pages' order
+    const type = pinned ? "pins" : "order";
+    const stored = this.getGridIds(type);
+    const firstIndex = stored.findIndex((id) => pageIds.includes(id));
+    const merged = stored.filter((id) => !pageIds.includes(id));
+    merged.splice(
+      firstIndex === -1 ? merged.length : firstIndex,
+      0,
+      ...pageIds,
+    );
+
+    this.setGridIds(type, merged);
+    this.loadData();
   }
 
   renderActionButtons(rowId, rowData = {}) {
@@ -1766,7 +2099,7 @@ class DataTablesJS {
     document.querySelectorAll(".btn-edit").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.preventDefault();
-        const id = e.target.closest("tr").getAttribute("data-id");
+        const id = e.target.closest("[data-id]").getAttribute("data-id");
         this.showEditModal(id);
       });
     });
@@ -1775,14 +2108,16 @@ class DataTablesJS {
     document.querySelectorAll(".btn-delete").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.preventDefault();
-        const id = e.target.closest("tr").getAttribute("data-id");
+        const id = e.target.closest("[data-id]").getAttribute("data-id");
         this.showDeleteModal(id);
       });
     });
 
     // Inline edit for regular fields - improved selector
     document
-      .querySelectorAll("td .inline-editable:not(.boolean-toggle)")
+      .querySelectorAll(
+        "td .inline-editable:not(.boolean-toggle), .datatables-card .inline-editable:not(.boolean-toggle)",
+      )
       .forEach((span) => {
         span.addEventListener("click", (e) => {
           e.preventDefault();
@@ -1794,13 +2129,15 @@ class DataTablesJS {
       });
 
     // Boolean toggle for boolean fields - improved selector
-    document.querySelectorAll("td .boolean-toggle").forEach((span) => {
-      span.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.toggleBoolean(e.target.closest(".boolean-toggle"));
+    document
+      .querySelectorAll("td .boolean-toggle, .datatables-card .boolean-toggle")
+      .forEach((span) => {
+        span.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.toggleBoolean(e.target.closest(".boolean-toggle"));
+        });
       });
-    });
 
     // Clickable rows
     document.querySelectorAll("tr.row-select").forEach((row) => {
@@ -1817,6 +2154,24 @@ class DataTablesJS {
             checkbox.checked = !checkbox.checked;
             this.toggleRowSelection(checkbox);
           }
+        }
+      });
+    });
+
+    // Clickable cards
+    document.querySelectorAll(".datatables-card.row-select").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        if (
+          e.target.closest(
+            ".row-check, .row-action, .cell-edit, .datatables-pin-btn, .datatables-drag-handle",
+          )
+        ) {
+          return;
+        }
+        const checkbox = card.querySelector(".row-checkbox");
+        if (checkbox) {
+          checkbox.checked = !checkbox.checked;
+          this.toggleRowSelection(checkbox);
         }
       });
     });
@@ -1853,7 +2208,9 @@ class DataTablesJS {
     const displayBlockClass = this.getThemeClass("display.block");
 
     // Get schema information for options
-    const tableElement = document.querySelector(".datatables-table");
+    const tableElement = document.querySelector(
+      ".datatables-table, .datatables-grid-wrap",
+    );
     const tableSchema = tableElement
       ? JSON.parse(tableElement.dataset.columns || "{}")
       : {};
@@ -2279,7 +2636,9 @@ class DataTablesJS {
             element.setAttribute("data-value", value);
           } else if (element.getAttribute("data-type") === "select") {
             // Handle select fields - show label but store value
-            const tableElement = document.querySelector(".datatables-table");
+            const tableElement = document.querySelector(
+              ".datatables-table, .datatables-grid-wrap",
+            );
             const tableSchema = tableElement
               ? JSON.parse(tableElement.dataset.columns || "{}")
               : {};

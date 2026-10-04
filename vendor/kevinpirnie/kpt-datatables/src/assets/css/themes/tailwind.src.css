@@ -401,6 +401,80 @@
     .kp-dt-filter-open-tailwind .kp-dt-filter-chevron-tailwind {
         @apply rotate-180;
     }
+
+
+    /* Grid / card view */
+    .kp-dt-grid-toolbar-tailwind {
+        @apply flex flex-wrap items-center gap-4 mb-4;
+    }
+
+    .kp-dt-grid-toolbar-tailwind .kp-dt-select-tailwind {
+        @apply inline-block;
+    }
+
+    .kp-dt-card-tailwind {
+        @apply h-full bg-white border border-gray-200 rounded;
+    }
+
+    .kp-dt-card-header-tailwind {
+        @apply px-4 py-2.5 border-b border-gray-200;
+    }
+
+    .kp-dt-card-body-tailwind {
+        @apply p-4;
+    }
+
+    .kp-dt-card-footer-tailwind {
+        @apply px-4 py-2.5 border-t border-gray-200;
+    }
+
+    .datatables-card {
+        @apply flex flex-col;
+    }
+
+    .datatables-card-body {
+        @apply flex-1;
+    }
+
+    .datatables-card-header {
+        @apply flex items-center gap-2.5;
+    }
+
+    .datatables-card-footer {
+        @apply text-right;
+    }
+
+    .datatables-drag-handle {
+        @apply cursor-grab text-gray-400;
+    }
+
+    .datatables-pin-btn {
+        @apply bg-transparent border-0 p-0 cursor-pointer text-gray-400;
+    }
+
+    .datatables-card-pinned {
+        @apply ring-2 ring-amber-500;
+    }
+
+    .datatables-card-pinned .datatables-pin-btn {
+        @apply text-amber-500;
+    }
+
+    .datatables-card-pinned .datatables-pin-btn svg polygon {
+        fill: currentColor;
+    }
+
+    .datatables-card-field {
+        @apply mb-2;
+    }
+
+    .datatables-card-cell.dragging {
+        @apply opacity-50;
+    }
+
+    .datatables-card-cell.drag-over .datatables-card {
+        @apply outline-dashed outline-2 outline-blue-500;
+    }
 }
 
 @keyframes kp-dt-fade-in-tailwind {

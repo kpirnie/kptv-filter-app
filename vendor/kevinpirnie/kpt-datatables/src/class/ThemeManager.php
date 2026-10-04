@@ -222,13 +222,23 @@ if (! class_exists('KPT\ThemeManager', false)) {
          */
         public static function getJsIncludes(string $theme = 'uikit', bool $includeCdn = true, bool $useMinified = false): string
         {
-            $tm = new ThemeManager($theme);
             $assetBase = htmlspecialchars(ThemeManager::getAssetBase(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
             $html = "<!-- DataTables JavaScript -->\n";
 
             // Include framework JS from CDN if enabled
             if ($includeCdn) {
-                $html .= $tm->getJsIncludes($theme, true, $useMinified);
+                switch ($theme) {
+                    case self::THEME_UIKIT:
+                        $js = ($useMinified) ? self::CDN_UIKIT_MINJS : self::CDN_UIKIT_JS;
+                        $jsIcons = ($useMinified) ? self::CDN_UIKIT_MINICONS : self::CDN_UIKIT_ICONS;
+                        $html .= "<script src=\"" . $js . "\" defer></script>\n";
+                        $html .= "<script src=\"" . $jsIcons . "\" defer></script>\n";
+                        break;
+                    case self::THEME_BOOTSTRAP:
+                        $js = ($useMinified) ? self::CDN_BOOTSTRAP_MINJS : self::CDN_BOOTSTRAP_JS;
+                        $html .= "<script src=\"" . $js . "\" defer></script>\n";
+                        break;
+                }
             }
 
             // if we are minifying
@@ -374,6 +384,7 @@ if (! class_exists('KPT\ThemeManager', false)) {
                 'modal.close' => 'kp-dt-modal-close',
                 'grid' => 'kp-dt-grid',
                 'grid.small' => 'kp-dt-grid kp-dt-grid-small',
+                'grid.cards' => 'kp-dt-grid-cards',
                 'overflow.auto' => 'kp-dt-overflow-auto',
                 'text.center' => 'kp-dt-text-center',
                 'text.right' => 'kp-dt-text-right',
@@ -428,6 +439,7 @@ if (! class_exists('KPT\ThemeManager', false)) {
                 'modal.close' => 'uk-modal-close',
                 'grid' => '',
                 'grid.small' => 'uk-grid-small uk-child-width-auto',
+                'grid.cards' => 'uk-grid-small uk-child-width-1-1 uk-child-width-1-{n}@m',
                 'overflow.auto' => 'uk-overflow-auto',
                 'text.center' => 'uk-text-center',
                 'text.right' => 'uk-text-right',
@@ -482,6 +494,7 @@ if (! class_exists('KPT\ThemeManager', false)) {
                 'modal.close' => 'btn-close',
                 'grid' => 'row',
                 'grid.small' => 'row g-2',
+                'grid.cards' => 'row row-cols-1 row-cols-md-{n} g-3',
                 'overflow.auto' => 'overflow-auto',
                 'text.center' => 'text-center',
                 'text.right' => 'text-end',
@@ -536,6 +549,7 @@ if (! class_exists('KPT\ThemeManager', false)) {
                 'modal.close' => 'kp-dt-modal-close-tailwind',
                 'grid' => 'flex flex-wrap',
                 'grid.small' => 'flex flex-wrap gap-4',
+                'grid.cards' => 'grid gap-4 grid-cols-1 md:grid-cols-{n}',
                 'overflow.auto' => 'overflow-auto',
                 'text.center' => 'text-center',
                 'text.right' => 'text-right',

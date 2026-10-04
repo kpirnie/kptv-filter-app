@@ -89,8 +89,10 @@ if (! class_exists('KPT\Renderer', false)) {
             $containerClass = "datatables-container-{$tableName}";
             $themeContainerClass = $tm->getClasses('container');
 
-            $html = "<div class=\"{$containerClass} datatables-container {$themeContainerClass}\" data-table=\"{$tableName}\" data-csrf=\"" . $this->esc($this->getCsrfToken()) . "\">\n";
-            $html .= $this->renderTable();
+            $view = $this->isGridMode() ? 'grid' : 'table';
+
+            $html = "<div class=\"{$containerClass} datatables-container {$themeContainerClass}\" data-table=\"{$tableName}\" data-view=\"{$view}\" data-csrf=\"" . $this->esc($this->getCsrfToken()) . "\">\n";
+            $html .= $this->isGridMode() ? $this->renderGrid() : $this->renderTable();
             $html .= "</div>\n";
 
             return $html;
@@ -744,6 +746,100 @@ if (! class_exists('KPT\Renderer', false)) {
         }
 
         /**
+         * Render the card grid in place of the table
+         *
+         * Generates the grid toolbar (select all + sort-by controls), the
+         * grid container populated via JavaScript, and the table schema
+         * as a data attribute for client-side field type detection.
+         * Footer aggregations are not rendered in grid mode.
+         *
+         * @return string HTML for the card grid
+         */
+        protected function renderGrid(): string
+        {
+            $tm = $this->getThemeManager();
+            $tableSchema = $this->getTableSchema();
+            $perRow = $this->getGridPerRow();
+
+            // Keep select2 SQL server-side only
+            $clientSchema = array_map(
+                fn($info) => is_array($info) ? array_diff_key($info, ['select2_query' => true]) : $info,
+                $tableSchema
+            );
+
+            // Wrapper with schema data attribute for JS field type detection
+            $html = "<div class=\"datatables-grid-wrap\" data-columns=\"" . $this->esc($this->jsonSafe($clientSchema)) . "\">\n";
+            $html .= $this->renderGridToolbar();
+
+            // Grid container with theme-native column classes for the cards per row
+            $gridClass = str_replace('{n}', (string) $perRow, $tm->getClass('grid.cards'));
+            $ukGrid = $this->theme === 'uikit' ? ' uk-grid' : '';
+            $html .= "<div class=\"datatables-grid {$gridClass}\" id=\"datatables-grid\" style=\"--kp-dt-grid-cols: {$perRow}\"{$ukGrid}>\n";
+
+            // Initial loading placeholder
+            $centerClass = $tm->getClass('text.center');
+            $html .= "<div class=\"{$centerClass}\">Loading...</div>\n";
+            $html .= "</div>\n</div>\n";
+
+            return $html;
+        }
+
+        /**
+         * Render the grid toolbar
+         *
+         * Generates the select all checkbox (when bulk actions are enabled)
+         * and the sort-by column and direction selectors, since grid mode
+         * has no sortable column headers.
+         *
+         * @return string HTML for the grid toolbar
+         */
+        protected function renderGridToolbar(): string
+        {
+            $tm = $this->getThemeManager();
+            $bulkActions = $this->getBulkActions();
+            $sortableColumns = $this->getSortableColumns();
+            $defaultSortColumn = $this->getDefaultSortColumn();
+            $defaultSortDirection = $this->getDefaultSortDirection();
+
+            $html = "<div class=\"datatables-grid-toolbar " . $tm->getKpDtClass('grid-toolbar') . "\">\n";
+
+            // Select all checkbox
+            if ($bulkActions['enabled']) {
+                $checkboxClass = $tm->getClasses('checkbox');
+                $html .= "<label><input type=\"checkbox\" class=\"{$checkboxClass} datatables-select-all\" onchange=\"DataTables.toggleSelectAll(this)\"> Select All</label>\n";
+            }
+
+            // Build the sortable column options, using the alias name for aliased columns
+            $options = '';
+            foreach ($this->getColumns() as $column => $label) {
+                $sortKey = stripos($column, ' AS ') !== false ? trim(explode(' AS ', $column)[1], '`\'" ') : $column;
+                if (!in_array($column, $sortableColumns) && !in_array($sortKey, $sortableColumns)) {
+                    continue;
+                }
+                $displayLabel = $this->esc(is_array($label) ? ($label['label'] ?? $column) : $label);
+                $selected = ($defaultSortColumn === $sortKey || $defaultSortColumn === $column) ? ' selected' : '';
+                $options .= "<option value=\"" . $this->esc($sortKey) . "\"{$selected}>{$displayLabel}</option>\n";
+            }
+
+            // Sort-by column and direction selectors
+            if (!empty($options)) {
+                $selectClass = $tm->getClasses('select') . ' ' . $tm->getClass('width.auto');
+                $html .= "<div>\nSort By: <select class=\"{$selectClass} datatables-grid-sort\">\n";
+                $html .= "<option value=\"\">Default</option>\n";
+                $html .= $options;
+                $html .= "</select>\n";
+                $html .= "<select class=\"{$selectClass} datatables-grid-sort-direction\">\n";
+                $html .= "<option value=\"ASC\"" . ($defaultSortDirection === 'ASC' ? ' selected' : '') . ">Ascending</option>\n";
+                $html .= "<option value=\"DESC\"" . ($defaultSortDirection === 'DESC' ? ' selected' : '') . ">Descending</option>\n";
+                $html .= "</select>\n</div>\n";
+            }
+
+            $html .= "</div>\n";
+
+            return $html;
+        }
+
+        /**
          * Render all modal dialogs
          *
          * Generates the add, edit, and delete confirmation modals.
@@ -1326,7 +1422,6 @@ if (! class_exists('KPT\Renderer', false)) {
 
             // Trailing columns use only the data column offset
             $trailingColKeys = array_slice($colKeys, $dataLeading);
-            ;
 
             $html = '';
 
@@ -1422,6 +1517,8 @@ if (! class_exists('KPT\Renderer', false)) {
             $html .= "        defaultSortDirection: " . $this->jsonSafe($defaultSortDirection) . ",\n";
             $html .= "        theme: " . $this->jsonSafe($this->theme) . ",\n";
             $html .= "        footerAggregations: " . $this->jsonSafe($this->getFooterAggregations()) . ",\n";
+            $html .= "        gridMode: " . ($this->isGridMode() ? 'true' : 'false') . ",\n";
+            $html .= "        gridPerRow: " . (int) $this->getGridPerRow() . ",\n";
             $datepickerFormatters = [];
             foreach ($this->getTableSchema() as $colName => $info) {
                 $type = $info['override_type'] ?? $info['type'] ?? 'text';

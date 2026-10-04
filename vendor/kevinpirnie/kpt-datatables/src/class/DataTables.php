@@ -541,6 +541,23 @@ if (! class_exists('KPT\DataTables', false)) {
         }
 
         /**
+         * Render the data as a card grid instead of a table
+         *
+         * Each record renders as a card showing all configured columns.
+         * Cards per page still come from perPage() and the page size selector.
+         *
+         * @param  int $perRow Number of cards per row (1-6)
+         * @return self Returns self for method chaining
+         */
+        public function showAsGrid(int $perRow = 3): self
+        {
+            $this->gridMode = true;
+            $this->gridPerRow = max(1, min(6, $perRow));
+            Logger::debug("DataTables grid mode enabled", ['per_row' => $this->gridPerRow]);
+            return $this;
+        }
+
+        /**
          * Configure available page size options
          *
          * Sets the options available in the page size selector dropdown.
@@ -1047,32 +1064,7 @@ if (! class_exists('KPT\DataTables', false)) {
          */
         public static function getJsIncludes(string $theme = 'uikit', bool $includeCdn = true, bool $useMinified = false): string
         {
-            $tm = new ThemeManager($theme);
-            $html = "<!-- DataTables JavaScript -->\n";
-
-            // Include framework JS from CDN if enabled
-            if ($includeCdn) {
-                $html .= $tm->getJsIncludes($theme, true, $useMinified);
-            }
-
-            // if we are minifying
-            if ($useMinified) {
-                // Include main DataTables JS
-                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/dist/kpt-datatables.min.js\" defer></script>\n";
-
-                // otherwise
-            } else {
-                // Include theme helper for plain/tailwind/bootstrap themes
-                if (in_array($theme, [ThemeManager::THEME_PLAIN, ThemeManager::THEME_TAILWIND, ThemeManager::THEME_BOOTSTRAP])) {
-                    $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/theme-helpers.js\" defer></script>\n";
-                }
-
-                // Include main DataTables JS
-                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/datatables.js\" defer></script>\n";
-                $html .= "<script src=\"/vendor/kevinpirnie/kpt-datatables/src/assets/js/select2.js\" defer></script>\n";
-            }
-
-            return $html;
+            return ThemeManager::getJsIncludes($theme, $includeCdn, $useMinified);
         }
 
         /**

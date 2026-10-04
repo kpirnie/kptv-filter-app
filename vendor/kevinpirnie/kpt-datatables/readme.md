@@ -32,6 +32,7 @@ Advanced PHP DataTables library with full CRUD operations, multi-table JOIN supp
   - [sortable()](#sortable)
   - [inlineEditable()](#inlineeditable)
   - [perPage()](#perpage)
+  - [showAsGrid()](#showasgrid)
   - [pageSizeOptions()](#pagesizeoptions)
   - [search()](#search)
   - [defaultSort()](#defaultsort)
@@ -48,6 +49,7 @@ Advanced PHP DataTables library with full CRUD operations, multi-table JOIN supp
   - [allow_on Field Overrides](#allow_on-field-overrides)
 - [Calculated Columns](#calculated-columns)
 - [Footer Aggregations](#footer-aggregations)
+- [Grid / Card View](#grid--card-view)
 - [Styling](#styling)
   - [tableClass()](#tableclass)
   - [rowClass()](#rowclass)
@@ -536,6 +538,21 @@ Sets the initial (default) number of records displayed per page.
 ->perPage(25)   // default
 ->perPage(50)
 ->perPage(100)
+```
+
+---
+
+### showAsGrid()
+
+Renders the records as a card grid instead of a table. `$perRow` sets the number of cards per row (clamped to 1–6). Cards per page still come from `perPage()` and the page size selector. See [Grid / Card View](#grid--card-view).
+
+```php
+->showAsGrid(int $perRow = 3)
+```
+
+```php
+->showAsGrid()    // 3 cards per row
+->showAsGrid(4)
 ```
 
 ---
@@ -1060,6 +1077,40 @@ Aggregation columns work with calculated columns — pass the alias name:
 
 ---
 
+## Grid / Card View
+
+Calling `showAsGrid()` swaps the table for a responsive card grid. Each record renders as a card showing every configured column as a label/value pair, using the labels from `columns()`.
+
+```php
+$dt->table('products p')
+    ->columns([
+        'p.id'    => 'ID',
+        'p.name'  => 'Name',
+        'p.price' => 'Price',
+        'p.active' => 'Active',
+    ])
+    ->sortable(['p.name', 'p.price'])
+    ->inlineEditable(['p.name', 'p.active'])
+    ->perPage(12)
+    ->showAsGrid(4);
+```
+
+**Kept in grid mode:** bulk selection (per-card checkbox, select all, click a card to toggle it), edit/delete/custom actions, inline editing, search, filters, and pagination.
+
+**Dropped in grid mode:** footer aggregations are neither rendered nor fetched.
+
+**Sorting:** there are no column headers, so a **Sort By** dropdown lists the `sortable()` columns along with an ascending/descending selector.
+
+**Pinning:** the star on each card pins it. Pinned cards always show first, on every page and regardless of sort, search, or filters.
+
+**Drag and drop:** drag a card to reorder it. Pinned cards reorder within the pinned block, and dropping a card into the other block does nothing. The dragged order is never reset by sorting, searching, or filtering.
+
+**Ordering precedence:** pinned → dragged → the selected sort. Any card that has been dragged sorts ahead of cards that never have.
+
+Pins and drag order are stored **per browser** in `localStorage`, keyed by page path and table name, and sent with each data request so the server can order across pages. Nothing is saved server-side; clearing site data resets them.
+
+---
+
 ## Styling
 
 ### tableClass()
@@ -1287,6 +1338,7 @@ The `DataTablesJS` class is instantiated automatically by the PHP `renderInitScr
 | `DataTables.applyFilters()` | Read filter inputs and reload |
 | `DataTables.resetFilters()` | Clear all filter inputs and reload |
 | `DataTables.changePageSize(size, event)` | Change records per page |
+| `DataTables.togglePin(id)` | Pin or unpin a card in grid mode and reload |
 
 ### CRUD Methods
 
