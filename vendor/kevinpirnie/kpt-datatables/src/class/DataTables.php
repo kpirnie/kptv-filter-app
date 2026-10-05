@@ -545,15 +545,19 @@ if (! class_exists('KPT\DataTables', false)) {
          *
          * Each record renders as a card showing all configured columns.
          * Cards per page still come from perPage() and the page size selector.
+         * When an order column is given (and is sortable), it's the default sort
+         * and dragged card order is saved to it; otherwise order uses localStorage.
          *
-         * @param  int $perRow Number of cards per row (1-6)
+         * @param  int    $perRow      Number of cards per row (1-6)
+         * @param  string $orderColumn Column that stores the card order
          * @return self Returns self for method chaining
          */
-        public function showAsGrid(int $perRow = 3): self
+        public function showAsGrid(int $perRow = 3, string $orderColumn = ''): self
         {
             $this->gridMode = true;
             $this->gridPerRow = max(1, min(6, $perRow));
-            Logger::debug("DataTables grid mode enabled", ['per_row' => $this->gridPerRow]);
+            $this->gridOrderColumn = $this->sanitizeInput($orderColumn);
+            Logger::debug("DataTables grid mode enabled", ['per_row' => $this->gridPerRow, 'order_column' => $this->gridOrderColumn]);
             return $this;
         }
 
@@ -928,7 +932,7 @@ if (! class_exists('KPT\DataTables', false)) {
         public function handleAjax(): void
         {
             // actions that change data require POST and a valid CSRF token
-            $mutatingActions = ['add_record', 'edit_record', 'delete_record', 'bulk_action', 'inline_edit', 'upload_file', 'action_callback'];
+            $mutatingActions = ['add_record', 'edit_record', 'delete_record', 'bulk_action', 'inline_edit', 'upload_file', 'action_callback', 'grid_order'];
 
             try {
                 // Extract and sanitize the action from POST or GET parameters
@@ -943,7 +947,7 @@ if (! class_exists('KPT\DataTables', false)) {
                 // Enforce POST + CSRF on mutating actions
                 if (in_array($action, $mutatingActions, true)) {
                     $isPost = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']);
-                    $submitted = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['_token'] ?? '';
+                    $submitted = $_SERVER['HTTP_X_KPT_DATATABLES_TOKEN'] ?? $_POST['_token'] ?? '';
 
                     if (!$isPost || !is_string($submitted) || $submitted === '' || !hash_equals($this->getCsrfToken(), $submitted)) {
                         Logger::error("DataTables CSRF check failed", ['action' => $action]);

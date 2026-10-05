@@ -31,9 +31,7 @@ if (! class_exists('KPT\Renderer', false)) {
          *
          * @param DataTables|null $dataTable Optional DataTables instance
          */
-        public function __construct(?DataTables $dataTable = null)
-        {
-        }
+        public function __construct(?DataTables $dataTable = null) {}
 
         /**
          * Escape a scalar value for HTML text or attribute output
@@ -1519,6 +1517,7 @@ if (! class_exists('KPT\Renderer', false)) {
             $html .= "        footerAggregations: " . $this->jsonSafe($this->getFooterAggregations()) . ",\n";
             $html .= "        gridMode: " . ($this->isGridMode() ? 'true' : 'false') . ",\n";
             $html .= "        gridPerRow: " . (int) $this->getGridPerRow() . ",\n";
+            $html .= "        gridOrderColumn: " . $this->jsonSafe($this->getGridOrderColumn()) . ",\n";
             $datepickerFormatters = [];
             foreach ($this->getTableSchema() as $colName => $info) {
                 $type = $info['override_type'] ?? $info['type'] ?? 'text';

@@ -326,6 +326,13 @@ if (! class_exists('KPT\DataTablesBase', false)) {
          */
         protected int $gridPerRow = 3;
 
+        /**
+         * Column that stores the grid card order (must also be sortable)
+         *
+         * @var string
+         */
+        protected string $gridOrderColumn = '';
+
         // === GETTER METHODS FOR CONFIGURATION ACCESS ===
         // These methods provide read-only access to configuration for other classes
 
@@ -680,6 +687,28 @@ if (! class_exists('KPT\DataTablesBase', false)) {
         public function getGridPerRow(): int
         {
             return $this->gridPerRow;
+        }
+
+        /**
+         * Get the grid order column
+         *
+         * The column must also be sortable; otherwise it's ignored and
+         * grid ordering falls back to the browser's localStorage.
+         *
+         * @return string The order column, or empty when not set or not sortable
+         */
+        public function getGridOrderColumn(): string
+        {
+            if (!$this->gridMode || $this->gridOrderColumn === '') {
+                return '';
+            }
+
+            if (!in_array($this->gridOrderColumn, $this->sortableColumns, true)) {
+                Logger::error("DataTables grid order column is not sortable, falling back to localStorage", ['column' => $this->gridOrderColumn]);
+                return '';
+            }
+
+            return $this->gridOrderColumn;
         }
 
         /**

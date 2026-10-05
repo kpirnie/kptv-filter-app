@@ -544,15 +544,16 @@ Sets the initial (default) number of records displayed per page.
 
 ### showAsGrid()
 
-Renders the records as a card grid instead of a table. `$perRow` sets the number of cards per row (clamped to 1–6). Cards per page still come from `perPage()` and the page size selector. See [Grid / Card View](#grid--card-view).
+Renders the records as a card grid instead of a table. `$perRow` sets the number of cards per row (clamped to 1–6). Cards per page still come from `perPage()` and the page size selector. `$orderColumn` optionally names a column that stores the card order; it must also be listed in `sortable()`. See [Grid / Card View](#grid--card-view).
 
 ```php
-->showAsGrid(int $perRow = 3)
+->showAsGrid(int $perRow = 3, string $orderColumn = '')
 ```
 
 ```php
-->showAsGrid()    // 3 cards per row
+->showAsGrid()                   // 3 cards per row
 ->showAsGrid(4)
+->showAsGrid(4, 'p.sort_order')  // drag order saved to p.sort_order
 ```
 
 ---
@@ -1107,7 +1108,27 @@ $dt->table('products p')
 
 **Ordering precedence:** pinned → dragged → the selected sort. Any card that has been dragged sorts ahead of cards that never have.
 
-Pins and drag order are stored **per browser** in `localStorage`, keyed by page path and table name, and sent with each data request so the server can order across pages. Nothing is saved server-side; clearing site data resets them.
+Pins and drag order are stored **per browser** in `localStorage`, keyed by page path and table name, and sent with each data request so the server can order across pages. Clearing site data resets them.
+
+**Order column:** pass a column as the second argument to `showAsGrid()` to store the card order in the database instead of `localStorage`. The column must also be in `sortable()`; if it isn't, an error is logged and ordering falls back to `localStorage`.
+
+```php
+$dt->table('products p')
+    ->columns([
+        'p.id'   => 'ID',
+        'p.name' => 'Name',
+    ])
+    ->sortable(['p.name', 'p.sort_order'])
+    ->showAsGrid(4, 'p.sort_order');
+```
+
+With an order column:
+
+- It's the **Default** option in the Sort By dropdown. `defaultSort()` still sets the initial sort; without it, the grid starts sorted by the order column.
+- Dropping a dragged card writes the new order to the column for the cards on that page, reusing their existing values. If any are `NULL` or duplicated, those cards are renumbered from the lowest value.
+- Dragging still works while sorted by another column; the saved order shows when sorting by **Default** or the order column.
+- Only rows within the `where()` scope are updated, and the column must be on the base table.
+- Pins stay in `localStorage`.
 
 ---
 

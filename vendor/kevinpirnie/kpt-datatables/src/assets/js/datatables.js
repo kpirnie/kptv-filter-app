@@ -26,6 +26,7 @@ class DataTablesJS {
     this.footerAggregations = config.footerAggregations || {};
     this.gridMode = config.gridMode || false;
     this.gridPerRow = config.gridPerRow || 3;
+    this.gridOrderColumn = config.gridOrderColumn || "";
     this.csrfToken =
       document.querySelector(".datatables-container")?.dataset.csrf || "";
 
@@ -495,7 +496,9 @@ class DataTablesJS {
     // Grid mode pinned and dragged order from this browser
     if (this.gridMode) {
       params.set("pinned_ids", JSON.stringify(this.getGridIds("pins")));
-      params.set("order_ids", JSON.stringify(this.getGridIds("order")));
+      if (!this.gridOrderColumn) {
+        params.set("order_ids", JSON.stringify(this.getGridIds("order")));
+      }
     }
 
     fetch("?" + params.toString())
@@ -1055,6 +1058,12 @@ class DataTablesJS {
       )
       .map((cell) => cell.getAttribute("data-id"));
 
+    // Dragged order goes to the order column when one is configured
+    if (!pinned && this.gridOrderColumn) {
+      this.saveGridOrderColumn(pageIds);
+      return;
+    }
+
     // Re-insert them as a block where the earliest one was stored, keeping other pages' order
     const type = pinned ? "pins" : "order";
     const stored = this.getGridIds(type);
@@ -1068,6 +1077,40 @@ class DataTablesJS {
 
     this.setGridIds(type, merged);
     this.loadData();
+  }
+
+  saveGridOrderColumn(ids) {
+    // Only the order column's own sort direction maps cards to descending values
+    const direction =
+      !this.sortColumn || this.sortColumn === this.gridOrderColumn
+        ? this.sortDirection
+        : "ASC";
+
+    const formData = new FormData();
+    formData.append("action", "grid_order");
+    formData.append("ids", JSON.stringify(ids));
+    formData.append("sort_direction", direction);
+
+    fetch(window.location.href, {
+      method: "POST",
+      headers: { "X-KPT-DataTables-Token": this.csrfToken },
+      body: formData,
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (!data.success) {
+          this.showNotification(
+            data.message || "Failed to save order",
+            "danger",
+          );
+        }
+        this.loadData();
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        this.showNotification("An error occurred", "danger");
+        this.loadData();
+      });
   }
 
   renderActionButtons(rowId, rowData = {}) {
@@ -1641,7 +1684,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
-      headers: { "X-CSRF-Token": this.csrfToken },
+      headers: { "X-KPT-DataTables-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -1790,7 +1833,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
-      headers: { "X-CSRF-Token": this.csrfToken },
+      headers: { "X-KPT-DataTables-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -2037,7 +2080,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
-      headers: { "X-CSRF-Token": this.csrfToken },
+      headers: { "X-KPT-DataTables-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -2070,7 +2113,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
-      headers: { "X-CSRF-Token": this.csrfToken },
+      headers: { "X-KPT-DataTables-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
@@ -2434,7 +2477,7 @@ class DataTablesJS {
 
             fetch(window.location.href, {
               method: "POST",
-              headers: { "X-CSRF-Token": this.csrfToken },
+              headers: { "X-KPT-DataTables-Token": this.csrfToken },
               body: formData,
             })
               .then((response) => response.json())
@@ -2602,7 +2645,7 @@ class DataTablesJS {
 
     fetch(window.location.href, {
       method: "POST",
-      headers: { "X-CSRF-Token": this.csrfToken },
+      headers: { "X-KPT-DataTables-Token": this.csrfToken },
       body: formData,
     })
       .then((response) => response.json())
