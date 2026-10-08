@@ -371,6 +371,7 @@ if (! class_exists('KPT\DataTables', false)) {
          * - Simple: ['name' => 'Full Name', 'email' => 'Email Address']
          * - Enhanced: ['active' => ['label' => 'Status', 'type' => 'checkbox', 'class' => 'uk-checkbox']]
          * - With options: ['status' => ['label' => 'Status', 'type' => 'select', 'options' => ['active' => 'Active', 'inactive' => 'Inactive']]]
+         * - HTML option labels: ['type_id' => ['label' => 'Type', 'type' => 'select', 'options' => [...], 'html' => true]] (trusted labels only)
          *
          * @param  array $columns Array of column configurations
          * @return self Returns self for method chaining
@@ -406,6 +407,10 @@ if (! class_exists('KPT\DataTables', false)) {
                         }
                         if (isset($config['placeholder'])) {
                             $this->tableSchema[$schemaKey]['form_placeholder'] = $config['placeholder'];
+                        }
+                        // render the select option labels as html, only for trusted server-defined labels
+                        if (isset($config['html'])) {
+                            $this->tableSchema[$schemaKey]['html'] = (bool) $config['html'];
                         }
                         // Store select2 specific configuration
                         if (isset($config['type']) && $config['type'] === 'select2') {

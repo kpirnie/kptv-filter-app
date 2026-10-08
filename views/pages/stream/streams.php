@@ -61,6 +61,7 @@ $dt->table('kptv_streams s')
             'field' => 's_active',
             'comparison' => '=', // =, !=, >, <, <>, <=, >=, LIKE, NOT LIKE, IN, NOT IN, REGEXP
             'value' => ($other_type === 1) ? 0 : $active_value,
+            'pinned' => false,
         ],
         [ // unless specified as OR, it should always be AND
             'field' => 's_other',
@@ -84,6 +85,7 @@ $dt->table('kptv_streams s')
                 fn(array $st): string => sprintf('<span uk-icon="%s" uk-tooltip="%s"></span>', $st['icon'], $st['label']),
                 \KPTV::stream_types()
             ),
+            'html' => true,
         ] : null,
         's_guide' => ['label' => 'Guide', 'type' => 'select', 'options' => \KPTV::guide_types()],
         's_channel' => 'Ch',
@@ -102,7 +104,7 @@ $dt->table('kptv_streams s')
     ])
     ->sortable(['s_name', 's_channel', 's_tvg_group', 's_tvg_id', 'p.sp_name'])
     ->defaultSort('s_name', 'ASC')
-    ->inlineEditable(['s_active', 's_channel', 's_guide', 's_name', 's_tvg_logo', 's_tvg_group', 's_tvg_id', 's.u_id',])
+    ->inlineEditable(['s_active', 's_channel', 's_guide', 's_name', 's_tvg_logo', 's_tvg_group', 's_tvg_id',])
     ->perPage(25)
     ->pageSizeOptions([25, 50, 100, 250], true)
     ->bulkActions(true, $bulkActionsConfig[$type_filter])

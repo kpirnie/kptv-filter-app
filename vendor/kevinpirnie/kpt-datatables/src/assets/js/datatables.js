@@ -766,15 +766,21 @@ class DataTablesJS {
       // Convert cellContent to string to ensure proper key lookup
       const cellContentStr = String(cellContent);
       // Use nullish coalescing or check if key exists to handle '0' value correctly
-      const displayLabel =
-        cellContentStr in selectOptions
-          ? selectOptions[cellContentStr]
-          : cellContent;
+      const hasLabel = cellContentStr in selectOptions;
+      const displayLabel = hasLabel
+        ? selectOptions[cellContentStr]
+        : cellContent;
+
+      // Only configured option labels flagged as html render unescaped, never raw values
+      const displayHtml =
+        hasLabel && tableSchema[column]?.html === true
+          ? String(displayLabel)
+          : this.escapeHtml(displayLabel);
 
       if (isEditable) {
-        cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(cellContent)}" style="cursor: pointer;">${this.escapeHtml(displayLabel)}</span>`;
+        cellContent = `<span class="inline-editable" data-field="${safeColumn}" data-id="${safeRowId}" data-type="${safeFieldType}" data-value="${this.escapeAttr(cellContent)}" style="cursor: pointer;">${displayHtml}</span>`;
       } else {
-        cellContent = this.escapeHtml(displayLabel);
+        cellContent = displayHtml;
       }
 
       // Handle select2 display with fetched labels
@@ -2692,7 +2698,14 @@ class DataTablesJS {
               valueStr in selectOptions ? selectOptions[valueStr] : value;
 
             element.setAttribute("data-value", value);
-            element.textContent = displayLabel;
+            if (
+              valueStr in selectOptions &&
+              tableSchema[field]?.html === true
+            ) {
+              element.innerHTML = String(selectOptions[valueStr]);
+            } else {
+              element.textContent = displayLabel;
+            }
           } else {
             element.textContent = value;
           }

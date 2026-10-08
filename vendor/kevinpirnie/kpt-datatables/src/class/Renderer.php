@@ -31,7 +31,9 @@ if (! class_exists('KPT\Renderer', false)) {
          *
          * @param DataTables|null $dataTable Optional DataTables instance
          */
-        public function __construct(?DataTables $dataTable = null) {}
+        public function __construct(?DataTables $dataTable = null)
+        {
+        }
 
         /**
          * Escape a scalar value for HTML text or attribute output

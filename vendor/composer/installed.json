@@ -153,17 +153,17 @@
         },
         {
             "name": "kevinpirnie/kpt-datatables",
-            "version": "v2.3.64",
-            "version_normalized": "2.3.64.0",
+            "version": "dev-main",
+            "version_normalized": "dev-main",
             "source": {
                 "type": "git",
                 "url": "https://github.com/kpirnie/kp-datatables.git",
-                "reference": "930c1ef3bdfebbb09dc651e4f2130f086cb16741"
+                "reference": "7aac034028165ae0917dcd20e880cf4f7bb0a194"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kpirnie/kp-datatables/zipball/930c1ef3bdfebbb09dc651e4f2130f086cb16741",
-                "reference": "930c1ef3bdfebbb09dc651e4f2130f086cb16741",
+                "url": "https://api.github.com/repos/kpirnie/kp-datatables/zipball/7aac034028165ae0917dcd20e880cf4f7bb0a194",
+                "reference": "7aac034028165ae0917dcd20e880cf4f7bb0a194",
                 "shasum": ""
             },
             "require": {
@@ -177,7 +177,8 @@
                 "phpunit/phpunit": "^13",
                 "squizlabs/php_codesniffer": "^3.7"
             },
-            "time": "2026-10-04T22:06:06+00:00",
+            "time": "2026-10-08T11:07:19+00:00",
+            "default-branch": true,
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -297,8 +298,8 @@
         },
         {
             "name": "kevinpirnie/kpt-router",
-            "version": "v1.0.53",
-            "version_normalized": "1.0.53.0",
+            "version": "dev-main",
+            "version_normalized": "dev-main",
             "source": {
                 "type": "git",
                 "url": "https://github.com/kpirnie/kp-router.git",
@@ -324,6 +325,7 @@
                 "predis/predis": "Alternative Redis client if ext-redis is not available"
             },
             "time": "2026-10-03T19:01:31+00:00",
+            "default-branch": true,
             "type": "library",
             "installation-source": "dist",
             "autoload": {
@@ -382,8 +384,8 @@
         },
         {
             "name": "kevinpirnie/kpt-utils",
-            "version": "v1.2.02",
-            "version_normalized": "1.2.02.0",
+            "version": "dev-main",
+            "version_normalized": "dev-main",
             "source": {
                 "type": "git",
                 "url": "https://github.com/kpirnie/kp-php-utils.git",
@@ -406,6 +408,7 @@
                 "squizlabs/php_codesniffer": "^3.6"
             },
             "time": "2026-06-12T11:21:33+00:00",
+            "default-branch": true,
             "type": "library",
             "installation-source": "dist",
             "autoload": {

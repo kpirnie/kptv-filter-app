@@ -3,7 +3,7 @@
         'name' => 'kevinpirnie/kp-kptv-filter-app',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => 'd5fe44a05dded61cd30de04b896d95478376e1af',
+        'reference' => '5f2b28c6584d13a834be8593f5a208ca0ae1c607',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'kevinpirnie/kp-kptv-filter-app' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => 'd5fe44a05dded61cd30de04b896d95478376e1af',
+            'reference' => '5f2b28c6584d13a834be8593f5a208ca0ae1c607',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -38,12 +38,14 @@
             'dev_requirement' => false,
         ),
         'kevinpirnie/kpt-datatables' => array(
-            'pretty_version' => 'v2.3.64',
-            'version' => '2.3.64.0',
-            'reference' => '930c1ef3bdfebbb09dc651e4f2130f086cb16741',
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => '7aac034028165ae0917dcd20e880cf4f7bb0a194',
             'type' => 'library',
             'install_path' => __DIR__ . '/../kevinpirnie/kpt-datatables',
-            'aliases' => array(),
+            'aliases' => array(
+                0 => '9999999-dev',
+            ),
             'dev_requirement' => false,
         ),
         'kevinpirnie/kpt-logger' => array(
@@ -56,21 +58,25 @@
             'dev_requirement' => false,
         ),
         'kevinpirnie/kpt-router' => array(
-            'pretty_version' => 'v1.0.53',
-            'version' => '1.0.53.0',
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
             'reference' => '83a1e25605243efbdce235fb706f5048f385cb91',
             'type' => 'library',
             'install_path' => __DIR__ . '/../kevinpirnie/kpt-router',
-            'aliases' => array(),
+            'aliases' => array(
+                0 => '9999999-dev',
+            ),
             'dev_requirement' => false,
         ),
         'kevinpirnie/kpt-utils' => array(
-            'pretty_version' => 'v1.2.02',
-            'version' => '1.2.02.0',
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
             'reference' => '24fa5fc2d9774f87eca7268408534c8ce5307ffe',
             'type' => 'library',
             'install_path' => __DIR__ . '/../kevinpirnie/kpt-utils',
-            'aliases' => array(),
+            'aliases' => array(
+                0 => '9999999-dev',
+            ),
             'dev_requirement' => false,
         ),
         'phpmailer/phpmailer' => array(
