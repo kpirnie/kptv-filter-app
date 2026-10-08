@@ -466,6 +466,9 @@ if (! class_exists('KPT\DataTables', false)) {
         /**
          * Add WHERE conditions to filter records
          *
+         * Base table `=` conditions pin their column: it's forced on insert and
+         * can't be edited. Add 'pinned' => false to a condition to only filter.
+         *
          * @param  array $conditions Array of WHERE conditions
          * @return self Returns self for method chaining
          */

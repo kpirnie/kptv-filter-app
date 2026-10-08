@@ -2084,6 +2084,7 @@ if (! class_exists('KPT\AjaxHandler', false)) {
          *
          * Collects `=` conditions with scalar values from the plain condition list
          * or AND groups (OR groups can't pin a value) that target the base table.
+         * Conditions with 'pinned' => false are skipped.
          *
          * @return array Unqualified column => required value
          */
@@ -2121,6 +2122,11 @@ if (! class_exists('KPT\AjaxHandler', false)) {
 
                     // Only plain equality with a scalar value pins a column
                     if (trim((string) $condition['comparison']) !== '=' || !is_scalar($condition['value'])) {
+                        continue;
+                    }
+
+                    // Conditions marked 'pinned' => false only filter, they don't lock their column
+                    if (($condition['pinned'] ?? true) === false) {
                         continue;
                     }
 
