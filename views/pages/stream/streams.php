@@ -72,7 +72,7 @@ $dt->table('kptv_streams s')
     ->filter(array_filter([
         's_orig_name'  => ['operator' => 'LIKE', 'label' => 'Original Name', 'type' => 'text', 'placeholder' => 'Search by original name'],
         'p.sp_name'    => ['operator' => '=', 'label' => 'Provider', 'type' => 'select', 'options' => \KPTV::getProvidersNames($userId)],
-        's_tvg_group'    => ['operator' => '=', 'label' => 'Group', 'type' => 'select', 'options' => \KPTV::getGroupNames($userId, $type_value)],
+        's_tvg_group'    => ['operator' => '=', 'label' => 'Group', 'type' => 'select', 'options' => \KPTV::getGroupNames($userId, $type_value, $other_type)],
         's_type_id'    => ($other_type === 1) ? ['operator' => '=', 'label' => 'Type', 'type' => 'select', 'options' => array_map(fn(array $st): string => $st['label'], \KPTV::stream_types())] : null,
     ]))
     ->tableClass('uk-table uk-table-divider uk-table-small uk-margin-bottom')
