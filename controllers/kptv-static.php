@@ -1527,15 +1527,15 @@ if (! class_exists('KPTV_Static')) {
         }
 
         /**
-         * Gets just the provider names for a user
+         * Gets the distinct stream group names for a user
          * 
-         * @param object $db Our database object
-         * @param int $id The id of the record to move
-         * @param int $type The type we're moving
+         * @param int $userId The user's id
+         * @param int|null $sType The stream type id, or null for "other" streams
+         * @param int $sOther 1 for "other" streams, 0 for typed streams
          * 
-         * @return bool Returns the success
+         * @return array Returns the group names keyed by name
          */
-        public static function getGroupNames(int $userId, int $sType): array
+        public static function getGroupNames(int $userId, ?int $sType, int $sOther = 0): array
         {
 
             // setup the return
@@ -1546,11 +1546,20 @@ if (! class_exists('KPTV_Static')) {
             // fire up the database class
             $db = new \KPT\Database($dbconf);
 
-            // setup the recordset
-            $rs = $db->query("SELECT id, s_tvg_group FROM kptv_streams WHERE u_id = ? AND (s_type_id = ? AND s_other = 0) GROUP BY s_tvg_group")
-                ->bind([$userId, $sType])
-                ->asArray()
-                ->fetch();
+            // other streams span every type, so only filter on the flag
+            if ($sOther === 1) {
+                $rs = $db->query("SELECT id, s_tvg_group FROM kptv_streams WHERE u_id = ? AND s_other = 1 GROUP BY s_tvg_group")
+                    ->bind([$userId])
+                    ->asArray()
+                    ->fetch();
+
+                // otherwise it's a typed stream
+            } else {
+                $rs = $db->query("SELECT id, s_tvg_group FROM kptv_streams WHERE u_id = ? AND (s_type_id = ? AND s_other = 0) GROUP BY s_tvg_group")
+                    ->bind([$userId, $sType])
+                    ->asArray()
+                    ->fetch();
+            }
 
             // loop the array, if it is an array
             if (is_array($rs)) {
@@ -1655,7 +1664,7 @@ if (! class_exists('KPTV_Static')) {
                 99 => ['slug' => 'other', 'label' => 'Other', 'icon' => 'nut'],
             ];
 
-            if($idx) {
+            if ($idx) {
                 return $st[$idx];
             }
 
