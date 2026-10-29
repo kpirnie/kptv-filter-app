@@ -3,7 +3,7 @@
         'name' => 'kevinpirnie/kp-kptv-filter-app',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '5f2b28c6584d13a834be8593f5a208ca0ae1c607',
+        'reference' => '8439aea7552fe6df427051e96a9acd433bd4a833',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'kevinpirnie/kp-kptv-filter-app' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '5f2b28c6584d13a834be8593f5a208ca0ae1c607',
+            'reference' => '8439aea7552fe6df427051e96a9acd433bd4a833',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -60,7 +60,7 @@
         'kevinpirnie/kpt-router' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '83a1e25605243efbdce235fb706f5048f385cb91',
+            'reference' => '3860f9a376720509102e6562a74a8aea684d3de6',
             'type' => 'library',
             'install_path' => __DIR__ . '/../kevinpirnie/kpt-router',
             'aliases' => array(

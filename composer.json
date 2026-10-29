@@ -2,7 +2,7 @@
     "name": "kevinpirnie/kp-kptv-filter-app",
     "description": "KPTV Stream Manager - IPTV organization and management system",
     "type": "project",
-    "license": "proprietary",
+    "license": "MIT",
     "authors": [
         {
             "name": "Kevin C. Pirnie",

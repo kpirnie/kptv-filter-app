@@ -37,8 +37,6 @@ A self-hosted PHP app for managing IPTV providers, filtering streams, and export
 - **CLI sync toolkit**
   - Pull streams from providers → store in DB
   - Missing stream checks, metadata fixups, cleanup helpers
-- **Optional maintenance mode**
-  - Toggle via `.maintenance.json`
 
 ---
 
@@ -46,12 +44,12 @@ A self-hosted PHP app for managing IPTV providers, filtering streams, and export
 
 - **PHP 8.4+** (required by `composer.json`)
 - PHP extensions typically needed:
-  - `openssl`, `curl`, `json`, `mbstring`, `pdo` (+ driver: `pdo_sqlite` or `pdo_mysql`)
+  - `openssl`, `curl`, `json`, `mbstring`, `pdo`, `pdo_mysql`
 - **Composer** (recommended even if `vendor/` exists)
 - Web server:
   - Nginx or Apache (HTTPS strongly recommended)
 - Database:
-  - **SQLite** (simple/local) or **MySQL/MariaDB**
+  - **MySQL/MariaDB**
 
 ---
 
@@ -90,8 +88,14 @@ Create `config.json` with values appropriate for your deployment. Example:
   "mainsecret": "CHANGE_ME_TO_ANOTHER_LONG_RANDOM_STRING",
 
   "database": {
-    "driver": "sqlite",
-    "path": "/var/lib/kptv/kptv.sqlite",
+    "driver": "mysql",
+    "server": "localhost",
+    "port": 3306,
+    "schema": "kptv",
+    "username": "kptv",
+    "password": "CHANGE_ME",
+    "charset": "utf8mb4",
+    "collation": "utf8mb4_unicode_ci",
     "tbl_prefix": "kptv_"
   },
 
@@ -115,18 +119,6 @@ Create `config.json` with values appropriate for your deployment. Example:
 - The login cookie is set with `secure: true`, so **HTTPS is expected**.
 
 ### 4) Initialize the database
-
-#### Option A: SQLite
-
-1) Create the directory for the DB file and make it writable by your PHP-FPM/web user.
-2) Create/import schema using [`assets/schema_sqlite.sql`](https://github.com/kpirnie/kptv-filter-app/blob/main/assets/schema_sqlite.sql):
-
-```bash
-mkdir -p /var/lib/kptv
-sqlite3 /var/lib/kptv/kptv.sqlite < assets/schema_sqlite.sql
-```
-
-#### Option B: MySQL/MariaDB
 
 1) Create database + user.
 2) Import schema from [`assets/schema.sql`](https://github.com/kpirnie/kptv-filter-app/blob/main/assets/schema.sql).
@@ -296,14 +288,6 @@ The app includes a lightweight proxy endpoint:
 It can rewrite HLS playlists (`.m3u8`) to proxy segment URLs, helping browser playback where CORS would otherwise block requests.
 
 **Security note:** the proxy can be abused if left wide open. Review `controllers/kptv-proxy.php` and consider restricting allowed domains.
-
----
-
-## Maintenance mode
-
-A sample file exists: [`.maintenance.json`](https://github.com/kpirnie/kptv-filter-app/blob/main/.maintenance.json)
-
-If enabled, the router returns a `503` with a JSON payload unless the client IP matches an allowed CIDR/IP.
 
 ---
 

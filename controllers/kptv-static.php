@@ -1527,6 +1527,44 @@ if (! class_exists('KPTV_Static')) {
         }
 
         /**
+         * Gets just the provider names for a user
+         * 
+         * @param object $db Our database object
+         * @param int $id The id of the record to move
+         * @param int $type The type we're moving
+         * 
+         * @return bool Returns the success
+         */
+        public static function getGroupNames(int $userId, int $sType): array
+        {
+
+            // setup the return
+            $ret = [];
+
+            $dbconf = self::get_setting('database') ?? (object)[];
+
+            // fire up the database class
+            $db = new \KPT\Database($dbconf);
+
+            // setup the recordset
+            $rs = $db->query("SELECT id, s_tvg_group FROM kptv_streams WHERE u_id = ? AND (s_type_id = ? AND s_other = 0) GROUP BY s_tvg_group")
+                ->bind([$userId, $sType])
+                ->asArray()
+                ->fetch();
+
+            // loop the array, if it is an array
+            if (is_array($rs)) {
+                foreach ($rs as $rec) {
+                    // set the array items
+                    $ret[$rec['s_tvg_group']] = $rec['s_tvg_group'];
+                }
+            }
+
+            // return them
+            return $ret;
+        }
+
+        /**
          * Encrypt a value and return URL-safe base64
          */
         public static function encryptForUrl(string $_val): string

@@ -303,12 +303,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/kpirnie/kp-router.git",
-                "reference": "83a1e25605243efbdce235fb706f5048f385cb91"
+                "reference": "3860f9a376720509102e6562a74a8aea684d3de6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/kpirnie/kp-router/zipball/83a1e25605243efbdce235fb706f5048f385cb91",
-                "reference": "83a1e25605243efbdce235fb706f5048f385cb91",
+                "url": "https://api.github.com/repos/kpirnie/kp-router/zipball/3860f9a376720509102e6562a74a8aea684d3de6",
+                "reference": "3860f9a376720509102e6562a74a8aea684d3de6",
                 "shasum": ""
             },
             "require": {
@@ -324,7 +324,7 @@
                 "ext-redis": "Required for Redis-based rate limiting and caching",
                 "predis/predis": "Alternative Redis client if ext-redis is not available"
             },
-            "time": "2026-10-03T19:01:31+00:00",
+            "time": "2026-10-29T13:07:23+00:00",
             "default-branch": true,
             "type": "library",
             "installation-source": "dist",

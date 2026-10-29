@@ -1,5 +1,5 @@
 {
-    "name": "kpirnie/kpt-router",
+    "name": "kevinpirnie/kpt-router",
     "description": "A comprehensive PHP routing library with middleware support, rate limiting, view rendering, and controller resolution capabilities",
     "type": "library",
     "keywords": [
