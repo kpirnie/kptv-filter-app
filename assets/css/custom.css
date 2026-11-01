@@ -322,3 +322,4 @@ input[type="file"]::file-selector-button {
 .datatables-bulk-actions {
     gap: 3px;
 }
+.boolean-toggle>span{height:20px;width:20px;}
